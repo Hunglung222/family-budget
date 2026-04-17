@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="./manifest.json">
 <title>報表</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -107,10 +108,199 @@ input,select{font-family:inherit;outline:none;border:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.warn{background:var(--warn)}
 </style>
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <script src="js/firebase.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════
+//  firebase.js  —  Firebase Firestore 雙向同步模組
+//  使用 Firebase v9 compat 模式（CDN，無需 npm）
+// ═══════════════════════════════════════════════════════
+
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",
+  authDomain: "family-budget-aed64.firebaseapp.com",
+  projectId: "family-budget-aed64",
+  storageBucket: "family-budget-aed64.firebasestorage.app",
+  messagingSenderId: "714512661107",
+  appId: "1:714512661107:web:022f9c7f7b828b5eb9c806"
+};
+
+// ── 初始化 ────────────────────────────────────────────
+let _db = null;
+
+function fbInit() {
+  try {
+    if (!firebase.apps.length) {
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    _db = firebase.firestore();
+    console.log('[Firebase] 連線成功');
+    return true;
+  } catch(e) {
+    console.warn('[Firebase] 初始化失敗', e);
+    return false;
+  }
+}
+
+function getDb() {
+  if (!_db) fbInit();
+  return _db;
+}
+
+// ── 集合名稱 ─────────────────────────────────────────
+// 兩人共用同一個 Firestore，資料對雙方即時同步
+const COL = {
+  TX:    'transactions',
+  WAL:   'wallet',
+  CATS:  'categories',
+  CARDS: 'cards',
+  BUD:   'budgets',
+};
+
+// ══════════════════════════════════════════════════════
+//  交易 - 新增
+// ══════════════════════════════════════════════════════
+async function fbAddTx(tx) {
+  try {
+    const db = getDb();
+    await db.collection(COL.TX).doc(tx.id).set(tx);
+    console.log('[Firebase] 交易已同步:', tx.id);
+  } catch(e) {
+    console.warn('[Firebase] 新增交易失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  交易 - 刪除
+// ══════════════════════════════════════════════════════
+async function fbDelTx(id) {
+  try {
+    await getDb().collection(COL.TX).doc(id).delete();
+    console.log('[Firebase] 交易已刪除:', id);
+  } catch(e) {
+    console.warn('[Firebase] 刪除交易失敗', e);
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  即時監聽 - 交易列表（兩支手機都會即時更新）
+// ══════════════════════════════════════════════════════
+function fbListenTx(onChange) {
+  try {
+    const db = getDb();
+    return db.collection(COL.TX)
+      .orderBy('at', 'desc')
+      .onSnapshot(snapshot => {
+        const list = [];
+        snapshot.forEach(doc => list.push(doc.data()));
+        // 同步到 localStorage
+        DB.set('tx', list);
+        onChange && onChange(list);
+        console.log('[Firebase] 即時同步', list.length, '筆交易');
+      }, err => {
+        console.warn('[Firebase] 監聽失敗', err);
+      });
+  } catch(e) {
+    console.warn('[Firebase] 監聽初始化失敗', e);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  錢包同步
+// ══════════════════════════════════════════════════════
+async function fbSyncWallet(walData) {
+  try {
+    await getDb().collection(COL.WAL).doc('main').set(walData);
+  } catch(e) {
+    console.warn('[Firebase] 錢包同步失敗', e);
+  }
+}
+
+function fbListenWallet(onChange) {
+  try {
+    return getDb().collection(COL.WAL).doc('main')
+      .onSnapshot(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          DB.set('wal', data);
+          onChange && onChange(data);
+        }
+      });
+  } catch(e) {
+    console.warn('[Firebase] 錢包監聽失敗', e);
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  分類、卡片、預算同步（較少變動，手動觸發）
+// ══════════════════════════════════════════════════════
+async function fbSyncCats(data)  {
+  try { await getDb().collection(COL.CATS).doc('main').set({list: data}); } catch(e) {}
+}
+async function fbSyncCards(data) {
+  try { await getDb().collection(COL.CARDS).doc('main').set({list: data}); } catch(e) {}
+}
+async function fbSyncBud(data)   {
+  try { await getDb().collection(COL.BUD).doc('main').set(data); } catch(e) {}
+}
+
+// ══════════════════════════════════════════════════════
+//  完整下載（首次載入時從雲端拉資料）
+// ══════════════════════════════════════════════════════
+async function fbPullAll() {
+  try {
+    const db = getDb();
+    // 交易
+    const txSnap = await db.collection(COL.TX).orderBy('at','desc').get();
+    const txList = [];
+    txSnap.forEach(d => txList.push(d.data()));
+    if (txList.length) DB.set('tx', txList);
+
+    // 錢包
+    const walDoc = await db.collection(COL.WAL).doc('main').get();
+    if (walDoc.exists) DB.set('wal', walDoc.data());
+
+    // 分類
+    const catDoc = await db.collection(COL.CATS).doc('main').get();
+    if (catDoc.exists && catDoc.data().list) DB.set('cats', catDoc.data().list);
+
+    // 卡片
+    const cardDoc = await db.collection(COL.CARDS).doc('main').get();
+    if (cardDoc.exists && cardDoc.data().list) DB.set('cards', cardDoc.data().list);
+
+    // 預算
+    const budDoc = await db.collection(COL.BUD).doc('main').get();
+    if (budDoc.exists) DB.set('bud', budDoc.data());
+
+    console.log('[Firebase] 完整下載完成，交易', txList.length, '筆');
+    return true;
+  } catch(e) {
+    console.warn('[Firebase] 下載失敗', e);
+    return false;
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  清除雲端資料
+// ══════════════════════════════════════════════════════
+async function fbClearAll() {
+  try {
+    const db = getDb();
+    const txSnap = await db.collection(COL.TX).get();
+    const batch = db.batch();
+    txSnap.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection(COL.WAL).doc('main'));
+    batch.delete(db.collection(COL.CATS).doc('main'));
+    batch.delete(db.collection(COL.CARDS).doc('main'));
+    batch.delete(db.collection(COL.BUD).doc('main'));
+    await batch.commit();
+    console.log('[Firebase] 雲端資料已清除');
+  } catch(e) {
+    console.warn('[Firebase] 清除失敗', e);
+  }
+}
+
+</script>
 </head>
 <body>
 <header class="hdr">
@@ -190,11 +380,11 @@ input,select{font-family:inherit;outline:none;border:none}
 </div>
 
 <nav class="nav">
-  <a class="ni" href="index.html"><span class="ico">🏠</span><span>首頁</span></a>
-  <a class="ni on" href="report.html"><span class="ico">📊</span><span>報表</span></a>
-  <a class="ni ni-add" href="add.html"><div class="fab">➕</div></a>
-  <a class="ni" href="wallet.html"><span class="ico">👛</span><span>錢包</span></a>
-  <a class="ni" href="settings.html"><span class="ico">⚙️</span><span>設定</span></a>
+  <a class="ni" href="./index.html"><span class="ico">🏠</span><span>首頁</span></a>
+  <a class="ni on" href="./report.html"><span class="ico">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ico">👛</span><span>錢包</span></a>
+  <a class="ni" href="./settings.html"><span class="ico">⚙️</span><span>設定</span></a>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -234,7 +424,15 @@ function groupDay(list){const g={};[...list].sort((a,b)=>new Date(b.at)-new Date
 function makeDemo(){const now=new Date(),y=now.getFullYear(),m=now.getMonth();const mk=(cat,detail,amount,pay,cardId,person,day,h,mi)=>({id:Date.now().toString(36)+Math.random().toString(36).slice(2),cat,detail,amount,pay,cardId:cardId||null,person,at:new Date(y,m,day,h,mi).toISOString(),subCat:''});return[mk('food','早餐豆漿油條',65,'cash',null,'宏龍',1,8,30),mk('food','家樂福採購',1280,'card','c1','盈慧',1,11,20),mk('transport','捷運悠遊卡',500,'cash',null,'宏龍',2,9,0),mk('food','晚餐火鍋',850,'card','c2','宏龍',3,18,45),mk('child','寶寶奶粉',1200,'card','c1','盈慧',4,14,10),mk('entertain','Netflix',330,'card','c2','宏龍',5,10,0),mk('medical','兒科掛號',200,'cash',null,'盈慧',6,15,30),mk('shopping','運動上衣',680,'card','c1','盈慧',8,13,20),mk('home','電費帳單',1450,'card','c3','宏龍',9,10,0),mk('child','幼稚園費用',8000,'card','c3','盈慧',14,9,0)];}
 initDB();
 </script>
-<script>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <!-- 本地模組 -->
+  <script src="./js/db.js"></script>
+  <script src="./js/firebase.js"></script>
+  <script src="./js/ui.js"></script>
+  <script>
 Chart.defaults.color='#8896b3';
 Chart.defaults.font.family="'Noto Sans TC',sans-serif";
 

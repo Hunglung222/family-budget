@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0a0f1e">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
-<title>設定</title>
+<title>錢包</title>
 <link rel="stylesheet" href="./css/style.css">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -21,51 +21,62 @@ input,select{font-family:inherit;outline:none;border:none}
 .hdr{position:sticky;top:0;z-index:100;background:rgba(10,15,30,.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
 .hdr h1{font-size:1.2rem;font-weight:900}
 .hdr small{font-size:.75rem;color:var(--t2);display:block;margin-top:1px}
-.hdr-home{background:var(--pdim);color:var(--p);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:var(--tr)}
-.hdr-home:active{transform:scale(.9)}
 
 .wrap{padding:16px}
 
-.sec-t{font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin:16px 0 8px}
-.sec-t:first-child{margin-top:0}
+.wallet-hero{background:linear-gradient(145deg,#0a2540,#061520);border:1px solid #1e4060;border-radius:var(--r);padding:28px 24px;text-align:center;position:relative;overflow:hidden;margin-bottom:14px}
+.wallet-hero::before{content:'💵';position:absolute;font-size:9rem;right:-20px;top:50%;transform:translateY(-50%);opacity:.06;pointer-events:none}
+.wlbl{font-size:.72rem;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.wamt{font-size:3.4rem;font-weight:900;letter-spacing:-.04em;color:var(--p);line-height:1}
+.wamt .cur{font-size:1.4rem;font-weight:500;color:var(--t2);margin-right:4px}
+.wupd{font-size:.72rem;color:var(--t3);margin-top:8px}
 
-/* 資料卡 */
-.data-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:4px}
-.drow{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);font-size:.88rem}
-.drow:last-child{border-bottom:none}
-.drow .v{color:var(--p);font-weight:700;font-family:sans-serif}
+.section-t{font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin:16px 0 8px}
 
-/* 設定行 */
-.set-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:4px}
-.srow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:var(--tr)}
-.srow:last-child{border-bottom:none}
-.srow:active{background:var(--card2)}
-.sico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
-.sinfo{flex:1}
-.sname{font-size:.9rem;font-weight:600}
-.sdesc{font-size:.72rem;color:var(--t2);margin-top:2px}
-.sarr{color:var(--t3);font-size:.9rem}
+.qadd{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.qgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+.qb{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px 4px;font-size:.88rem;font-weight:700;color:var(--t2);text-align:center;transition:var(--tr);-webkit-tap-highlight-color:transparent}
+.qb:active{background:var(--pdim);border-color:var(--p);color:var(--p);transform:scale(.95)}
+.row{display:flex;gap:8px;align-items:stretch}
+.fc{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:13px 16px;color:var(--t);font-size:.95rem;transition:border-color var(--tr);-webkit-appearance:none;appearance:none}
+.fc:focus{border-color:var(--p);background:var(--card2)}
+.btn-add{padding:13px 20px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:var(--rs);font-size:.9rem;font-weight:900;white-space:nowrap;transition:var(--tr);border:none;font-family:inherit;cursor:pointer}
+.btn-add:active{transform:scale(.96)}
 
-/* 分類 */
-.cat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:4px}
-.citem{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.card-box{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:14px}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.card-hdr-t{font-size:.78rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase}
+.btn-new-card{background:var(--pdim);color:var(--p);border:none;border-radius:8px;padding:7px 14px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;transition:var(--tr)}
+.btn-new-card:active{transform:scale(.95)}
+
+.citem{display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)}
 .citem:last-child{border-bottom:none}
-.cdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
-.cname2{font-size:.88rem;font-weight:500;flex:1}
-.csub{font-size:.7rem;color:var(--t3)}
-.add-row{display:flex;gap:8px;margin-top:12px}
-.fc{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 14px;color:var(--t);font-size:.88rem;-webkit-appearance:none;appearance:none}
-.fc:focus{border-color:var(--p);outline:none}
-.btn-add-cat{padding:12px 18px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:var(--tr)}
-.btn-add-cat:active{transform:scale(.95)}
+.cdot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.cinfo{flex:1}
+.cname{font-size:.9rem;font-weight:600}
+.clast{font-size:.72rem;color:var(--t3);margin-top:1px}
+.btn-del{background:none;border:none;color:var(--t3);font-size:1rem;padding:4px 8px;cursor:pointer;border-radius:6px;transition:var(--tr)}
+.btn-del:active{color:var(--danger);background:rgba(244,63,94,.1)}
 
-/* badge */
-.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:50px;font-size:.68rem;font-weight:700;letter-spacing:.04em}
-.bp{background:var(--pdim);color:var(--p)}
-.bb{background:var(--bluedim);color:var(--blue)}
-.bw{background:rgba(245,158,11,.14);color:var(--warn)}
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.scard{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;position:relative;overflow:hidden}
+.scard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.scard.g::before{background:var(--p)}.scard.b::before{background:var(--blue)}
+.slbl{font-size:.65rem;color:var(--t2);font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.sval{font-size:1.4rem;font-weight:900;letter-spacing:-.03em}
+.sval .u{font-size:.75rem;font-weight:400;color:var(--t2);margin-right:2px}
 
-/* Modal */
+.hist-box{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px}
+.hitem{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+.hitem:last-child{border-bottom:none}
+.hico{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.hico.in{background:rgba(34,197,94,.15)}.hico.out{background:rgba(244,63,94,.12)}
+.hinfo{flex:1;min-width:0}
+.hnote{font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.htime{font-size:.68rem;color:var(--t3);margin-top:2px}
+.hamt{font-size:.95rem;font-weight:900;letter-spacing:-.02em}
+.hamt.in{color:var(--ok)}.hamt.out{color:#ff6b82}
+
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(6px)}
 .overlay.show{opacity:1;pointer-events:all}
 .sheet{width:100%;max-width:480px;margin:0 auto;background:var(--bg2);border-radius:var(--r) var(--r) 0 0;padding:20px 20px 36px;border-top:1px solid var(--border);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
@@ -76,15 +87,18 @@ input,select{font-family:inherit;outline:none;border:none}
 .flbl{font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:block}
 .btn-row{display:flex;gap:10px}
 .btn{width:100%;padding:15px;border-radius:var(--r);font-size:1rem;font-weight:900;font-family:inherit;transition:var(--tr);cursor:pointer}
-.btn-p{background:linear-gradient(135deg,var(--p),var(--p2));color:#000}
+.btn-p{background:linear-gradient(135deg,var(--p),var(--p2));color:#000;box-shadow:0 4px 18px rgba(0,229,180,.3)}
 .btn-p:active{transform:scale(.98)}
 .btn-s{background:var(--card);color:var(--t2);border:1.5px solid var(--border)}
 .btn-s:active{background:var(--card2)}
 .btn-d{background:rgba(244,63,94,.14);color:var(--danger);border:1.5px solid rgba(244,63,94,.3)}
 
+.empty{text-align:center;padding:24px;color:var(--t3);font-size:.88rem}
+
 .nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:calc(var(--nav)+env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:stretch;z-index:200}
 .ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--t3);font-size:.65rem;font-weight:600;letter-spacing:.04em;-webkit-tap-highlight-color:transparent;position:relative;transition:var(--tr)}
-.ni .ico{font-size:1.4rem;line-height:1}.ni.on{color:var(--p)}
+.ni .ico{font-size:1.4rem;line-height:1}
+.ni.on{color:var(--p)}
 .ni.on::after{content:'';position:absolute;top:0;left:25%;right:25%;height:2.5px;background:var(--p);border-radius:0 0 4px 4px}
 .ni-add{flex:0 0 72px}
 .ni-add .fab{width:52px;height:52px;margin-top:-8px;background:linear-gradient(135deg,var(--p),var(--p2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 6px 20px rgba(0,229,180,.4);transition:var(--tr)}
@@ -92,7 +106,10 @@ input,select{font-family:inherit;outline:none;border:none}
 
 .toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-90px);background:var(--ok);color:#fff;padding:12px 28px;border-radius:50px;font-size:.9rem;font-weight:700;z-index:9999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
-.toast.err{background:var(--danger)}.toast.warn{background:var(--warn)}.toast.info{background:var(--blue)}
+.toast.err{background:var(--danger)}.toast.warn{background:var(--warn)}
+
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 </style>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -290,82 +307,88 @@ async function fbClearAll() {
 </head>
 <body>
 <header class="hdr">
-  <div><h1>⚙️ 設定</h1><small>管理與備份</small></div>
-  <a href="./index.html" class="hdr-home">🏠</a>
+  <div><h1>👛 錢包</h1><small>現金管理</small></div>
 </header>
 
 <div class="wrap">
-  <!-- 資料統計 -->
-  <div class="sec-t">📊 資料統計</div>
-  <div class="data-card" id="data-stat"></div>
+  <!-- 餘額 -->
+  <div class="wallet-hero">
+    <div class="wlbl">現金餘額</div>
+    <div class="wamt"><span class="cur">$</span><span id="bal">0</span></div>
+    <div class="wupd" id="wupd"></div>
+  </div>
 
-  <!-- 分類管理 -->
-  <div class="sec-t">🏷️ 分類管理</div>
-  <div class="cat-card">
-    <div id="cat-list"></div>
-    <div class="add-row">
-      <input type="text" class="fc" id="new-cat" placeholder="新分類（含emoji）" style="flex:1">
-      <button class="btn-add-cat" onclick="addCat()">＋ 新增</button>
+  <!-- 快速新增 -->
+  <div class="qadd">
+    <div class="section-t" style="margin-top:0">➕ 提領現金</div>
+    <div class="qgrid">
+      <button class="qb" onclick="qadd(500)">500</button>
+      <button class="qb" onclick="qadd(1000)">1,000</button>
+      <button class="qb" onclick="qadd(2000)">2,000</button>
+      <button class="qb" onclick="qadd(5000)">5,000</button>
+    </div>
+    <div class="row">
+      <input type="number" class="fc" id="custom-amt" placeholder="自訂金額" style="flex:1">
+      <button class="btn-add" onclick="addCustom()">＋ 新增</button>
     </div>
   </div>
 
-  <!-- 應用操作 -->
-  <div class="sec-t">🛠️ 資料管理</div>
-  <div class="set-card">
-    <div class="srow" onclick="exportData()">
-      <div class="sico" style="background:rgba(34,197,94,.15)">📤</div>
-      <div class="sinfo"><div class="sname">匯出備份（JSON）</div><div class="sdesc">下載所有記帳資料</div></div>
-      <span class="sarr">›</span>
+  <!-- 本月統計 -->
+  <div class="sgrid">
+    <div class="scard g">
+      <div class="slbl">本月現金支出</div>
+      <div class="sval"><span class="u">$</span><span id="m-out">0</span></div>
     </div>
-    <div class="srow" onclick="document.getElementById('imp').click()">
-      <div class="sico" style="background:var(--bluedim)">📥</div>
-      <div class="sinfo"><div class="sname">匯入備份（JSON）</div><div class="sdesc">從備份檔案還原</div></div>
-      <span class="sarr">›</span>
+    <div class="scard b">
+      <div class="slbl">本月現金收入</div>
+      <div class="sval"><span class="u">$</span><span id="m-in">0</span></div>
     </div>
   </div>
 
-  <!-- 進階接口 -->
-  <div class="sec-t">🔌 進階功能（接口預留）</div>
-  <div class="set-card">
-    <div class="srow" onclick="toast('請在 settings.html 底部填入 Firebase 設定','info')">
-      <div class="sico" style="background:rgba(245,158,11,.14)">🔥</div>
-      <div class="sinfo"><div class="sname">Firebase 雙人同步</div><div class="sdesc">即時同步兩人帳本</div></div>
-      <span class="badge bw">待設定</span>
+  <!-- 信用卡管理 -->
+  <div class="card-box">
+    <div class="card-hdr">
+      <span class="card-hdr-t">💳 信用卡</span>
+      <button class="btn-new-card" onclick="showAddCard()">＋ 新增卡片</button>
     </div>
-    <div class="srow" onclick="toast('請在 settings.html 底部填入 Discord Webhook','info')">
-      <div class="sico" style="background:var(--bluedim)">📣</div>
-      <div class="sinfo"><div class="sname">Discord 記帳通知</div><div class="sdesc">記帳後自動推送通知</div></div>
-      <span class="badge bb">待設定</span>
-    </div>
-    <div class="srow" onclick="toast('語音輸入需 HTTPS 環境，已預留接口','info')">
-      <div class="sico" style="background:var(--pdim)">🎤</div>
-      <div class="sinfo"><div class="sname">語音輸入</div><div class="sdesc">說話即記帳</div></div>
-      <span class="badge bp">待設定</span>
-    </div>
+    <div id="card-list"></div>
   </div>
 
-  <!-- 危險 -->
-  <div class="sec-t">⚠️ 危險操作</div>
-  <div class="set-card">
-    <div class="srow" onclick="confirmReset()">
-      <div class="sico" style="background:rgba(244,63,94,.12)">🗑️</div>
-      <div class="sinfo"><div class="sname" style="color:var(--danger)">清除所有資料</div><div class="sdesc">不可復原，請先備份</div></div>
-      <span class="sarr">›</span>
-    </div>
+  <!-- 現金記錄 -->
+  <div class="section-t">📋 現金記錄</div>
+  <div class="hist-box">
+    <div id="hist"></div>
   </div>
-  <div style="height:12px"></div>
 </div>
 
-<input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
+<!-- 新增卡片 Modal -->
+<div class="overlay" id="card-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">💳 新增信用卡</div>
+    <div class="fg">
+      <span class="flbl">銀行 / 卡名</span>
+      <input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡">
+    </div>
+    <div class="fg">
+      <span class="flbl">末四碼</span>
+      <input type="number" class="fc" id="nc-last4" placeholder="1234">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('card-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitCard()">新增</button>
+    </div>
+  </div>
+</div>
 
 <!-- 確認 Modal -->
 <div class="overlay" id="confirm-modal">
   <div class="sheet">
     <div class="sh"></div>
-    <div class="st" id="cm-t"></div>
-    <p id="cm-m" style="color:var(--t2);font-size:.9rem;margin-bottom:20px;line-height:1.6"></p>
+    <div class="st" id="cm-title"></div>
+    <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:20px;line-height:1.6"></p>
     <div class="btn-row">
-      <button class="btn btn-s" onclick="closeModal()">取消</button>
+      <button class="btn btn-s" onclick="closeModal('confirm-modal')">取消</button>
       <button class="btn btn-d" id="cm-ok">確認</button>
     </div>
   </div>
@@ -375,8 +398,8 @@ async function fbClearAll() {
   <a class="ni" href="./index.html"><span class="ico">🏠</span><span>首頁</span></a>
   <a class="ni" href="./report.html"><span class="ico">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
-  <a class="ni" href="./wallet.html"><span class="ico">👛</span><span>錢包</span></a>
-  <a class="ni on" href="./settings.html"><span class="ico">⚙️</span><span>設定</span></a>
+  <a class="ni on" href="./wallet.html"><span class="ico">👛</span><span>錢包</span></a>
+  <a class="ni" href="./settings.html"><span class="ico">⚙️</span><span>設定</span></a>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -425,86 +448,84 @@ initDB();
   <script src="./js/firebase.js"></script>
   <script src="./js/ui.js"></script>
   <script>
-function init(){renderStat();renderCats()}
+function init(){render();renderCards();renderStats()}
 
-function renderStat(){
-  const tx=txAll(),w=wallet(),now=new Date();
-  const m=txMonth(now.getFullYear(),now.getMonth()+1);
-  document.getElementById('data-stat').innerHTML=`
-    <div class="drow"><span>📋 總記帳筆數</span><span class="v">${tx.length}</span></div>
-    <div class="drow"><span>📅 本月筆數</span><span class="v">${m.length}</span></div>
-    <div class="drow"><span>💰 本月支出</span><span class="v">$${fmt(m.reduce((s,t)=>s+t.amount,0))}</span></div>
-    <div class="drow"><span>👛 錢包餘額</span><span class="v">$${fmt(w.balance)}</span></div>
-    <div class="drow"><span>🏷️ 分類數</span><span class="v">${cats().length}</span></div>
-    <div class="drow"><span>💳 信用卡數</span><span class="v">${cards().length}</span></div>`;
-}
-
-function renderCats(){
-  document.getElementById('cat-list').innerHTML=cats().map(c=>`
-    <div class="citem">
-      <div class="cdot" style="background:${c.color}"></div>
-      <span class="cname2">${c.name}</span>
-      <span class="csub">${c.sub.length} 子分類</span>
+function render(){
+  const w=wallet();
+  document.getElementById('bal').textContent=fmt(w.balance);
+  if(w.history.length) document.getElementById('wupd').textContent='更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
+  const h=document.getElementById('hist');
+  if(!w.history.length){h.innerHTML='<div class="empty">尚無記錄</div>';return}
+  h.innerHTML=w.history.slice(0,30).map(e=>`
+    <div class="hitem">
+      <div class="hico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
+      <div class="hinfo">
+        <div class="hnote">${e.note||'現金'}</div>
+        <div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div>
+      </div>
+      <div class="hamt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div>
     </div>`).join('');
 }
 
-function addCat(){
-  const name=document.getElementById('new-cat').value.trim();
-  if(!name){toast('請輸入分類名稱','warn');return}
-  const cols=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6'];
-  catAdd({name,color:cols[Math.floor(Math.random()*cols.length)],sub:[]});
-  document.getElementById('new-cat').value='';
-  renderCats();toast(`已新增 ${name}`);
+function renderCards(){
+  const cs=cards();
+  const el=document.getElementById('card-list');
+  if(!cs.length){el.innerHTML='<div class="empty">尚無信用卡</div>';return}
+  el.innerHTML=cs.map(c=>`
+    <div class="citem">
+      <div class="cdot" style="background:${c.color||'#4f8ef7'}"></div>
+      <div class="cinfo">
+        <div class="cname">${c.name}</div>
+        <div class="clast">···· ···· ···· ${c.last4}</div>
+      </div>
+      <button class="btn-del" onclick="delCard('${c.id}')">🗑️</button>
+    </div>`).join('');
 }
 
-function exportData(){
-  const d={transactions:txAll(),wallet:wallet(),categories:cats(),cards:cards(),budgets:budgets(),at:new Date().toISOString()};
-  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
-  const u=URL.createObjectURL(b);const a=document.createElement('a');
-  a.href=u;a.download=`家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
-  a.click();toast('備份已下載');
+function renderStats(){
+  const now=new Date();
+  const txs=txMonth(now.getFullYear(),now.getMonth()+1);
+  const out=txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
+  const w=wallet();
+  const inn=w.history.filter(h=>{
+    const d=new Date(h.time);
+    return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  }).reduce((s,h)=>s+h.amount,0);
+  document.getElementById('m-out').textContent=fmt(out);
+  document.getElementById('m-in').textContent=fmt(inn);
 }
 
-function importData(inp){
-  const f=inp.files[0];if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{
-    try{
-      const d=JSON.parse(e.target.result);
-      if(d.transactions) localStorage.setItem('fb_tx',JSON.stringify(d.transactions));
-      if(d.wallet)       localStorage.setItem('fb_wallet',JSON.stringify(d.wallet));
-      if(d.categories)   localStorage.setItem('fb_cats',JSON.stringify(d.categories));
-      if(d.cards)        localStorage.setItem('fb_cards',JSON.stringify(d.cards));
-      if(d.budgets)      localStorage.setItem('fb_budgets',JSON.stringify(d.budgets));
-      toast('匯入成功！');renderStat();renderCats();
-    }catch{toast('格式錯誤','err')}
-  };
-  r.readAsText(f);inp.value='';
+function qadd(n){walIn(n,'提領現金');fbSyncWallet(getWal());toast(`已新增 $${fmt(n)}`);render();renderStats()}
+function addCustom(){
+  const n=parseInt(document.getElementById('custom-amt').value)||0;
+  if(!n){toast('請輸入金額','warn');return}
+  walletIn(n,'手動新增');document.getElementById('custom-amt').value='';
+  toast(`已新增 $${fmt(n)}`);render();renderStats();
 }
 
-function confirmReset(){
-  document.getElementById('cm-t').textContent='⚠️ 清除所有資料';
-  document.getElementById('cm-m').textContent='這將刪除所有記帳、錢包、設定，且無法復原。請先匯出備份！';
+function showAddCard(){document.getElementById('card-modal').classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function submitCard(){
+  const name=document.getElementById('nc-name').value.trim();
+  const last4=document.getElementById('nc-last4').value.trim();
+  if(!name||!last4){toast('請填寫完整','warn');return}
+  const cols=['#1d4ed8','#be185d','#374151','#0d9488','#7c3aed'];
+  cardAdd({name,last4,color:cols[Math.floor(Math.random()*cols.length)]});
+  closeModal('card-modal');renderCards();toast(`已新增 ${name}`);
+  document.getElementById('nc-name').value='';document.getElementById('nc-last4').value='';
+}
+
+function delCard(id){
+  document.getElementById('cm-title').textContent='刪除信用卡';
+  document.getElementById('cm-msg').textContent='確定刪除這張卡片嗎？';
   document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick=()=>{
-    // 清除所有版本的 key（新版 + 舊版遺留）
-    const ALL_KEYS=['tx','wal','cats','cards','bud',
-      'fb_tx','fb_wallet','fb_cats','fb_cards','fb_budgets',
-      'fb_transactions','fb_categories'];
-    ALL_KEYS.forEach(k=>localStorage.removeItem(k));
-    Object.keys(localStorage).filter(k=>k.startsWith('fb_')).forEach(k=>localStorage.removeItem(k));
-    // 同時清除 Firebase 雲端資料
-    fbClearAll().then(()=>console.log('[Firebase] 雲端已清除'));
-    toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);
-  };
+  document.getElementById('cm-ok').onclick=()=>{cardDel(id);closeModal('confirm-modal');renderCards();toast('已刪除','err')};
 }
-
-function closeModal(){document.getElementById('confirm-modal').classList.remove('show')}
 
 let _tt;
 function toast(msg,type=''){
-  const el=document.getElementById('toast');el.textContent=msg;
-  el.className='toast show'+(type?' '+type:'');
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type?' '+type:'');
   clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);
 }
 
