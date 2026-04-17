@@ -1,491 +1,449 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f1117">
-  <title>新增記帳</title>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    .amount-big {
-      background: var(--card);
-      border-radius: var(--radius);
-      padding: 20px;
-      margin-bottom: 14px;
-      border: 1px solid var(--border);
-      text-align: center;
-      position: relative;
-    }
-    .amount-display {
-      font-size: 3rem;
-      font-weight: 700;
-      font-family: 'DM Sans', sans-serif;
-      letter-spacing: -0.03em;
-      color: var(--primary);
-      line-height: 1;
-      min-height: 3.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .amount-display .prefix {
-      font-size: 1.4rem;
-      color: var(--text2);
-      margin-right: 6px;
-      font-weight: 400;
-    }
-    .amount-display .cursor {
-      display: inline-block;
-      width: 2px;
-      height: 2.6rem;
-      background: var(--primary);
-      margin-left: 4px;
-      animation: blink 1s infinite;
-      vertical-align: middle;
-    }
-    @keyframes blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }
-    .amount-display.has-value .cursor { display: none; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>新增記帳</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0f1e;--bg2:#111827;--card:#1a2235;--card2:#202d42;
+  --border:#2a3550;--p:#00e5b4;--p2:#00b48e;--pdim:rgba(0,229,180,.12);
+  --blue:#4f8ef7;--bluedim:rgba(79,142,247,.12);
+  --warn:#f59e0b;--danger:#f43f5e;--ok:#22c55e;
+  --t:#e8edf8;--t2:#8896b3;--t3:#4a5670;
+  --r:18px;--rs:10px;--nav:70px;--tr:.18s cubic-bezier(.4,0,.2,1);
+}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{
+  font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);
+  min-height:100dvh;max-width:480px;margin:0 auto;
+  padding-bottom:calc(var(--nav)+env(safe-area-inset-bottom));
+}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,select{font-family:inherit;outline:none;border:none}
 
-    /* 數字鍵盤 */
-    .numpad {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .numpad-btn {
-      background: var(--card2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      padding: 16px 8px;
-      font-size: 1.2rem;
-      font-weight: 600;
-      color: var(--text);
-      font-family: 'DM Sans', sans-serif;
-      cursor: pointer;
-      transition: var(--transition);
-      -webkit-tap-highlight-color: transparent;
-    }
-    .numpad-btn:active {
-      background: var(--primary-dim);
-      border-color: var(--primary);
-      color: var(--primary);
-      transform: scale(0.95);
-    }
-    .numpad-btn.del {
-      background: rgba(239,68,68,0.1);
-      border-color: rgba(239,68,68,0.2);
-      color: var(--danger);
-      font-size: 1rem;
-    }
-    .numpad-btn.ok {
-      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      border-color: transparent;
-      color: white;
-      font-size: 1rem;
-      font-weight: 700;
-      grid-row: span 2;
-    }
-    .numpad-btn.zero { grid-column: span 2; }
+.hdr{
+  position:sticky;top:0;z-index:100;
+  background:rgba(10,15,30,.9);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:16px 20px;display:flex;align-items:center;justify-content:space-between;
+}
+.hdr h1{font-size:1.2rem;font-weight:900}
+.hdr-close{
+  background:var(--card);border:1.5px solid var(--border);color:var(--t2);
+  width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:1rem;transition:var(--tr);
+}
+.hdr-close:active{transform:scale(.9)}
 
-    /* 收起鍵盤後的詳情區 */
-    .detail-section {
-      animation: slideDown 0.25s ease;
-    }
-    @keyframes slideDown {
-      from { opacity:0; transform: translateY(-8px); }
-      to   { opacity:1; transform: translateY(0); }
-    }
+.wrap{padding:16px}
 
-    .datetime-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .datetime-row .form-control {
-      flex: 1;
-      font-size: 0.85rem;
-      padding: 10px 12px;
-      color-scheme: dark;
-    }
-    .step-indicator {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-    .step-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: var(--border);
-      transition: var(--transition);
-    }
-    .step-dot.active { background: var(--primary); transform: scale(1.3); }
-    .step-dot.done   { background: var(--primary); opacity: 0.5; }
+/* 金額顯示區 */
+.amt-card{
+  background:linear-gradient(145deg,#0d2540,#0a1a2e);
+  border:1px solid #1e3d5a;border-radius:var(--r);
+  padding:24px 20px 20px;margin-bottom:14px;text-align:center;
+  position:relative;overflow:hidden;
+}
+.amt-card::before{
+  content:'';position:absolute;top:-40px;right:-40px;
+  width:160px;height:160px;
+  background:radial-gradient(circle,rgba(0,229,180,.1),transparent 65%);
+}
+.amt-lbl{font-size:.72rem;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.amt-display{
+  font-size:3.4rem;font-weight:900;letter-spacing:-.04em;
+  color:var(--p);line-height:1;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+}
+.amt-display .cur{font-size:1.5rem;font-weight:500;color:var(--t2);align-self:flex-end;margin-bottom:6px}
+.cursor{display:inline-block;width:3px;height:3.2rem;background:var(--p);border-radius:2px;animation:blink 1s infinite;margin-left:2px}
+.has-val .cursor{display:none}
+@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
 
-    .success-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,198,162,0.15);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 999;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s;
-    }
-    .success-overlay.show { opacity: 1; pointer-events: all; }
-    .success-icon {
-      font-size: 5rem;
-      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
-    }
-    @keyframes popIn {
-      from { transform: scale(0); opacity: 0; }
-      to   { transform: scale(1); opacity: 1; }
-    }
-    .success-text {
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--primary);
-      margin-top: 12px;
-    }
-  </style>
+/* 數字鍵盤 */
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.nk{
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:var(--rs);padding:18px 8px;
+  font-size:1.3rem;font-weight:700;color:var(--t);
+  transition:var(--tr);-webkit-tap-highlight-color:transparent;
+}
+.nk:active{background:var(--pdim);border-color:var(--p);color:var(--p);transform:scale(.94)}
+.nk.del{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.2);color:var(--danger);font-size:1.1rem}
+.nk.go{
+  background:linear-gradient(135deg,var(--p),var(--p2));border:none;color:#000;
+  font-size:1rem;font-weight:900;grid-row:span 2;
+}
+.nk.go:active{transform:scale(.95)}
+.nk.z{grid-column:span 2}
+
+/* 詳情區 */
+.detail{animation:fadeUp .25s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.flbl{font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:block}
+.fg{margin-bottom:14px}
+.fc{
+  width:100%;background:var(--card);border:1.5px solid var(--border);
+  border-radius:var(--rs);padding:13px 16px;color:var(--t);font-size:.95rem;
+  transition:border-color var(--tr);-webkit-appearance:none;appearance:none;
+}
+.fc:focus{border-color:var(--p);background:var(--card2)}
+.fc::placeholder{color:var(--t3)}
+select.fc{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238896b3' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;cursor:pointer;
+}
+input[type=number]{-moz-appearance:textfield}
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
+
+/* 快速分類 */
+.cats{display:flex;flex-wrap:wrap;gap:8px}
+.cchip{
+  padding:9px 14px;border-radius:50px;
+  background:var(--card);border:1.5px solid var(--border);
+  color:var(--t2);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:var(--tr);-webkit-tap-highlight-color:transparent;font-family:inherit;
+}
+.cchip.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.cchip:active{transform:scale(.94)}
+
+/* 切換組 */
+.tg{display:flex;gap:8px}
+.tb{
+  flex:1;padding:13px 8px;border-radius:var(--rs);
+  background:var(--card);border:1.5px solid var(--border);
+  color:var(--t2);font-size:.88rem;font-weight:600;text-align:center;
+  cursor:pointer;transition:var(--tr);font-family:inherit;
+}
+.tb.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.tb:active{transform:scale(.95)}
+
+/* 卡片chips */
+.ccs{display:flex;flex-wrap:wrap;gap:8px}
+.cc{
+  padding:9px 16px;border-radius:50px;
+  background:var(--card);border:1.5px solid var(--border);
+  color:var(--t2);font-size:.82rem;font-weight:600;
+  cursor:pointer;transition:var(--tr);font-family:inherit;
+}
+.cc.on{background:var(--bluedim);border-color:var(--blue);color:var(--blue)}
+.cc:active{transform:scale(.94)}
+
+/* 按鈕 */
+.btn{
+  width:100%;padding:17px;border-radius:var(--r);
+  font-size:1rem;font-weight:900;font-family:inherit;
+  letter-spacing:.02em;transition:var(--tr);cursor:pointer;
+}
+.btn-p{background:linear-gradient(135deg,var(--p),var(--p2));color:#000;box-shadow:0 4px 18px rgba(0,229,180,.3)}
+.btn-p:active{transform:scale(.98);box-shadow:none}
+.btn-s{background:var(--card);color:var(--t2);border:1.5px solid var(--border)}
+.btn-row{display:flex;gap:10px;margin-top:10px}
+.btn-row .btn{margin-top:0}
+
+/* 成功動畫 */
+.success-ov{
+  position:fixed;inset:0;background:rgba(0,229,180,.1);backdrop-filter:blur(4px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:999;opacity:0;pointer-events:none;transition:opacity .2s;
+}
+.success-ov.show{opacity:1;pointer-events:all}
+.s-ico{font-size:5.5rem;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.s-txt{font-size:1.2rem;font-weight:900;color:var(--p);margin-top:12px}
+
+.nav{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+  width:100%;max-width:480px;
+  height:calc(var(--nav)+env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:var(--bg2);border-top:1px solid var(--border);
+  display:flex;align-items:stretch;z-index:200;
+}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--t3);font-size:.65rem;font-weight:600;letter-spacing:.04em;-webkit-tap-highlight-color:transparent;position:relative;transition:var(--tr)}
+.ni .ico{font-size:1.4rem;line-height:1}
+.ni.on{color:var(--p)}
+.ni.on::after{content:'';position:absolute;top:0;left:25%;right:25%;height:2.5px;background:var(--p);border-radius:0 0 4px 4px}
+.ni-add{flex:0 0 72px}
+.ni-add .fab{width:52px;height:52px;margin-top:-8px;background:linear-gradient(135deg,var(--p),var(--p2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 6px 20px rgba(0,229,180,.4);transition:var(--tr)}
+.ni-add:active .fab{transform:scale(.92)}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-90px);background:var(--ok);color:#fff;padding:12px 28px;border-radius:50px;font-size:.9rem;font-weight:700;z-index:9999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;box-shadow:0 8px 32px rgba(0,0,0,.4);pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.warn{background:var(--warn)}
+.toast.err{background:var(--danger)}
+
+/* step indicator */
+.steps{display:flex;gap:6px;align-items:center;margin-bottom:16px}
+.sd{width:10px;height:10px;border-radius:50%;background:var(--border);transition:var(--tr)}
+.sd.on{background:var(--p);transform:scale(1.3)}
+.sd.done{background:var(--p);opacity:.5}
+.shint{font-size:.75rem;color:var(--t3);margin-left:4px}
+
+/* datetime */
+input[type=datetime-local]{color-scheme:dark}
+</style>
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <h1>➕ 新增記帳</h1>
-      <div class="header-sub" id="now-time"></div>
-    </div>
-    <a href="index.html" class="header-action">✕</a>
-  </header>
+<header class="hdr">
+  <h1>➕ 新增記帳</h1>
+  <a href="index.html" class="hdr-close">✕</a>
+</header>
 
-  <main class="content">
-    <!-- 步驟指示 -->
-    <div class="step-indicator">
-      <div class="step-dot active" id="dot-0"></div>
-      <div class="step-dot" id="dot-1"></div>
-      <div class="step-dot" id="dot-2"></div>
-      <span style="font-size:0.7rem;color:var(--text3);margin-left:4px;" id="step-hint">輸入金額</span>
-    </div>
-
-    <!-- 金額大顯示 -->
-    <div class="amount-big">
-      <div class="amount-display" id="amount-display">
-        <span class="prefix">$</span>
-        <span id="amount-val">0</span>
-        <span class="cursor"></span>
-      </div>
-    </div>
-
-    <!-- Step 1: 數字鍵盤 -->
-    <div id="step-numpad">
-      <div class="numpad">
-        <button class="numpad-btn" onclick="numpad(7)">7</button>
-        <button class="numpad-btn" onclick="numpad(8)">8</button>
-        <button class="numpad-btn" onclick="numpad(9)">9</button>
-        <button class="numpad-btn" onclick="numpad(4)">4</button>
-        <button class="numpad-btn" onclick="numpad(5)">5</button>
-        <button class="numpad-btn" onclick="numpad(6)">6</button>
-        <button class="numpad-btn" onclick="numpad(1)">1</button>
-        <button class="numpad-btn" onclick="numpad(2)">2</button>
-        <button class="numpad-btn" onclick="numpad(3)">3</button>
-        <button class="numpad-btn del" onclick="numpadDel()">⌫</button>
-        <button class="numpad-btn zero" onclick="numpad(0)">0</button>
-        <button class="numpad-btn ok" onclick="confirmAmount()">確認<br>金額</button>
-      </div>
-    </div>
-
-    <!-- Step 2: 詳情欄位 -->
-    <div id="step-detail" style="display:none;" class="detail-section">
-
-      <!-- 日期時間 -->
-      <div class="form-group">
-        <label class="form-label">📅 日期時間</label>
-        <div class="datetime-row">
-          <input type="datetime-local" class="form-control" id="tx-datetime" style="color-scheme:dark;">
-        </div>
-      </div>
-
-      <!-- 快速分類 -->
-      <div class="form-group">
-        <label class="form-label">🏷️ 分類</label>
-        <div class="quick-cats" id="quick-cats"></div>
-        <select class="form-control" id="sub-category" style="display:none;">
-          <option value="">選擇子分類（可略）</option>
-        </select>
-      </div>
-
-      <!-- 明細 -->
-      <div class="form-group">
-        <label class="form-label">📝 明細（可略）</label>
-        <input type="text" class="form-control" id="tx-detail" placeholder="例：家樂福採購" maxlength="30">
-      </div>
-
-      <!-- 記帳人 -->
-      <div class="form-group">
-        <label class="form-label">👤 記帳人</label>
-        <div class="toggle-group">
-          <button class="toggle-btn active" data-person="宏龍" onclick="setPerson('宏龍',this)">🙋 宏龍</button>
-          <button class="toggle-btn" data-person="盈慧" onclick="setPerson('盈慧',this)">🙋‍♀️ 盈慧</button>
-        </div>
-      </div>
-
-      <!-- 付款方式 -->
-      <div class="form-group">
-        <label class="form-label">💳 付款方式</label>
-        <div class="toggle-group">
-          <button class="toggle-btn active" data-pay="cash" onclick="setPayMethod('cash',this)">💵 現金</button>
-          <button class="toggle-btn" data-pay="card" onclick="setPayMethod('card',this)">💳 信用卡</button>
-        </div>
-      </div>
-
-      <!-- 卡片選擇 (信用卡時顯示) -->
-      <div class="form-group" id="card-select-area" style="display:none;">
-        <label class="form-label">🃏 選擇卡片</label>
-        <div class="card-chips" id="card-chips"></div>
-      </div>
-
-      <!-- Step 3: 提交按鈕 -->
-      <div style="margin-top:20px;">
-        <button class="btn btn-primary" onclick="submitTx()">✅ 確定記帳</button>
-        <div class="btn-row" style="margin-top:10px;">
-          <button class="btn btn-secondary" onclick="resetForm()">🔄 繼續新增</button>
-          <a href="index.html" class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;">🏠 回首頁</a>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- 成功動畫 -->
-  <div class="success-overlay" id="success-overlay">
-    <div class="success-icon">✅</div>
-    <div class="success-text">記帳成功！</div>
+<div class="wrap">
+  <!-- 步驟 -->
+  <div class="steps">
+    <div class="sd on" id="d0"></div>
+    <div class="sd" id="d1"></div>
+    <div class="sd" id="d2"></div>
+    <span class="shint" id="shint">輸入金額</span>
   </div>
 
-  <nav class="bottom-nav" id="bottom-nav"></nav>
+  <!-- 金額顯示 -->
+  <div class="amt-card">
+    <div class="amt-lbl">💰 記帳金額</div>
+    <div class="amt-display" id="adisp">
+      <span class="cur">$</span>
+      <span id="aval">0</span>
+      <span class="cursor"></span>
+    </div>
+  </div>
 
-  <script src="js/db.js"></script>
-  <script src="js/ui.js"></script>
-  <script>
-    let amountStr  = '';
-    let selCat     = '';
-    let selCardId  = '';
-    let payMethod  = 'cash';
-    let person     = '宏龍';
+  <!-- 數字鍵盤 -->
+  <div id="step1">
+    <div class="numpad">
+      <button class="nk" onclick="nk(7)">7</button>
+      <button class="nk" onclick="nk(8)">8</button>
+      <button class="nk" onclick="nk(9)">9</button>
+      <button class="nk" onclick="nk(4)">4</button>
+      <button class="nk" onclick="nk(5)">5</button>
+      <button class="nk" onclick="nk(6)">6</button>
+      <button class="nk" onclick="nk(1)">1</button>
+      <button class="nk" onclick="nk(2)">2</button>
+      <button class="nk" onclick="nk(3)">3</button>
+      <button class="nk del" onclick="nkdel()">⌫</button>
+      <button class="nk z" onclick="nk(0)">0</button>
+      <button class="nk go" onclick="goDetail()">確認<br>金額</button>
+    </div>
+  </div>
 
-    // ── 初始化 ──────────────────────────────
-    function init() {
-      renderBottomNav('add');
-      // 自動帶入現在時間
-      const now = new Date();
-      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-        .toISOString().slice(0, 16);
-      document.getElementById('tx-datetime').value = local;
+  <!-- 詳情欄位 -->
+  <div id="step2" style="display:none" class="detail">
 
-      // 顯示現在時間
-      updateClock();
-      setInterval(updateClock, 1000);
+    <div class="fg">
+      <span class="flbl">📅 日期時間</span>
+      <input type="datetime-local" class="fc" id="tx-dt">
+    </div>
 
-      // 建立快速分類 chips
-      buildCatChips();
+    <div class="fg">
+      <span class="flbl">🏷️ 分類</span>
+      <div class="cats" id="cats"></div>
+    </div>
 
-      // 建立卡片chips
-      buildCardChips();
-    }
+    <div class="fg" id="sub-fg" style="display:none">
+      <span class="flbl">📂 子分類（可略）</span>
+      <select class="fc" id="sub-cat"><option value="">請選擇</option></select>
+    </div>
 
-    function updateClock() {
-      const now = new Date();
-      document.getElementById('now-time').textContent =
-        now.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-    }
+    <div class="fg">
+      <span class="flbl">📝 明細（可略）</span>
+      <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30">
+    </div>
 
-    // ── 數字鍵盤 ────────────────────────────
-    function numpad(n) {
-      if (amountStr.length >= 7) return;
-      if (amountStr === '0' && n === 0) return;
-      amountStr += n;
-      refreshAmountDisplay();
-    }
+    <div class="fg">
+      <span class="flbl">👤 記帳人</span>
+      <div class="tg">
+        <button class="tb on" data-p="宏龍" onclick="setP('宏龍',this)">🙋 宏龍</button>
+        <button class="tb" data-p="盈慧" onclick="setP('盈慧',this)">🙋‍♀️ 盈慧</button>
+      </div>
+    </div>
 
-    function numpadDel() {
-      amountStr = amountStr.slice(0, -1);
-      refreshAmountDisplay();
-    }
+    <div class="fg">
+      <span class="flbl">💳 付款方式</span>
+      <div class="tg">
+        <button class="tb on" data-pay="cash" onclick="setPay('cash',this)">💵 現金</button>
+        <button class="tb" data-pay="card" onclick="setPay('card',this)">💳 信用卡</button>
+      </div>
+    </div>
 
-    function refreshAmountDisplay() {
-      const el = document.getElementById('amount-val');
-      const display = document.getElementById('amount-display');
-      const val = parseInt(amountStr) || 0;
-      el.textContent = val > 0 ? fmt(val) : '0';
-      display.classList.toggle('has-value', val > 0);
-    }
+    <div class="fg" id="card-fg" style="display:none">
+      <span class="flbl">🃏 選擇卡片</span>
+      <div class="ccs" id="card-chips"></div>
+    </div>
 
-    function confirmAmount() {
-      const val = parseInt(amountStr) || 0;
-      if (val <= 0) {
-        showToast('請輸入金額', 'warn');
-        return;
-      }
-      // 切到詳情
-      document.getElementById('step-numpad').style.display = 'none';
-      document.getElementById('step-detail').style.display = 'block';
-      setStep(1);
-    }
+    <div style="margin-top:20px">
+      <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="reset()">🔄 繼續新增</button>
+        <a href="index.html" class="btn btn-s" style="display:flex;align-items:center;justify-content:center;">🏠 回首頁</a>
+      </div>
+    </div>
+  </div>
+</div>
 
-    // ── 分類 ────────────────────────────────
-    function buildCatChips() {
-      const cats = catsGet();
-      const el = document.getElementById('quick-cats');
-      el.innerHTML = cats.map(c => `
-        <button class="cat-chip" data-id="${c.id}" onclick="selectCat('${c.id}',this)">
-          ${c.name}
-        </button>`).join('');
-    }
+<!-- 成功 -->
+<div class="success-ov" id="sov">
+  <div class="s-ico">✅</div>
+  <div class="s-txt">記帳成功！</div>
+</div>
 
-    function selectCat(id, el) {
-      selCat = id;
-      document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
+<nav class="nav">
+  <a class="ni" href="index.html"><span class="ico">🏠</span><span>首頁</span></a>
+  <a class="ni" href="report.html"><span class="ico">📊</span><span>報表</span></a>
+  <a class="ni ni-add on" href="add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="wallet.html"><span class="ico">👛</span><span>錢包</span></a>
+  <a class="ni" href="settings.html"><span class="ico">⚙️</span><span>設定</span></a>
+</nav>
+<div class="toast" id="toast"></div>
 
-      // 子分類
-      const cat = catFind(id);
-      const subEl = document.getElementById('sub-category');
-      if (cat.sub && cat.sub.length > 0) {
-        subEl.style.display = 'block';
-        subEl.innerHTML = `<option value="">子分類（可略）</option>` +
-          cat.sub.map(s => `<option value="${s}">${s}</option>`).join('');
-      } else {
-        subEl.style.display = 'none';
-      }
-    }
+<script src="js/db.js"></script>
+<script>
+let astr='', selCat='', selCard='', pay='cash', person='宏龍';
 
-    // ── 付款方式 ────────────────────────────
-    function setPayMethod(method, el) {
-      payMethod = method;
-      document.querySelectorAll('[data-pay]').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
-      document.getElementById('card-select-area').style.display =
-        method === 'card' ? 'block' : 'none';
-    }
+function init(){
+  const now=new Date();
+  const local=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('tx-dt').value=local;
+  buildCats();
+  buildCards();
+}
 
-    function setPerson(p, el) {
-      person = p;
-      document.querySelectorAll('[data-person]').forEach(b => b.classList.remove('active'));
-      el.classList.add('active');
-    }
+function nk(n){
+  if(astr.length>=7)return;
+  astr+=n;
+  refreshAmt();
+}
+function nkdel(){ astr=astr.slice(0,-1); refreshAmt(); }
+function refreshAmt(){
+  const v=parseInt(astr)||0;
+  document.getElementById('aval').textContent=v>0?fmt(v):'0';
+  document.getElementById('adisp').classList.toggle('has-val',v>0);
+}
+function goDetail(){
+  if(!(parseInt(astr)||0)){toast('請輸入金額','warn');return;}
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  setStep(1);
+}
 
-    // ── 信用卡 ──────────────────────────────
-    function buildCardChips() {
-      const cards = cardsGet();
-      const el = document.getElementById('card-chips');
-      el.innerHTML = cards.map(c => `
-        <button class="card-chip" data-id="${c.id}" onclick="selectCard('${c.id}',this)">
-          ${c.name} ···${c.last4}
-        </button>`).join('');
-      if (cards.length) {
-        selCardId = cards[0].id;
-        el.querySelector('.card-chip').classList.add('active');
-      }
-    }
+function buildCats(){
+  document.getElementById('cats').innerHTML=cats().map(c=>
+    `<button class="cchip" data-id="${c.id}" onclick="selC('${c.id}',this)">${c.name}</button>`
+  ).join('');
+}
+function selC(id,el){
+  selCat=id;
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  const cat=catFind(id);
+  const sf=document.getElementById('sub-fg');
+  const sc=document.getElementById('sub-cat');
+  if(cat.sub&&cat.sub.length){
+    sf.style.display='block';
+    sc.innerHTML='<option value="">子分類（可略）</option>'+cat.sub.map(s=>`<option>${s}</option>`).join('');
+  }else sf.style.display='none';
+}
 
-    function selectCard(id, el) {
-      selCardId = id;
-      document.querySelectorAll('.card-chip').forEach(c => c.classList.remove('active'));
-      el.classList.add('active');
-    }
+function setPay(p,el){
+  pay=p;
+  document.querySelectorAll('[data-pay]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('card-fg').style.display=p==='card'?'block':'none';
+}
+function setP(p,el){
+  person=p;
+  document.querySelectorAll('[data-p]').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function buildCards(){
+  const cs=cards();
+  const el=document.getElementById('card-chips');
+  el.innerHTML=cs.map(c=>`<button class="cc" data-id="${c.id}" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`).join('');
+  if(cs.length){selCard=cs[0].id;el.querySelector('.cc').classList.add('on')}
+}
+function selCC(id,el){
+  selCard=id;
+  document.querySelectorAll('.cc').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
 
-    // ── 提交 ────────────────────────────────
-    function submitTx() {
-      const amount = parseInt(amountStr) || 0;
-      if (amount <= 0) { showToast('金額不可為 0', 'warn'); return; }
-      if (!selCat)     { showToast('請選擇分類', 'warn'); return; }
-      if (payMethod === 'card' && !selCardId) { showToast('請選擇卡片', 'warn'); return; }
+function submit(){
+  const amt=parseInt(astr)||0;
+  if(!amt){toast('金額不可為 0','warn');return}
+  if(!selCat){toast('請選擇分類','warn');return}
+  if(pay==='card'&&!selCard){toast('請選擇卡片','warn');return}
+  const dtv=document.getElementById('tx-dt').value;
+  const tx={
+    amount:amt,cat:selCat,
+    subCat:document.getElementById('sub-cat').value,
+    detail:document.getElementById('tx-detail').value.trim(),
+    person,pay,
+    cardId:pay==='card'?selCard:null,
+    at:dtv?new Date(dtv).toISOString():new Date().toISOString(),
+  };
+  txAdd(tx);
+  discord(tx);
+  // 預算警告
+  const budget=budgetGet(tx.cat);
+  if(budget){
+    const now=new Date();
+    const sp=txMonth(now.getFullYear(),now.getMonth()+1)
+      .filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);
+    const pct=sp/budget;
+    if(pct>=1) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 預算超支！`,'err'),1300);
+    else if(pct>=.8) setTimeout(()=>toast(`🔔 ${catName(tx.cat)} 已用${Math.round(pct*100)}%`,'warn'),1300);
+  }
+  const sov=document.getElementById('sov');
+  sov.classList.add('show');
+  setTimeout(()=>sov.classList.remove('show'),1300);
+  toast(`記帳成功 $${fmt(amt)}`);
+  reset();
+}
 
-      const dtVal = document.getElementById('tx-datetime').value;
-      const detail = document.getElementById('tx-detail').value.trim();
-      const subCat = document.getElementById('sub-category').value;
+function reset(){
+  astr='';selCat='';pay='cash';person='宏龍';
+  document.getElementById('aval').textContent='0';
+  document.getElementById('adisp').classList.remove('has-val');
+  document.getElementById('step1').style.display='block';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('tx-detail').value='';
+  document.getElementById('sub-fg').style.display='none';
+  document.getElementById('card-fg').style.display='none';
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
+  document.querySelectorAll('[data-pay]').forEach(b=>b.classList.remove('on'));
+  document.querySelector('[data-pay="cash"]').classList.add('on');
+  document.querySelectorAll('[data-p]').forEach(b=>b.classList.remove('on'));
+  document.querySelector('[data-p="宏龍"]').classList.add('on');
+  const now=new Date();
+  document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  setStep(0);
+}
 
-      const tx = {
-        amount,
-        category: selCat,
-        subCategory: subCat,
-        detail,
-        person,
-        payMethod,
-        cardId: payMethod === 'card' ? selCardId : null,
-        createdAt: dtVal ? new Date(dtVal).toISOString() : new Date().toISOString(),
-      };
+function setStep(s){
+  const hints=['輸入金額','填寫詳情','完成'];
+  document.getElementById('shint').textContent=hints[s]||'';
+  [0,1,2].forEach(i=>{
+    const d=document.getElementById('d'+i);
+    d.className='sd'+(i<s?' done':i===s?' on':'');
+  });
+}
 
-      txAdd(tx);
-      notifyDiscord(tx);
+let _tt;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast show'+(type?' '+type:'');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
 
-      // 預算警告
-      checkBudgetWarning(tx);
-
-      // 成功動畫
-      const overlay = document.getElementById('success-overlay');
-      overlay.classList.add('show');
-      setTimeout(() => {
-        overlay.classList.remove('show');
-      }, 1200);
-
-      showToast(`已記帳 $${fmt(amount)}`, 'success');
-      resetForm();
-    }
-
-    function checkBudgetWarning(tx) {
-      const budget = budgetGet(tx.category);
-      if (!budget) return;
-      const now = new Date();
-      const monthTxs = txGetByMonth(now.getFullYear(), now.getMonth()+1);
-      const spent = monthTxs.filter(t => t.category === tx.category).reduce((s,t) => s+t.amount, 0);
-      const pct = spent / budget;
-      if (pct >= 1) {
-        setTimeout(() => showToast(`⚠️ ${catFind(tx.category).name} 預算已超支！`, 'error'), 1500);
-      } else if (pct >= 0.8) {
-        setTimeout(() => showToast(`🔔 ${catFind(tx.category).name} 已用 ${Math.round(pct*100)}%`, 'warn'), 1500);
-      }
-    }
-
-    function resetForm() {
-      amountStr = '';
-      selCat    = '';
-      payMethod = 'cash';
-      person    = '宏龍';
-      document.getElementById('amount-val').textContent = '0';
-      document.getElementById('amount-display').classList.remove('has-value');
-      document.getElementById('step-numpad').style.display = 'block';
-      document.getElementById('step-detail').style.display = 'none';
-      document.getElementById('tx-detail').value = '';
-      document.getElementById('sub-category').style.display = 'none';
-      document.getElementById('card-select-area').style.display = 'none';
-      document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
-      document.querySelectorAll('[data-pay]').forEach(b => b.classList.remove('active'));
-      document.querySelector('[data-pay="cash"]').classList.add('active');
-      document.querySelectorAll('[data-person]').forEach(b => b.classList.remove('active'));
-      document.querySelector('[data-person="宏龍"]').classList.add('active');
-
-      const now = new Date();
-      const local = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-      document.getElementById('tx-datetime').value = local;
-
-      setStep(0);
-    }
-
-    function setStep(s) {
-      const hints = ['輸入金額', '填寫詳情', '完成記帳'];
-      document.getElementById('step-hint').textContent = hints[s] || '';
-      [0,1,2].forEach(i => {
-        const dot = document.getElementById('dot-'+i);
-        dot.className = 'step-dot' + (i < s ? ' done' : i === s ? ' active' : '');
-      });
-    }
-
-    init();
-  </script>
+init();
+</script>
 </body>
 </html>

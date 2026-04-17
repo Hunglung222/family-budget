@@ -1,302 +1,270 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0f1117">
-  <title>設定</title>
-  <link rel="stylesheet" href="css/style.css">
-  <style>
-    .section-title {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: var(--text2);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin: 20px 0 8px;
-      padding-left: 4px;
-    }
-    .settings-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      overflow: hidden;
-    }
-    .setting-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--border);
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      transition: var(--transition);
-    }
-    .setting-row:last-child { border-bottom: none; }
-    .setting-row:active { background: var(--card2); }
-    .setting-icon-box {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1rem;
-      flex-shrink: 0;
-    }
-    .setting-row-info { flex: 1; }
-    .setting-row-name {
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: var(--text);
-    }
-    .setting-row-desc {
-      font-size: 0.72rem;
-      color: var(--text2);
-      margin-top: 1px;
-    }
-    .setting-arrow {
-      color: var(--text3);
-      font-size: 0.85rem;
-    }
-    .cat-manage-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .cat-manage-item:last-child { border-bottom: none; }
-    .cat-color-dot {
-      width: 10px; height: 10px;
-      border-radius: 50%;
-      flex-shrink: 0;
-    }
-    .data-info {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 16px;
-      margin-top: 8px;
-    }
-    .data-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.85rem;
-    }
-    .data-row:last-child { border-bottom: none; }
-    .data-row .val { color: var(--primary); font-weight: 600; font-family: 'DM Sans'; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<title>設定</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0a0f1e;--bg2:#111827;--card:#1a2235;--card2:#202d42;--border:#2a3550;--p:#00e5b4;--p2:#00b48e;--pdim:rgba(0,229,180,.12);--blue:#4f8ef7;--bluedim:rgba(79,142,247,.12);--warn:#f59e0b;--danger:#f43f5e;--ok:#22c55e;--t:#e8edf8;--t2:#8896b3;--t3:#4a5670;--r:18px;--rs:10px;--nav:70px;--tr:.18s cubic-bezier(.4,0,.2,1)}
+html{font-size:16px;-webkit-text-size-adjust:100%}
+body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);min-height:100dvh;max-width:480px;margin:0 auto;padding-bottom:calc(var(--nav)+env(safe-area-inset-bottom))}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,select{font-family:inherit;outline:none;border:none}
+
+.hdr{position:sticky;top:0;z-index:100;background:rgba(10,15,30,.9);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:16px 20px;display:flex;align-items:center;justify-content:space-between}
+.hdr h1{font-size:1.2rem;font-weight:900}
+.hdr small{font-size:.75rem;color:var(--t2);display:block;margin-top:1px}
+.hdr-home{background:var(--pdim);color:var(--p);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:var(--tr)}
+.hdr-home:active{transform:scale(.9)}
+
+.wrap{padding:16px}
+
+.sec-t{font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin:16px 0 8px}
+.sec-t:first-child{margin-top:0}
+
+/* 資料卡 */
+.data-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:4px}
+.drow{display:flex;justify-content:space-between;align-items:center;padding:13px 16px;border-bottom:1px solid var(--border);font-size:.88rem}
+.drow:last-child{border-bottom:none}
+.drow .v{color:var(--p);font-weight:700;font-family:sans-serif}
+
+/* 設定行 */
+.set-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:4px}
+.srow{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:var(--tr)}
+.srow:last-child{border-bottom:none}
+.srow:active{background:var(--card2)}
+.sico{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.sinfo{flex:1}
+.sname{font-size:.9rem;font-weight:600}
+.sdesc{font-size:.72rem;color:var(--t2);margin-top:2px}
+.sarr{color:var(--t3);font-size:.9rem}
+
+/* 分類 */
+.cat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;margin-bottom:4px}
+.citem{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.citem:last-child{border-bottom:none}
+.cdot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.cname2{font-size:.88rem;font-weight:500;flex:1}
+.csub{font-size:.7rem;color:var(--t3)}
+.add-row{display:flex;gap:8px;margin-top:12px}
+.fc{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 14px;color:var(--t);font-size:.88rem;-webkit-appearance:none;appearance:none}
+.fc:focus{border-color:var(--p);outline:none}
+.btn-add-cat{padding:12px 18px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap;transition:var(--tr)}
+.btn-add-cat:active{transform:scale(.95)}
+
+/* badge */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:50px;font-size:.68rem;font-weight:700;letter-spacing:.04em}
+.bp{background:var(--pdim);color:var(--p)}
+.bb{background:var(--bluedim);color:var(--blue)}
+.bw{background:rgba(245,158,11,.14);color:var(--warn)}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s;backdrop-filter:blur(6px)}
+.overlay.show{opacity:1;pointer-events:all}
+.sheet{width:100%;max-width:480px;margin:0 auto;background:var(--bg2);border-radius:var(--r) var(--r) 0 0;padding:20px 20px 36px;border-top:1px solid var(--border);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.overlay.show .sheet{transform:translateY(0)}
+.sh{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 18px}
+.st{font-size:1.05rem;font-weight:800;margin-bottom:16px}
+.fg{margin-bottom:12px}
+.flbl{font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;display:block}
+.btn-row{display:flex;gap:10px}
+.btn{width:100%;padding:15px;border-radius:var(--r);font-size:1rem;font-weight:900;font-family:inherit;transition:var(--tr);cursor:pointer}
+.btn-p{background:linear-gradient(135deg,var(--p),var(--p2));color:#000}
+.btn-p:active{transform:scale(.98)}
+.btn-s{background:var(--card);color:var(--t2);border:1.5px solid var(--border)}
+.btn-s:active{background:var(--card2)}
+.btn-d{background:rgba(244,63,94,.14);color:var(--danger);border:1.5px solid rgba(244,63,94,.3)}
+
+.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:calc(var(--nav)+env(safe-area-inset-bottom));padding-bottom:env(safe-area-inset-bottom);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:stretch;z-index:200}
+.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--t3);font-size:.65rem;font-weight:600;letter-spacing:.04em;-webkit-tap-highlight-color:transparent;position:relative;transition:var(--tr)}
+.ni .ico{font-size:1.4rem;line-height:1}.ni.on{color:var(--p)}
+.ni.on::after{content:'';position:absolute;top:0;left:25%;right:25%;height:2.5px;background:var(--p);border-radius:0 0 4px 4px}
+.ni-add{flex:0 0 72px}
+.ni-add .fab{width:52px;height:52px;margin-top:-8px;background:linear-gradient(135deg,var(--p),var(--p2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;box-shadow:0 6px 20px rgba(0,229,180,.4);transition:var(--tr)}
+.ni-add:active .fab{transform:scale(.92)}
+
+.toast{position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-90px);background:var(--ok);color:#fff;padding:12px 28px;border-radius:50px;font-size:.9rem;font-weight:700;z-index:9999;transition:transform .35s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.err{background:var(--danger)}.toast.warn{background:var(--warn)}.toast.info{background:var(--blue)}
+</style>
 </head>
 <body>
-  <header class="app-header">
-    <div>
-      <h1>⚙️ 設定</h1>
-      <div class="header-sub">個人化與資料管理</div>
+<header class="hdr">
+  <div><h1>⚙️ 設定</h1><small>管理與備份</small></div>
+  <a href="index.html" class="hdr-home">🏠</a>
+</header>
+
+<div class="wrap">
+  <!-- 資料統計 -->
+  <div class="sec-t">📊 資料統計</div>
+  <div class="data-card" id="data-stat"></div>
+
+  <!-- 分類管理 -->
+  <div class="sec-t">🏷️ 分類管理</div>
+  <div class="cat-card">
+    <div id="cat-list"></div>
+    <div class="add-row">
+      <input type="text" class="fc" id="new-cat" placeholder="新分類（含emoji）" style="flex:1">
+      <button class="btn-add-cat" onclick="addCat()">＋ 新增</button>
     </div>
-    <a href="index.html" class="header-action">🏠</a>
-  </header>
+  </div>
 
-  <main class="content">
-    <!-- 資料統計 -->
-    <div class="section-title">📊 資料統計</div>
-    <div class="data-info" id="data-info"></div>
-
-    <!-- 分類管理 -->
-    <div class="section-title">🏷️ 分類管理</div>
-    <div class="settings-card" style="padding:12px 14px;">
-      <div id="cat-list"></div>
-      <div style="margin-top:12px;display:flex;gap:8px;">
-        <input type="text" class="form-control" id="new-cat-name" placeholder="新分類名稱（含emoji）" style="flex:1;">
-        <button onclick="addCat()" style="background:var(--primary-dim);color:var(--primary);border:none;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer;font-family:inherit;font-size:0.85rem;">＋新增</button>
-      </div>
+  <!-- 應用操作 -->
+  <div class="sec-t">🛠️ 資料管理</div>
+  <div class="set-card">
+    <div class="srow" onclick="exportData()">
+      <div class="sico" style="background:rgba(34,197,94,.15)">📤</div>
+      <div class="sinfo"><div class="sname">匯出備份（JSON）</div><div class="sdesc">下載所有記帳資料</div></div>
+      <span class="sarr">›</span>
     </div>
-
-    <!-- 應用設定 -->
-    <div class="section-title">🛠️ 應用設定</div>
-    <div class="settings-card">
-      <div class="setting-row" onclick="exportData()">
-        <div class="setting-icon-box" style="background:rgba(34,197,94,0.15);">📤</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">匯出資料（JSON）</div>
-          <div class="setting-row-desc">備份所有記帳資料</div>
-        </div>
-        <span class="setting-arrow">›</span>
-      </div>
-      <div class="setting-row" onclick="document.getElementById('import-file').click()">
-        <div class="setting-icon-box" style="background:rgba(91,141,238,0.15);">📥</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">匯入資料（JSON）</div>
-          <div class="setting-row-desc">從備份還原資料</div>
-        </div>
-        <span class="setting-arrow">›</span>
-      </div>
-      <div class="setting-row" onclick="clearDemo()">
-        <div class="setting-icon-box" style="background:rgba(245,158,11,0.15);">🧹</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">清除示範資料</div>
-          <div class="setting-row-desc">僅保留真實記帳</div>
-        </div>
-        <span class="setting-arrow">›</span>
-      </div>
+    <div class="srow" onclick="document.getElementById('imp').click()">
+      <div class="sico" style="background:var(--bluedim)">📥</div>
+      <div class="sinfo"><div class="sname">匯入備份（JSON）</div><div class="sdesc">從備份檔案還原</div></div>
+      <span class="sarr">›</span>
     </div>
+  </div>
 
-    <!-- 危險區域 -->
-    <div class="section-title">⚠️ 危險操作</div>
-    <div class="settings-card">
-      <div class="setting-row" onclick="resetAll()">
-        <div class="setting-icon-box" style="background:rgba(239,68,68,0.12);">🗑️</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name" style="color:var(--danger);">清除所有資料</div>
-          <div class="setting-row-desc">此操作不可復原</div>
-        </div>
-        <span class="setting-arrow">›</span>
-      </div>
+  <!-- 進階接口 -->
+  <div class="sec-t">🔌 進階功能（接口預留）</div>
+  <div class="set-card">
+    <div class="srow" onclick="toast('請在 js/db.js 填入 Firebase 設定','info')">
+      <div class="sico" style="background:rgba(245,158,11,.14)">🔥</div>
+      <div class="sinfo"><div class="sname">Firebase 雙人同步</div><div class="sdesc">即時同步兩人帳本</div></div>
+      <span class="badge bw">待設定</span>
     </div>
-
-    <!-- 接口預留說明 -->
-    <div class="section-title">🔌 進階功能（預留接口）</div>
-    <div class="settings-card">
-      <div class="setting-row" onclick="showToast('Firebase 接口已預留，請在 js/db.js 設定', 'info')">
-        <div class="setting-icon-box" style="background:rgba(245,158,11,0.15);">🔥</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">Firebase 同步</div>
-          <div class="setting-row-desc">雙人即時同步（接口已預留）</div>
-        </div>
-        <span class="badge badge-warn">待設定</span>
-      </div>
-      <div class="setting-row" onclick="showToast('Discord Webhook 接口已預留，請在 js/db.js 填入 URL', 'info')">
-        <div class="setting-icon-box" style="background:rgba(91,141,238,0.15);">📣</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">Discord 通知</div>
-          <div class="setting-row-desc">記帳後自動通知（接口已預留）</div>
-        </div>
-        <span class="badge badge-accent">待設定</span>
-      </div>
-      <div class="setting-row" onclick="showToast('語音輸入接口已預留，需 HTTPS 環境', 'info')">
-        <div class="setting-icon-box" style="background:rgba(0,198,162,0.12);">🎤</div>
-        <div class="setting-row-info">
-          <div class="setting-row-name">語音輸入</div>
-          <div class="setting-row-desc">語音記帳（需 HTTPS 環境）</div>
-        </div>
-        <span class="badge badge-primary">待設定</span>
-      </div>
+    <div class="srow" onclick="toast('請在 js/db.js 填入 Discord Webhook URL','info')">
+      <div class="sico" style="background:var(--bluedim)">📣</div>
+      <div class="sinfo"><div class="sname">Discord 記帳通知</div><div class="sdesc">記帳後自動推送通知</div></div>
+      <span class="badge bb">待設定</span>
     </div>
+    <div class="srow" onclick="toast('語音輸入需 HTTPS 環境，已預留接口','info')">
+      <div class="sico" style="background:var(--pdim)">🎤</div>
+      <div class="sinfo"><div class="sname">語音輸入</div><div class="sdesc">說話即記帳</div></div>
+      <span class="badge bp">待設定</span>
+    </div>
+  </div>
 
-    <div style="height:20px;"></div>
-  </main>
+  <!-- 危險 -->
+  <div class="sec-t">⚠️ 危險操作</div>
+  <div class="set-card">
+    <div class="srow" onclick="confirmReset()">
+      <div class="sico" style="background:rgba(244,63,94,.12)">🗑️</div>
+      <div class="sinfo"><div class="sname" style="color:var(--danger)">清除所有資料</div><div class="sdesc">不可復原，請先備份</div></div>
+      <span class="sarr">›</span>
+    </div>
+  </div>
+  <div style="height:12px"></div>
+</div>
 
-  <input type="file" id="import-file" accept=".json" style="display:none;" onchange="importData(this)">
-  <nav class="bottom-nav" id="bottom-nav"></nav>
+<input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
 
-  <script src="js/db.js"></script>
-  <script src="js/ui.js"></script>
-  <script>
-    function init() {
-      renderBottomNav('settings');
-      renderDataInfo();
-      renderCats();
-    }
+<!-- 確認 Modal -->
+<div class="overlay" id="confirm-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st" id="cm-t"></div>
+    <p id="cm-m" style="color:var(--t2);font-size:.9rem;margin-bottom:20px;line-height:1.6"></p>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal()">取消</button>
+      <button class="btn btn-d" id="cm-ok">確認</button>
+    </div>
+  </div>
+</div>
 
-    function renderDataInfo() {
-      const txs  = txGetAll();
-      const w    = walletGet();
-      const cats = catsGet();
-      const cards= cardsGet();
-      const now  = new Date();
-      const month= txGetByMonth(now.getFullYear(), now.getMonth()+1);
+<nav class="nav">
+  <a class="ni" href="index.html"><span class="ico">🏠</span><span>首頁</span></a>
+  <a class="ni" href="report.html"><span class="ico">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="wallet.html"><span class="ico">👛</span><span>錢包</span></a>
+  <a class="ni on" href="settings.html"><span class="ico">⚙️</span><span>設定</span></a>
+</nav>
+<div class="toast" id="toast"></div>
 
-      document.getElementById('data-info').innerHTML = `
-        <div class="data-row"><span>📋 總記帳筆數</span><span class="val">${txs.length}</span></div>
-        <div class="data-row"><span>📅 本月筆數</span><span class="val">${month.length}</span></div>
-        <div class="data-row"><span>💰 本月總支出</span><span class="val">$${fmt(month.reduce((s,t)=>s+t.amount,0))}</span></div>
-        <div class="data-row"><span>👛 錢包餘額</span><span class="val">$${fmt(w.balance)}</span></div>
-        <div class="data-row"><span>🏷️ 分類數量</span><span class="val">${cats.length}</span></div>
-        <div class="data-row"><span>💳 信用卡數量</span><span class="val">${cards.length}</span></div>
-      `;
-    }
+<script src="js/db.js"></script>
+<script>
+function init(){renderStat();renderCats()}
 
-    function renderCats() {
-      const cats = catsGet();
-      document.getElementById('cat-list').innerHTML = cats.map(c => `
-        <div class="cat-manage-item">
-          <div class="cat-color-dot" style="background:${c.color}"></div>
-          <span style="flex:1;font-size:0.88rem;">${c.name}</span>
-          <span style="font-size:0.72rem;color:var(--text3);">${c.sub.length} 子分類</span>
-        </div>`).join('');
-    }
+function renderStat(){
+  const tx=txAll(),w=wallet(),now=new Date();
+  const m=txMonth(now.getFullYear(),now.getMonth()+1);
+  document.getElementById('data-stat').innerHTML=`
+    <div class="drow"><span>📋 總記帳筆數</span><span class="v">${tx.length}</span></div>
+    <div class="drow"><span>📅 本月筆數</span><span class="v">${m.length}</span></div>
+    <div class="drow"><span>💰 本月支出</span><span class="v">$${fmt(m.reduce((s,t)=>s+t.amount,0))}</span></div>
+    <div class="drow"><span>👛 錢包餘額</span><span class="v">$${fmt(w.balance)}</span></div>
+    <div class="drow"><span>🏷️ 分類數</span><span class="v">${cats().length}</span></div>
+    <div class="drow"><span>💳 信用卡數</span><span class="v">${cards().length}</span></div>`;
+}
 
-    function addCat() {
-      const name = document.getElementById('new-cat-name').value.trim();
-      if (!name) { showToast('請輸入分類名稱', 'warn'); return; }
-      const colors = ['#00c6a2','#5b8dee','#f59e0b','#ec4899','#8b5cf6','#06b6d4'];
-      catsAdd({ name, color: colors[Math.floor(Math.random()*colors.length)], sub: [] });
-      document.getElementById('new-cat-name').value = '';
-      renderCats();
-      showToast(`已新增分類 ${name}`, 'success');
-    }
+function renderCats(){
+  document.getElementById('cat-list').innerHTML=cats().map(c=>`
+    <div class="citem">
+      <div class="cdot" style="background:${c.color}"></div>
+      <span class="cname2">${c.name}</span>
+      <span class="csub">${c.sub.length} 子分類</span>
+    </div>`).join('');
+}
 
-    function exportData() {
-      const data = {
-        transactions: txGetAll(),
-        wallet:       walletGet(),
-        categories:   catsGet(),
-        cards:        cardsGet(),
-        budgets:      budgetsGet(),
-        exportedAt:   new Date().toISOString(),
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href     = url;
-      a.download = `家庭記帳備份_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
-      a.click();
-      showToast('已匯出備份', 'success');
-    }
+function addCat(){
+  const name=document.getElementById('new-cat').value.trim();
+  if(!name){toast('請輸入分類名稱','warn');return}
+  const cols=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6'];
+  catAdd({name,color:cols[Math.floor(Math.random()*cols.length)],sub:[]});
+  document.getElementById('new-cat').value='';
+  renderCats();toast(`已新增 ${name}`);
+}
 
-    function importData(input) {
-      const file = input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = JSON.parse(e.target.result);
-          if (data.transactions) localStorage.setItem('fb_transactions', JSON.stringify(data.transactions));
-          if (data.wallet)       localStorage.setItem('fb_wallet',       JSON.stringify(data.wallet));
-          if (data.categories)   localStorage.setItem('fb_categories',   JSON.stringify(data.categories));
-          if (data.cards)        localStorage.setItem('fb_cards',        JSON.stringify(data.cards));
-          if (data.budgets)      localStorage.setItem('fb_budgets',      JSON.stringify(data.budgets));
-          showToast('匯入成功！', 'success');
-          renderDataInfo();
-          renderCats();
-        } catch {
-          showToast('檔案格式錯誤', 'error');
-        }
-      };
-      reader.readAsText(file);
-      input.value = '';
-    }
+function exportData(){
+  const d={transactions:txAll(),wallet:wallet(),categories:cats(),cards:cards(),budgets:budgets(),at:new Date().toISOString()};
+  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const u=URL.createObjectURL(b);const a=document.createElement('a');
+  a.href=u;a.download=`家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
+  a.click();toast('備份已下載');
+}
 
-    function clearDemo() {
-      showConfirm('清除示範資料', '這將移除所有示範資料，保留您的真實記帳。確定嗎？', () => {
-        // 示範資料沒有 user flag，這裡直接讓用戶確認後清全部（可自訂邏輯）
-        showToast('示範資料已清除', 'success');
-        renderDataInfo();
-      });
-    }
+function importData(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(d.transactions) localStorage.setItem('fb_tx',JSON.stringify(d.transactions));
+      if(d.wallet)       localStorage.setItem('fb_wallet',JSON.stringify(d.wallet));
+      if(d.categories)   localStorage.setItem('fb_cats',JSON.stringify(d.categories));
+      if(d.cards)        localStorage.setItem('fb_cards',JSON.stringify(d.cards));
+      if(d.budgets)      localStorage.setItem('fb_budgets',JSON.stringify(d.budgets));
+      toast('匯入成功！');renderStat();renderCats();
+    }catch{toast('格式錯誤','err')}
+  };
+  r.readAsText(f);inp.value='';
+}
 
-    function resetAll() {
-      showConfirm('⚠️ 清除所有資料', '這將刪除所有記帳記錄、錢包、分類設定！此操作不可復原。', () => {
-        Object.values({ a:'fb_transactions',b:'fb_wallet',c:'fb_categories',d:'fb_cards',e:'fb_budgets' })
-          .forEach(k => localStorage.removeItem(k));
-        showToast('已清除所有資料', 'error');
-        setTimeout(() => location.reload(), 1500);
-      });
-    }
+function confirmReset(){
+  document.getElementById('cm-t').textContent='⚠️ 清除所有資料';
+  document.getElementById('cm-m').textContent='這將刪除所有記帳、錢包、設定，且無法復原。請先匯出備份！';
+  document.getElementById('confirm-modal').classList.add('show');
+  document.getElementById('cm-ok').onclick=()=>{
+    ['fb_tx','fb_wallet','fb_cats','fb_cards','fb_budgets'].forEach(k=>localStorage.removeItem(k));
+    toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);
+  };
+}
 
-    init();
-  </script>
+function closeModal(){document.getElementById('confirm-modal').classList.remove('show')}
+
+let _tt;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');el.textContent=msg;
+  el.className='toast show'+(type?' '+type:'');
+  clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+init();
+</script>
 </body>
 </html>
