@@ -115,6 +115,10 @@ button{cursor:pointer;border:none;outline:none;font-family:inherit;-webkit-tap-h
 .btn-s:active{background:var(--card2)}
 .btn-d{background:rgba(244,63,94,.14);color:var(--danger);border:1.5px solid rgba(244,63,94,.28)}
 </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase.js"></script>
 </head>
 <body>
 
@@ -394,7 +398,11 @@ function askDel(id,e){
   document.getElementById('m-title').textContent='刪除這筆記帳？';
   document.getElementById('m-msg').textContent='刪除後不可復原。現金支出會歸還錢包。';
   document.getElementById('modal').classList.add('show');
-  document.getElementById('m-ok').onclick=()=>{delTx(pendId);closeM();toast('已刪除','err');render()};
+  document.getElementById('m-ok').onclick=()=>{
+    delTx(pendId);
+    fbDelTx(pendId);  // 同步刪除到 Firebase
+    closeM();toast('已刪除','err');render();
+  };
 }
 function closeM(){document.getElementById('modal').classList.remove('show')}
 
@@ -406,10 +414,28 @@ function toast(msg,type=''){
   clearTimeout(_t);_t=setTimeout(()=>el.classList.remove('show'),2300);
 }
 
+// ── Firebase 即時同步 ──────────────────────────────
+let fbUnsubTx = null;
+let fbUnsubWal = null;
+let fbReady = false;
+
+async function fbStart() {
+  // 先從雲端拉一次完整資料
+  const ok = await fbPullAll();
+  if (ok) fbReady = true;
+
+  // 即時監聽交易（兩支手機都即時更新）
+  fbUnsubTx = fbListenTx(() => render());
+
+  // 即時監聽錢包
+  fbUnsubWal = fbListenWallet(() => render());
+}
+
 // init
 document.getElementById('hdr-date').textContent=
   new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
-render();
+render();       // 先用本地資料渲染，畫面立即出現
+fbStart();      // 背景連接 Firebase，有新資料自動更新
 
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>

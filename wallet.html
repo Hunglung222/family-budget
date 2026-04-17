@@ -110,6 +110,10 @@ input,select{font-family:inherit;outline:none;border:none}
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase.js"></script>
 </head>
 <body>
 <header class="hdr">
@@ -293,7 +297,7 @@ function renderStats(){
   document.getElementById('m-in').textContent=fmt(inn);
 }
 
-function qadd(n){walletIn(n,'提領現金');toast(`已新增 $${fmt(n)}`);render();renderStats()}
+function qadd(n){walIn(n,'提領現金');fbSyncWallet(getWal());toast(`已新增 $${fmt(n)}`);render();renderStats()}
 function addCustom(){
   const n=parseInt(document.getElementById('custom-amt').value)||0;
   if(!n){toast('請輸入金額','warn');return}

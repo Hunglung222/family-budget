@@ -93,6 +93,10 @@ input,select{font-family:inherit;outline:none;border:none}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.err{background:var(--danger)}.toast.warn{background:var(--warn)}.toast.info{background:var(--blue)}
 </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase.js"></script>
 </head>
 <body>
 <header class="hdr">
@@ -290,8 +294,9 @@ function confirmReset(){
       'fb_tx','fb_wallet','fb_cats','fb_cards','fb_budgets',
       'fb_transactions','fb_categories'];
     ALL_KEYS.forEach(k=>localStorage.removeItem(k));
-    // 保險起見：清除所有 fb_ 開頭的 key
     Object.keys(localStorage).filter(k=>k.startsWith('fb_')).forEach(k=>localStorage.removeItem(k));
+    // 同時清除 Firebase 雲端資料
+    fbClearAll().then(()=>console.log('[Firebase] 雲端已清除'));
     toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);
   };
 }

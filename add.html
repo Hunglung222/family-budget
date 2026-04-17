@@ -111,6 +111,10 @@ input[type=datetime-local]{color-scheme:dark}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.warn{background:var(--warn)}.toast.err{background:var(--danger)}
 </style>
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="js/firebase.js"></script>
 </head>
 <body>
 
@@ -368,6 +372,7 @@ function submit(){
     at:dtv?new Date(dtv).toISOString():new Date().toISOString(),
   };
   addTx(tx);
+  fbAddTx(tx);  // 同步到 Firebase（雲端 + 另一支手機即時更新）
 
   // 預算警告
   const bud=getBudget(tx.cat);
