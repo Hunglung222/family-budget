@@ -246,6 +246,8 @@ const DEF_CARDS=[
   {id:'c3',name:'中信鈦金',last4:'9012',color:'#374151'},
 ];
 function initDB(){
+  const mg=(o,n)=>{const v=localStorage.getItem(o);if(v&&!DB.get(n)){try{DB.set(n,JSON.parse(v))}catch{}}localStorage.removeItem(o);};
+  mg('fb_transactions','tx');mg('fb_wallet','wal');mg('fb_categories','cats');mg('fb_cards','cards');mg('fb_budgets','bud');mg('fb_tx','tx');mg('fb_cats','cats');
   if(!DB.get('cats'))  DB.set('cats', DEF_CATS);
   if(!DB.get('cards')) DB.set('cards',DEF_CARDS);
   if(!DB.get('wal'))   DB.set('wal',  {balance:0,history:[]});

@@ -207,6 +207,22 @@ const DEF_CARDS=[
 ];
 
 function initDB(){
+  // 遷移舊版資料（v1/v2 用 fb_ 前綴）
+  const migrate=(oldK,newK)=>{
+    const old=localStorage.getItem(oldK);
+    if(old&&!DB.get(newK)){try{DB.set(newK,JSON.parse(old));}catch{}}
+    localStorage.removeItem(oldK);
+  };
+  migrate('fb_transactions','tx');
+  migrate('fb_wallet','wal');
+  migrate('fb_categories','cats');
+  migrate('fb_cards','cards');
+  migrate('fb_budgets','bud');
+  // 也試試 v2 的短 key
+  migrate('fb_tx','tx');
+  migrate('fb_cats','cats');
+  migrate('fb_wal','wal');
+  // 設預設值
   if(!DB.get('cats'))  DB.set('cats', DEF_CATS);
   if(!DB.get('cards')) DB.set('cards',DEF_CARDS);
   if(!DB.get('wal'))   DB.set('wal',  {balance:0,history:[]});
