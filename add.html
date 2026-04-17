@@ -7,138 +7,25 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
 <title>新增記帳</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0f1e;--bg2:#111827;--card:#1a2235;--card2:#202d42;--border:#2a3550;--p:#00e5b4;--p2:#00b48e;--pdim:rgba(0,229,180,.13);--blue:#4f8ef7;--bdim:rgba(79,142,247,.13);--warn:#f59e0b;--danger:#f43f5e;--ok:#22c55e;--t:#e8edf8;--t2:#8896b3;--t3:#4a5670;--r:16px;--rs:10px;--nav:68px;--ease:.18s cubic-bezier(.4,0,.2,1)}
-html{font-size:16px;-webkit-text-size-adjust:100%}
-body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);min-height:100dvh;max-width:480px;margin:0 auto;padding-bottom:calc(var(--nav)+env(safe-area-inset-bottom,0px))}
-a{color:inherit;text-decoration:none}
-button{cursor:pointer;border:none;outline:none;font-family:inherit;-webkit-tap-highlight-color:transparent}
-input,select{font-family:inherit;outline:none;border:none}
-input[type=number]{-moz-appearance:textfield}
-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
-
-.hdr{position:sticky;top:0;z-index:100;background:rgba(10,15,30,.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;justify-content:space-between}
-.hdr h1{font-size:1.2rem;font-weight:900}
-.hdr-x{background:var(--card);border:1.5px solid var(--border);color:var(--t2);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;transition:var(--ease)}
-.hdr-x:active{transform:scale(.9)}
-
-.w{padding:14px}
-
-/* 步驟點 */
-.steps{display:flex;gap:6px;align-items:center;margin-bottom:14px}
-.sd{width:10px;height:10px;border-radius:50%;background:var(--border);transition:var(--ease)}
-.sd.on{background:var(--p);transform:scale(1.3)}.sd.done{background:var(--p);opacity:.5}
-.shint{font-size:.75rem;color:var(--t3);margin-left:5px;font-weight:600}
-
-/* 金額顯示 */
-.amt-card{background:linear-gradient(150deg,#0c2640,#091a2e);border:1px solid #1c3a58;border-radius:var(--r);padding:22px 18px;margin-bottom:14px;text-align:center;position:relative;overflow:hidden}
-.amt-card::after{content:'';position:absolute;top:-50px;right:-50px;width:170px;height:170px;background:radial-gradient(circle,rgba(0,229,180,.09),transparent 65%);pointer-events:none}
-.amt-lbl{font-size:.7rem;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-.amt-big{font-size:3.2rem;font-weight:900;letter-spacing:-.04em;color:var(--p);line-height:1;display:flex;align-items:center;justify-content:center;gap:4px}
-.amt-big .cur{font-size:1.3rem;font-weight:500;color:var(--t2);align-self:flex-end;padding-bottom:6px}
-.cursor{display:inline-block;width:3px;height:3rem;background:var(--p);border-radius:2px;animation:blink 1s infinite;margin-left:3px}
-.has-val .cursor{display:none}
-@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
-
-/* 數字鍵盤 */
-.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
-.nk{background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:17px 8px;font-size:1.25rem;font-weight:700;color:var(--t);transition:var(--ease);-webkit-tap-highlight-color:transparent;text-align:center}
-.nk:active{background:var(--pdim);border-color:var(--p);color:var(--p);transform:scale(.93)}
-.nk.del{background:rgba(244,63,94,.1);border-color:rgba(244,63,94,.2);color:var(--danger);font-size:1.05rem}
-.nk.go{background:linear-gradient(135deg,var(--p),var(--p2));border:none;color:#000;font-size:.95rem;font-weight:900;grid-row:span 2;line-height:1.4}
-.nk.go:active{transform:scale(.94)}
-.nk.z{grid-column:span 2}
-
-/* 詳情 */
-.detail{animation:fadeUp .22s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-.fg{margin-bottom:12px}
-.flbl{display:block;font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}
-.fc{width:100%;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:12px 14px;color:var(--t);font-size:.92rem;transition:border-color var(--ease);-webkit-appearance:none;appearance:none}
-.fc:focus{border-color:var(--p);background:var(--card2)}
-.fc::placeholder{color:var(--t3)}
-select.fc{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238896b3' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;cursor:pointer}
-input[type=datetime-local]{color-scheme:dark}
-
-/* 快速分類 */
-.cat-chips{display:flex;flex-wrap:wrap;gap:7px}
-.cchip{padding:8px 13px;border-radius:50px;background:var(--card);border:1.5px solid var(--border);color:var(--t2);font-size:.8rem;font-weight:700;cursor:pointer;transition:var(--ease);font-family:inherit;-webkit-tap-highlight-color:transparent}
-.cchip.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
-.cchip:active{transform:scale(.93)}
-
-/* 切換按鈕組 */
-.tg{display:flex;gap:8px}
-.tb{flex:1;padding:12px 8px;border-radius:var(--rs);background:var(--card);border:1.5px solid var(--border);color:var(--t2);font-size:.86rem;font-weight:700;cursor:pointer;transition:var(--ease);font-family:inherit;text-align:center}
-.tb.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
-.tb:active{transform:scale(.95)}
-
-/* 卡片 chips */
-.card-chips{display:flex;flex-wrap:wrap;gap:7px}
-.cc{padding:8px 14px;border-radius:50px;background:var(--card);border:1.5px solid var(--border);color:var(--t2);font-size:.8rem;font-weight:700;cursor:pointer;transition:var(--ease);font-family:inherit}
-.cc.on{background:var(--bdim);border-color:var(--blue);color:var(--blue)}
-.cc:active{transform:scale(.93)}
-
-/* 按鈕 */
-.btn{width:100%;padding:15px;border-radius:var(--r);font-size:1rem;font-weight:900;font-family:inherit;transition:var(--ease);cursor:pointer;-webkit-tap-highlight-color:transparent}
-.btn-p{background:linear-gradient(135deg,var(--p),var(--p2));color:#000;box-shadow:0 4px 16px rgba(0,229,180,.28)}
-.btn-p:active{transform:scale(.98);box-shadow:none}
-.btn-s{background:var(--card);color:var(--t2);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center}
-.btn-s:active{background:var(--card2)}
-.btn-row{display:flex;gap:8px;margin-top:9px}
-.btn-row .btn{margin-top:0}
-
-/* 成功動畫 */
-.sov{position:fixed;inset:0;background:rgba(0,229,180,.08);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;opacity:0;pointer-events:none;transition:opacity .18s}
-.sov.show{opacity:1;pointer-events:all}
-.s-ic{font-size:5.5rem;animation:pop .4s cubic-bezier(.34,1.56,.64,1)}
-@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
-.s-tx{font-size:1.15rem;font-weight:900;color:var(--p);margin-top:10px}
-
-/* NAV */
-.nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;height:calc(var(--nav)+env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg2);border-top:1px solid var(--border);display:flex;align-items:stretch;z-index:200}
-.ni{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--t3);font-size:.64rem;font-weight:700;letter-spacing:.04em;position:relative;-webkit-tap-highlight-color:transparent}
-.ni .ic{font-size:1.45rem;line-height:1}
-.ni.on{color:var(--p)}
-.ni.on::after{content:'';position:absolute;top:0;left:22%;right:22%;height:2px;background:var(--p);border-radius:0 0 3px 3px}
-.ni-add{flex:0 0 70px}
-.ni-add .fab{width:50px;height:50px;margin-top:-10px;background:linear-gradient(135deg,var(--p),var(--p2));border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.55rem;box-shadow:0 4px 18px rgba(0,229,180,.45);transition:var(--ease)}
-.ni-add:active .fab{transform:scale(.9)}
-
-/* TOAST */
-.toast{position:fixed;top:18px;left:50%;transform:translateX(-50%) translateY(-80px);background:var(--ok);color:#fff;padding:11px 26px;border-radius:50px;font-size:.88rem;font-weight:700;z-index:9999;transition:transform .32s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.4)}
-.toast.show{transform:translateX(-50%) translateY(0)}
-.toast.warn{background:var(--warn)}.toast.err{background:var(--danger)}
-</style>
-
 </head>
 <body>
-
 <header class="hdr">
   <h1>➕ 新增記帳</h1>
-  <a href="./index.html" class="hdr-x">✕</a>
+  <a href="./index.html" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;">✕</a>
 </header>
-
 <div class="w">
   <div class="steps">
-    <div class="sd on" id="d0"></div>
-    <div class="sd" id="d1"></div>
-    <div class="sd" id="d2"></div>
+    <div class="sd on" id="d0"></div><div class="sd" id="d1"></div><div class="sd" id="d2"></div>
     <span class="shint" id="shint">輸入金額</span>
   </div>
-
   <div class="amt-card">
     <div class="amt-lbl">💰 記帳金額</div>
     <div class="amt-big" id="adisp">
-      <span class="cur">$</span>
-      <span id="aval">0</span>
-      <span class="cursor"></span>
+      <span class="cur">$</span><span id="aval">0</span><span class="cursor"></span>
     </div>
   </div>
-
-  <!-- 數字鍵盤 -->
   <div id="s1">
     <div class="numpad">
       <button class="nk" onclick="nk(7)">7</button>
@@ -155,50 +42,41 @@ input[type=datetime-local]{color-scheme:dark}
       <button class="nk go" onclick="goStep2()">確認<br>金額</button>
     </div>
   </div>
-
-  <!-- 詳情區域 -->
-  <div id="s2" style="display:none" class="detail">
+  <div id="s2" style="display:none">
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
       <input type="datetime-local" class="fc" id="tx-dt">
     </div>
-
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
       <div class="cat-chips" id="cat-chips"></div>
     </div>
-
     <div class="fg" id="sub-fg" style="display:none">
       <span class="flbl">📂 子分類（可略）</span>
       <select class="fc" id="sub-sel"><option value="">請選擇</option></select>
     </div>
-
     <div class="fg">
       <span class="flbl">📝 明細（可略）</span>
       <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30">
     </div>
-
     <div class="fg">
       <span class="flbl">👤 記帳人</span>
       <div class="tg">
-        <button class="tb on" onclick="setP('宏龍',this)">🙋 宏龍</button>
-        <button class="tb" onclick="setP('盈慧',this)">🙋‍♀️ 盈慧</button>
+        <button class="tb on" id="p-hl" onclick="setP('宏龍',this)">🙋 宏龍</button>
+        <button class="tb" id="p-yh" onclick="setP('盈慧',this)">🙋‍♀️ 盈慧</button>
       </div>
     </div>
-
     <div class="fg">
       <span class="flbl">💳 付款方式</span>
       <div class="tg">
-        <button class="tb on" onclick="setPay('cash',this)">💵 現金</button>
-        <button class="tb" onclick="setPay('card',this)">💳 信用卡</button>
+        <button class="tb on" id="pay-cash" onclick="setPay('cash',this)">💵 現金</button>
+        <button class="tb" id="pay-card" onclick="setPay('card',this)">💳 信用卡</button>
       </div>
     </div>
-
     <div class="fg" id="card-fg" style="display:none">
       <span class="flbl">🃏 選擇卡片</span>
       <div class="card-chips" id="card-chips"></div>
     </div>
-
     <div style="margin-top:18px">
       <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
       <div class="btn-row">
@@ -208,12 +86,7 @@ input[type=datetime-local]{color-scheme:dark}
     </div>
   </div>
 </div>
-
-<div class="sov" id="sov">
-  <div class="s-ic">✅</div>
-  <div class="s-tx">記帳成功！</div>
-</div>
-
+<div class="sov" id="sov"><div class="s-ic">✅</div><div class="s-tx">記帳成功！</div></div>
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">🏠</span><span>首頁</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
@@ -222,15 +95,55 @@ input[type=datetime-local]{color-scheme:dark}
   <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
 </nav>
 <div class="toast" id="toast"></div>
-
-
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-  <!-- 本地模組 -->
-  <script src="./js/db.js"></script>
-  <script src="./js/firebase.js"></script>
-  <script src="./js/ui.js"></script>
-  
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script src="./js/ui.js"></script>
+<script>
+let astr='',selCat='',selCard='',pay='cash',person='宏龍';
+function init(){
+  const now=new Date();
+  document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  document.getElementById('cat-chips').innerHTML=getCats().map(c=>`<button class="cchip" onclick="selC('${c.id}',this)">${c.name}</button>`).join('');
+  const cs=getCards();
+  document.getElementById('card-chips').innerHTML=cs.map(c=>`<button class="cc" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`).join('');
+  if(cs.length){selCard=cs[0].id;document.querySelector('.cc').classList.add('on');}
+}
+function nk(n){if(astr.length>=7)return;astr+=String(n);refreshAmt();}
+function nkd(){astr=astr.slice(0,-1);refreshAmt();}
+function refreshAmt(){const v=parseInt(astr)||0;document.getElementById('aval').textContent=v>0?fmt(v):'0';document.getElementById('adisp').classList.toggle('has-val',v>0);}
+function goStep2(){if(!(parseInt(astr)||0)){toast('請輸入金額','warn');return;}document.getElementById('s1').style.display='none';document.getElementById('s2').style.display='block';setStep(1);}
+function selC(id,el){selCat=id;document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));el.classList.add('on');const cat=catFind(id);const sf=document.getElementById('sub-fg');const ss=document.getElementById('sub-sel');if(cat.sub&&cat.sub.length){sf.style.display='block';ss.innerHTML='<option value="">子分類（可略）</option>'+cat.sub.map(s=>`<option>${s}</option>`).join('');}else{sf.style.display='none';}}
+function setPay(p,el){pay=p;document.querySelectorAll('#pay-cash,#pay-card').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('card-fg').style.display=p==='card'?'block':'none';}
+function setP(p,el){person=p;document.querySelectorAll('#p-hl,#p-yh').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function selCC(id,el){selCard=id;document.querySelectorAll('.cc').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+function submit(){
+  const amt=parseInt(astr)||0;
+  if(!amt){toast('金額不可為 0','warn');return;}
+  if(!selCat){toast('請選擇分類','warn');return;}
+  if(pay==='card'&&!selCard){toast('請選擇卡片','warn');return;}
+  const dtv=document.getElementById('tx-dt').value;
+  const tx={amount:amt,cat:selCat,subCat:document.getElementById('sub-sel').value,detail:document.getElementById('tx-detail').value.trim(),person,pay,cardId:pay==='card'?selCard:null,at:dtv?new Date(dtv).toISOString():new Date().toISOString()};
+  addTx(tx);fbAddTx(tx);
+  const bud=getBudget(tx.cat);
+  if(bud){const now=new Date();const sp=txByMonth(now.getFullYear(),now.getMonth()+1).filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);const pct=sp/bud;if(pct>=1)setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 預算超支！`,'err'),1400);else if(pct>=.8)setTimeout(()=>toast(`🔔 ${catName(tx.cat)} 已用 ${Math.round(pct*100)}%`,'warn'),1400);}
+  const sov=document.getElementById('sov');sov.classList.add('show');setTimeout(()=>sov.classList.remove('show'),1300);
+  toast(`記帳 $${fmt(amt)} 成功！`);resetForm();
+}
+function resetForm(){
+  astr='';selCat='';pay='cash';person='宏龍';
+  document.getElementById('aval').textContent='0';document.getElementById('adisp').classList.remove('has-val');
+  document.getElementById('s1').style.display='block';document.getElementById('s2').style.display='none';
+  document.getElementById('tx-detail').value='';document.getElementById('sub-fg').style.display='none';document.getElementById('card-fg').style.display='none';
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('pay-cash').classList.add('on');document.getElementById('pay-card').classList.remove('on');
+  document.getElementById('p-hl').classList.add('on');document.getElementById('p-yh').classList.remove('on');
+  const now=new Date();document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  setStep(0);
+}
+function setStep(s){const hints=['輸入金額','填寫詳情','完成'];document.getElementById('shint').textContent=hints[s]||'';[0,1,2].forEach(i=>{const d=document.getElementById('d'+i);d.className='sd'+(i<s?' done':i===s?' on':'');});}
+init();
+</script>
 </body>
 </html>
