@@ -216,7 +216,7 @@ const DEF_CARDS=[{id:'c1',name:'國泰世華',last4:'1234',color:'#1d4ed8'},{id:
 function initDB(){
   const mg=(o,n)=>{const v=localStorage.getItem(o);if(v&&!DB.get(n)){try{DB.set(n,JSON.parse(v))}catch{}}localStorage.removeItem(o);};
   mg('fb_transactions','tx');mg('fb_wallet','wal');mg('fb_categories','cats');mg('fb_cards','cards');mg('fb_budgets','bud');mg('fb_tx','tx');mg('fb_cats','cats');
-  if(!DB.get('cats'))DB.set('cats',DEF_CATS);if(!DB.get('cards'))DB.set('cards',DEF_CARDS);if(!DB.get('wal'))DB.set('wal',{balance:0,history:[]});if(!DB.get('bud'))DB.set('bud',{});if(!DB.get('tx'))DB.set('tx',makeDemo());
+  if(!DB.get('cats'))DB.set('cats',DEF_CATS);if(!DB.get('cards'))DB.set('cards',DEF_CARDS);if(!DB.get('wal'))DB.set('wal',{balance:0,history:[]});if(!DB.get('bud'))DB.set('bud',{});if(!DB.get('tx'))DB.set('tx',[]);
 }
 function getTx(){return DB.get('tx')||[];}
 function addTx(tx){const l=getTx();tx.id=Date.now().toString(36)+Math.random().toString(36).slice(2,5);tx.at=tx.at||new Date().toISOString();l.unshift(tx);DB.set('tx',l);if(tx.pay==='cash')walOut(tx.amount,tx.detail||catName(tx.cat));return tx;}

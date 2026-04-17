@@ -227,7 +227,7 @@ function initDB(){
   if(!DB.get('cards')) DB.set('cards',DEF_CARDS);
   if(!DB.get('wal'))   DB.set('wal',  {balance:0,history:[]});
   if(!DB.get('bud'))   DB.set('bud',  {});
-  if(!DB.get('tx'))    DB.set('tx',   makeDemo());
+  if(!DB.get('tx'))    DB.set('tx',   []);
 }
 
 // 交易
