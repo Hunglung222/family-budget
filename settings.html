@@ -107,19 +107,19 @@ input,select{font-family:inherit;outline:none;border:none}
 function init(){renderStat();renderCats()}
 
 function renderStat(){
-  const tx=txAll(),w=wallet(),now=new Date();
-  const m=txMonth(now.getFullYear(),now.getMonth()+1);
+  const tx=getTx(),w=getWal(),now=new Date();
+  const m=txByMonth(now.getFullYear(),now.getMonth()+1);
   document.getElementById('data-stat').innerHTML=`
     <div class="drow"><span>📋 總記帳筆數</span><span class="v">${tx.length}</span></div>
     <div class="drow"><span>📅 本月筆數</span><span class="v">${m.length}</span></div>
     <div class="drow"><span>💰 本月支出</span><span class="v">$${fmt(m.reduce((s,t)=>s+t.amount,0))}</span></div>
     <div class="drow"><span>👛 錢包餘額</span><span class="v">$${fmt(w.balance)}</span></div>
-    <div class="drow"><span>🏷️ 分類數</span><span class="v">${cats().length}</span></div>
-    <div class="drow"><span>💳 信用卡數</span><span class="v">${cards().length}</span></div>`;
+    <div class="drow"><span>🏷️ 分類數</span><span class="v">${getCats().length}</span></div>
+    <div class="drow"><span>💳 信用卡數</span><span class="v">${getCards().length}</span></div>`;
 }
 
 function renderCats(){
-  document.getElementById('cat-list').innerHTML=cats().map(c=>`
+  document.getElementById('cat-list').innerHTML=getCats().map(c=>`
     <div class="citem">
       <div class="cdot" style="background:${c.color}"></div>
       <span class="cname2">${c.name}</span>
@@ -137,7 +137,7 @@ function addCat(){
 }
 
 function exportData(){
-  const d={transactions:txAll(),wallet:wallet(),categories:cats(),cards:cards(),budgets:budgets(),at:new Date().toISOString()};
+  const d={transactions:getTx(),wallet:getWal(),categories:getCats(),cards:getCards(),budgets:getBud(),at:new Date().toISOString()};
   const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
   const u=URL.createObjectURL(b);const a=document.createElement('a');
   a.href=u;a.download=`家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;

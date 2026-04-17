@@ -139,7 +139,7 @@ function preset(t){
 function load(){
   const f=document.getElementById('df').value,e=document.getElementById('dt').value;
   if(!f||!e){toast('請選擇日期','warn');return}
-  txData=txRange(f,e);
+  txData=txByRange(f,e);
   document.getElementById('range-lbl').textContent=`${f} ～ ${e}（${txData.length}筆）`;
   renderOv();renderPie();renderBar();renderBud();
 }
@@ -193,7 +193,7 @@ function renderPie(){
 }
 
 function renderBar(){
-  const all=txAll();const mm={};
+  const all=getTx();const mm={};
   all.forEach(t=>{const d=new Date(t.at);const k=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;mm[k]=(mm[k]||0)+t.amount});
   const ks=Object.keys(mm).sort().slice(-12);const vs=ks.map(k=>mm[k]);
   if(barC) barC.destroy();
@@ -208,9 +208,9 @@ function renderBar(){
 }
 
 function renderBud(){
-  const now=new Date();const txs=txMonth(now.getFullYear(),now.getMonth()+1);const s=stats(txs);
-  document.getElementById('bud-list').innerHTML=cats().map(c=>{
-    const bud=budgetGet(c.id);const sp=s.byCat[c.id]||0;
+  const now=new Date();const txs=txByMonth(now.getFullYear(),now.getMonth()+1);const s=stats(txs);
+  document.getElementById('bud-list').innerHTML=getCats().map(c=>{
+    const bud=getBudget(c.id);const sp=s.byCat[c.id]||0;
     const pct=bud>0?Math.min(sp/bud*100,100):0;
     const over=bud>0&&sp>bud;const near=bud>0&&!over&&pct>=80;
     return `<div class="bitem">
@@ -227,7 +227,7 @@ function renderBud(){
   }).join('');
 }
 
-function saveBud(id,v){budgetSet(id,parseInt(v)||0);renderBud();toast('預算已儲存')}
+function saveBud(id,v){setBudget(id,parseInt(v)||0);renderBud();toast('預算已儲存')}
 
 function sw(id,el){
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));

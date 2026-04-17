@@ -124,7 +124,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 function init(){render();renderCards();renderStats()}
 
 function render(){
-  const w=wallet();
+  const w=getWal();
   document.getElementById('bal').textContent=fmt(w.balance);
   if(w.history.length) document.getElementById('wupd').textContent='更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
   const h=document.getElementById('hist');
@@ -141,7 +141,7 @@ function render(){
 }
 
 function renderCards(){
-  const cs=cards();
+  const cs=getCards();
   const el=document.getElementById('card-list');
   if(!cs.length){el.innerHTML='<div class="empty">尚無信用卡</div>';return}
   el.innerHTML=cs.map(c=>`
@@ -157,9 +157,9 @@ function renderCards(){
 
 function renderStats(){
   const now=new Date();
-  const txs=txMonth(now.getFullYear(),now.getMonth()+1);
+  const txs=txByMonth(now.getFullYear(),now.getMonth()+1);
   const out=txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
-  const w=wallet();
+  const w=getWal();
   const inn=w.history.filter(h=>{
     const d=new Date(h.time);
     return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
@@ -172,7 +172,7 @@ function qadd(n){walIn(n,'提領現金');fbSyncWallet(getWal());toast(`已新增
 function addCustom(){
   const n=parseInt(document.getElementById('custom-amt').value)||0;
   if(!n){toast('請輸入金額','warn');return}
-  walletIn(n,'手動新增');document.getElementById('custom-amt').value='';
+  walIn(n,'手動新增');document.getElementById('custom-amt').value='';
   toast(`已新增 $${fmt(n)}`);render();renderStats();
 }
 
