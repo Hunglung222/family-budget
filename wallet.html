@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1117">
+  <title>錢包</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .wallet-hero {
+      background: linear-gradient(135deg, #0d2b35 0%, #0a1f2e 100%);
+      border: 1px solid #1e3d52;
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      margin-bottom: 14px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .wallet-hero::before {
+      content: '💵';
+      position: absolute;
+      font-size: 8rem;
+      right: -20px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.07;
+    }
+    .wallet-balance-title {
+      font-size: 0.72rem;
+      color: var(--text2);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .wallet-amount {
+      font-size: 3rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: -0.03em;
+      color: var(--primary);
+      line-height: 1;
+    }
+    .wallet-currency {
+      font-size: 1.3rem;
+      color: var(--text2);
+      font-weight: 400;
+      margin-right: 4px;
+    }
+    .wallet-updated {
+      font-size: 0.7rem;
+      color: var(--text3);
+      margin-top: 8px;
+    }
+    .add-cash-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 16px;
+      border: 1px solid var(--border);
+      margin-bottom: 14px;
+    }
+    .add-cash-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text2);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    .quick-amounts {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .quick-amt-btn {
+      background: var(--card2);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 4px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text2);
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+    }
+    .quick-amt-btn:active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: scale(0.95);
+    }
+    .cash-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+    .cash-input-row .form-control {
+      flex: 1;
+      font-size: 1rem;
+    }
+    .btn-add-cash {
+      padding: 12px 20px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      border-radius: var(--radius-sm);
+      font-size: 0.9rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--transition);
+      border: none;
+    }
+    .btn-add-cash:active { transform: scale(0.96); }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .history-icon.in  { background: rgba(34,197,94,0.15); }
+    .history-icon.out { background: rgba(239,68,68,0.12); }
+    .history-info { flex: 1; min-width: 0; }
+    .history-note {
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-time {
+      font-size: 0.68rem;
+      color: var(--text3);
+      margin-top: 2px;
+    }
+    .history-amount {
+      font-size: 0.95rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+    }
+    .history-amount.in  { color: var(--success); }
+    .history-amount.out { color: #ff6b7a; }
+
+    .card-manage-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-manage-item:last-child { border-bottom: none; }
+    .card-color-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .card-manage-info { flex: 1; }
+    .card-manage-name { font-size: 0.9rem; font-weight: 500; }
+    .card-manage-last4 { font-size: 0.72rem; color: var(--text3); }
+    .btn-del-card {
+      background: none;
+      border: none;
+      color: var(--text3);
+      font-size: 1rem;
+      padding: 4px 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: var(--transition);
+    }
+    .btn-del-card:hover { color: var(--danger); background: rgba(239,68,68,0.1); }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>👛 錢包</h1>
+      <div class="header-sub">現金管理</div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- 餘額大卡 -->
+    <div class="wallet-hero">
+      <div class="wallet-balance-title">💵 現金餘額</div>
+      <div class="wallet-amount">
+        <span class="wallet-currency">$</span>
+        <span id="wallet-balance">0</span>
+      </div>
+      <div class="wallet-updated" id="wallet-updated"></div>
+    </div>
+
+    <!-- 新增現金 -->
+    <div class="add-cash-card">
+      <div class="add-cash-title">➕ 新增現金（提領/收入）</div>
+      <div class="quick-amounts">
+        <button class="quick-amt-btn" onclick="quickAdd(500)">500</button>
+        <button class="quick-amt-btn" onclick="quickAdd(1000)">1,000</button>
+        <button class="quick-amt-btn" onclick="quickAdd(2000)">2,000</button>
+        <button class="quick-amt-btn" onclick="quickAdd(5000)">5,000</button>
+      </div>
+      <div class="cash-input-row">
+        <input type="number" class="form-control" id="cash-amount" placeholder="自訂金額" min="1">
+        <button class="btn-add-cash" onclick="addCash()">＋ 新增</button>
+      </div>
+    </div>
+
+    <!-- 信用卡管理 -->
+    <div class="card" style="margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="add-cash-title" style="margin:0;">💳 信用卡管理</div>
+        <button onclick="showAddCard()" style="background:var(--primary-dim);color:var(--primary);border:none;border-radius:6px;padding:6px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;font-family:inherit;">＋ 新增</button>
+      </div>
+      <div id="card-list"></div>
+    </div>
+
+    <!-- 本月現金統計 -->
+    <div class="stat-row" style="margin-bottom:14px;">
+      <div class="stat-card green">
+        <div class="stat-label">💵 本月現金支出</div>
+        <div class="stat-value" id="month-cash-spent">0</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">➕ 本月現金收入</div>
+        <div class="stat-value" id="month-cash-in">0</div>
+      </div>
+    </div>
+
+    <!-- 歷史記錄 -->
+    <div class="card">
+      <div class="add-cash-title" style="margin-bottom:12px;">📋 現金記錄</div>
+      <div id="wallet-history"></div>
+    </div>
+  </main>
+
+  <!-- 新增卡片 Modal -->
+  <div class="modal-overlay" id="add-card-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">💳 新增信用卡</div>
+      <div class="form-group">
+        <label class="form-label">銀行 / 卡名</label>
+        <input type="text" class="form-control" id="new-card-name" placeholder="例：台新玫瑰卡">
+      </div>
+      <div class="form-group">
+        <label class="form-label">末四碼</label>
+        <input type="number" class="form-control" id="new-card-last4" placeholder="1234" maxlength="4">
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="closeAddCard()">取消</button>
+        <button class="btn btn-primary" onclick="submitAddCard()">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+
+  <script src="js/db.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    function init() {
+      renderBottomNav('wallet');
+      renderWallet();
+      renderCards();
+      renderStats();
+    }
+
+    function renderWallet() {
+      const w = walletGet();
+      document.getElementById('wallet-balance').textContent = fmt(w.balance);
+      // 最近更新時間
+      if (w.history.length > 0) {
+        const lastTime = new Date(w.history[0].time);
+        document.getElementById('wallet-updated').textContent =
+          '最後更新：' + lastTime.toLocaleString('zh-TW');
+      }
+      // 歷史列表
+      const el = document.getElementById('wallet-history');
+      if (!w.history.length) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-icon">💵</div><p>尚無記錄</p></div>';
+        return;
+      }
+      el.innerHTML = w.history.slice(0, 30).map(h => `
+        <div class="history-item">
+          <div class="history-icon ${h.type}">${h.type === 'in' ? '⬆️' : '⬇️'}</div>
+          <div class="history-info">
+            <div class="history-note">${h.note || (h.type === 'in' ? '現金收入' : '現金支出')}</div>
+            <div class="history-time">${new Date(h.time).toLocaleString('zh-TW')}</div>
+          </div>
+          <div class="history-amount ${h.type}">
+            ${h.type === 'in' ? '+' : '-'}$${fmt(h.amount)}
+          </div>
+        </div>`).join('');
+    }
+
+    function renderCards() {
+      const cards = cardsGet();
+      const el = document.getElementById('card-list');
+      if (!cards.length) {
+        el.innerHTML = '<div style="color:var(--text3);font-size:0.85rem;text-align:center;padding:12px;">尚無信用卡</div>';
+        return;
+      }
+      el.innerHTML = cards.map(c => `
+        <div class="card-manage-item">
+          <div class="card-color-dot" style="background:${c.color || '#5b8dee'}"></div>
+          <div class="card-manage-info">
+            <div class="card-manage-name">${c.name}</div>
+            <div class="card-manage-last4">···· ···· ···· ${c.last4}</div>
+          </div>
+          <button class="btn-del-card" onclick="deleteCard('${c.id}')">🗑️</button>
+        </div>`).join('');
+    }
+
+    function renderStats() {
+      const now = new Date();
+      const txs = txGetByMonth(now.getFullYear(), now.getMonth()+1);
+      const cashSpent = txs.filter(t=>t.payMethod==='cash').reduce((s,t)=>s+t.amount,0);
+      const w = walletGet();
+      const cashIn = w.history.filter(h => {
+        const d = new Date(h.time);
+        return h.type === 'in' && d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+      }).reduce((s,h)=>s+h.amount,0);
+      document.getElementById('month-cash-spent').textContent = fmt(cashSpent);
+      document.getElementById('month-cash-in').textContent    = fmt(cashIn);
+    }
+
+    function quickAdd(amount) {
+      walletAdd(amount, `提領現金`);
+      showToast(`已新增 $${fmt(amount)}`, 'success');
+      renderWallet();
+      renderStats();
+    }
+
+    function addCash() {
+      const val = parseInt(document.getElementById('cash-amount').value) || 0;
+      if (val <= 0) { showToast('請輸入有效金額', 'warn'); return; }
+      walletAdd(val, '手動新增現金');
+      document.getElementById('cash-amount').value = '';
+      showToast(`已新增 $${fmt(val)}`, 'success');
+      renderWallet();
+      renderStats();
+    }
+
+    function deleteCard(id) {
+      showConfirm('刪除信用卡', '確定要刪除這張卡片嗎？', () => {
+        cardsDelete(id);
+        renderCards();
+        showToast('已刪除', 'error');
+      });
+    }
+
+    function showAddCard() {
+      document.getElementById('add-card-modal').classList.add('show');
+    }
+    function closeAddCard() {
+      document.getElementById('add-card-modal').classList.remove('show');
+    }
+
+    function submitAddCard() {
+      const name  = document.getElementById('new-card-name').value.trim();
+      const last4 = document.getElementById('new-card-last4').value.trim();
+      if (!name)  { showToast('請輸入卡名', 'warn'); return; }
+      if (!last4) { showToast('請輸入末四碼', 'warn'); return; }
+      const colors = ['#1e40af','#be185d','#374151','#0d9488','#7c3aed','#b45309'];
+      const color  = colors[Math.floor(Math.random() * colors.length)];
+      cardsAdd({ name, last4, color });
+      closeAddCard();
+      renderCards();
+      showToast(`已新增 ${name}`, 'success');
+      document.getElementById('new-card-name').value  = '';
+      document.getElementById('new-card-last4').value = '';
+    }
+
+    init();
+  </script>
+</body>
+</html>

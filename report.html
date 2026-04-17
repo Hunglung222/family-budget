@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1117">
+  <title>報表</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    .tab-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 16px;
+      background: var(--card);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 9px 6px;
+      border-radius: 7px;
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: var(--primary-dim);
+      color: var(--primary);
+    }
+    .tab-panel { display: none; }
+    .tab-panel.show { display: block; }
+
+    .summary-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .summary-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+      text-align: center;
+    }
+    .summary-card .val {
+      font-size: 1.4rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .summary-card .lbl {
+      font-size: 0.68rem;
+      color: var(--text2);
+      margin-top: 2px;
+      letter-spacing: 0.05em;
+    }
+    .ratio-bar {
+      height: 12px;
+      border-radius: 6px;
+      background: var(--bg2);
+      overflow: hidden;
+      display: flex;
+      margin: 8px 0 4px;
+    }
+    .ratio-fill-cash {
+      background: var(--primary);
+      transition: width 0.6s ease;
+    }
+    .ratio-fill-card {
+      background: var(--accent);
+      flex: 1;
+    }
+    .ratio-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      color: var(--text2);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>📊 報表分析</h1>
+      <div class="header-sub" id="report-range"></div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- 日期區間 -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="add-cash-title" style="margin-bottom:10px;font-size:0.72rem;font-weight:600;color:var(--text2);letter-spacing:0.08em;text-transform:uppercase;">📅 自訂日期區間</div>
+      <div class="date-range-row">
+        <input type="date" class="form-control" id="date-from" style="color-scheme:dark;">
+        <span class="date-range-sep">→</span>
+        <input type="date" class="form-control" id="date-to" style="color-scheme:dark;">
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary btn-sm" onclick="setPreset('month')">本月</button>
+        <button class="btn btn-secondary btn-sm" onclick="setPreset('last30')">近30天</button>
+        <button class="btn btn-secondary btn-sm" onclick="setPreset('quarter')">近3月</button>
+        <button class="btn btn-primary btn-sm" onclick="loadData()" style="margin-left:auto;">查詢</button>
+      </div>
+    </div>
+
+    <!-- 頁籤 -->
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('overview',this)">📈 總覽</button>
+      <button class="tab-btn" onclick="switchTab('category',this)">🏷️ 分類</button>
+      <button class="tab-btn" onclick="switchTab('monthly',this)">📅 月趨勢</button>
+      <button class="tab-btn" onclick="switchTab('budget',this)">🎯 預算</button>
+    </div>
+
+    <!-- 總覽頁籤 -->
+    <div class="tab-panel show" id="tab-overview">
+      <div class="summary-row">
+        <div class="summary-card">
+          <div class="val" id="ov-total">0</div>
+          <div class="lbl">💰 總支出</div>
+        </div>
+        <div class="summary-card">
+          <div class="val" id="ov-count">0</div>
+          <div class="lbl">📋 筆數</div>
+        </div>
+        <div class="summary-card">
+          <div class="val" id="ov-card">0</div>
+          <div class="lbl">💳 信用卡</div>
+        </div>
+        <div class="summary-card">
+          <div class="val" id="ov-cash">0</div>
+          <div class="lbl">💵 現金</div>
+        </div>
+      </div>
+
+      <!-- 現金/信用卡比例 -->
+      <div class="chart-card">
+        <div class="chart-title">💳 付款方式比例</div>
+        <div class="ratio-bar">
+          <div class="ratio-fill-cash" id="ratio-cash-bar" style="width:50%"></div>
+          <div class="ratio-fill-card" id="ratio-card-bar"></div>
+        </div>
+        <div class="ratio-labels">
+          <span>💵 現金 <strong id="ratio-cash-pct">0%</strong></span>
+          <span>💳 信用卡 <strong id="ratio-card-pct">0%</strong></span>
+        </div>
+      </div>
+
+      <!-- 信用卡分卡統計 -->
+      <div class="chart-card">
+        <div class="chart-title">🃏 信用卡各卡消費</div>
+        <div id="card-breakdown"></div>
+      </div>
+
+      <!-- 雙人比較 -->
+      <div class="chart-card">
+        <div class="chart-title">👥 雙人消費比例</div>
+        <div class="chart-container" style="height:200px;">
+          <canvas id="person-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分類頁籤 -->
+    <div class="tab-panel" id="tab-category">
+      <div class="chart-card">
+        <div class="chart-title">🏷️ 分類支出圓餅圖</div>
+        <div class="chart-container" style="height:240px;">
+          <canvas id="pie-chart"></canvas>
+        </div>
+        <div class="legend-list" id="pie-legend"></div>
+      </div>
+    </div>
+
+    <!-- 月趨勢頁籤 -->
+    <div class="tab-panel" id="tab-monthly">
+      <div class="chart-card">
+        <div class="chart-title">📅 每月支出趨勢</div>
+        <div class="chart-container" style="height:240px;">
+          <canvas id="bar-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 預算頁籤 -->
+    <div class="tab-panel" id="tab-budget">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="font-size:0.78rem;font-weight:600;color:var(--text2);letter-spacing:0.06em;text-transform:uppercase;">🎯 分類預算設定</div>
+        <div style="font-size:0.7rem;color:var(--text3);">本月數據</div>
+      </div>
+      <div id="budget-list"></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+
+  <script src="js/db.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    let pieChart    = null;
+    let barChart    = null;
+    let personChart = null;
+    let txData      = [];
+
+    const CAT_COLORS = [
+      '#00c6a2','#5b8dee','#f59e0b','#ec4899','#8b5cf6',
+      '#06b6d4','#84cc16','#f97316','#64748b','#94a3b8',
+    ];
+
+    Chart.defaults.color = '#8892a8';
+    Chart.defaults.font.family = "'DM Sans', 'Noto Sans TC', sans-serif";
+
+    function init() {
+      renderBottomNav('report');
+      setPreset('month');
+      loadData();
+    }
+
+    function setPreset(type) {
+      const now = new Date();
+      let from, to;
+      if (type === 'month') {
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to   = new Date(now.getFullYear(), now.getMonth()+1, 0);
+      } else if (type === 'last30') {
+        from = new Date(now - 30*24*60*60*1000);
+        to   = now;
+      } else if (type === 'quarter') {
+        from = new Date(now.getFullYear(), now.getMonth()-2, 1);
+        to   = now;
+      }
+      document.getElementById('date-from').value = toInputDate(from);
+      document.getElementById('date-to').value   = toInputDate(to);
+    }
+
+    function toInputDate(d) {
+      return d.toISOString().slice(0, 10);
+    }
+
+    function loadData() {
+      const from = document.getElementById('date-from').value;
+      const to   = document.getElementById('date-to').value;
+      if (!from || !to) { showToast('請選擇日期區間', 'warn'); return; }
+      txData = txGetByRange(from, to);
+      document.getElementById('report-range').textContent = `${from} ～ ${to}（${txData.length} 筆）`;
+      renderOverview();
+      renderPieChart();
+      renderBarChart();
+      renderBudgets();
+    }
+
+    // ── 總覽 ─────────────────────────────────
+    function renderOverview() {
+      const stats = calcStats(txData);
+      document.getElementById('ov-total').textContent = '$' + fmt(stats.total);
+      document.getElementById('ov-count').textContent = txData.length;
+      document.getElementById('ov-card').textContent  = '$' + fmt(stats.card);
+      document.getElementById('ov-cash').textContent  = '$' + fmt(stats.cash);
+
+      const cashPct = stats.total > 0 ? Math.round(stats.cash / stats.total * 100) : 0;
+      const cardPct = 100 - cashPct;
+      document.getElementById('ratio-cash-bar').style.width = cashPct + '%';
+      document.getElementById('ratio-cash-pct').textContent = cashPct + '%';
+      document.getElementById('ratio-card-pct').textContent = cardPct + '%';
+
+      // 信用卡分卡
+      const el = document.getElementById('card-breakdown');
+      if (Object.keys(stats.byCard).length === 0) {
+        el.innerHTML = '<div style="color:var(--text3);font-size:0.82rem;text-align:center;padding:8px;">無信用卡消費</div>';
+      } else {
+        el.innerHTML = Object.entries(stats.byCard)
+          .sort((a,b) => b[1]-a[1])
+          .map(([cid, amt]) => {
+            const card = cardFind(cid);
+            const pct  = stats.card > 0 ? Math.round(amt/stats.card*100) : 0;
+            return `<div style="margin-bottom:10px;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:0.82rem;">${card ? card.name : cid}</span>
+                <span style="font-size:0.82rem;font-weight:600;font-family:'DM Sans';">$${fmt(amt)}</span>
+              </div>
+              <div class="budget-bar">
+                <div class="budget-fill" style="width:${pct}%;background:${card?.color||'var(--accent)'}"></div>
+              </div>
+            </div>`;
+          }).join('');
+      }
+
+      // 雙人圓餅
+      if (personChart) personChart.destroy();
+      const p1 = stats.byPerson['宏龍'] || 0;
+      const p2 = stats.byPerson['盈慧'] || 0;
+      personChart = new Chart(document.getElementById('person-chart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['宏龍', '盈慧'],
+          datasets: [{
+            data: [p1, p2],
+            backgroundColor: ['#00c6a2','#5b8dee'],
+            borderColor: '#1e2333',
+            borderWidth: 3,
+          }],
+        },
+        options: {
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: {
+              callbacks: {
+                label: ctx => `$${fmt(ctx.raw)} (${Math.round(ctx.raw/(p1+p2||1)*100)}%)`
+              }
+            }
+          },
+        },
+      });
+    }
+
+    // ── 分類圓餅 ──────────────────────────────
+    function renderPieChart() {
+      const stats   = calcStats(txData);
+      const cats    = catsGet();
+      const entries = Object.entries(stats.byCat).sort((a,b) => b[1]-a[1]);
+
+      if (pieChart) pieChart.destroy();
+      if (!entries.length) {
+        document.getElementById('pie-legend').innerHTML =
+          '<div class="empty-state"><div class="empty-icon">📊</div><p>無資料</p></div>';
+        return;
+      }
+
+      const labels = entries.map(([id]) => catFind(id).name);
+      const values = entries.map(([,v]) => v);
+      const colors = entries.map(([id], i) => catFind(id).color || CAT_COLORS[i % CAT_COLORS.length]);
+
+      pieChart = new Chart(document.getElementById('pie-chart'), {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: '#1e2333',
+            borderWidth: 3,
+          }],
+        },
+        options: {
+          cutout: '60%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: ctx => `$${fmt(ctx.raw)} (${Math.round(ctx.raw/stats.total*100)}%)`
+              }
+            }
+          },
+        },
+      });
+
+      document.getElementById('pie-legend').innerHTML = entries.map(([id, amt], i) => {
+        const pct = stats.total > 0 ? Math.round(amt/stats.total*100) : 0;
+        return `<div class="legend-item">
+          <div class="legend-dot" style="background:${colors[i]}"></div>
+          <span class="legend-name">${catFind(id).name}</span>
+          <span class="legend-pct">${pct}%</span>
+          <span class="legend-amt">$${fmt(amt)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // ── 月趨勢長條圖 ──────────────────────────
+    function renderBarChart() {
+      const all = txGetAll();
+      const monthMap = {};
+      all.forEach(tx => {
+        const d = new Date(tx.createdAt);
+        const key = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+        monthMap[key] = (monthMap[key] || 0) + tx.amount;
+      });
+      const keys   = Object.keys(monthMap).sort().slice(-12);
+      const values = keys.map(k => monthMap[k]);
+
+      if (barChart) barChart.destroy();
+      barChart = new Chart(document.getElementById('bar-chart'), {
+        type: 'bar',
+        data: {
+          labels: keys.map(k => k.replace('/','/').slice(2)),
+          datasets: [{
+            label: '支出',
+            data: values,
+            backgroundColor: keys.map((_, i) => i === keys.length-1 ? '#00c6a2' : '#5b8dee44'),
+            borderColor:     keys.map((_, i) => i === keys.length-1 ? '#00c6a2' : '#5b8dee'),
+            borderWidth: 1.5,
+            borderRadius: 6,
+          }],
+        },
+        options: {
+          plugins: { legend: { display: false } },
+          scales: {
+            y: {
+              grid: { color: '#2e354844' },
+              ticks: { callback: v => '$' + fmt(v) },
+            },
+            x: { grid: { display: false } },
+          },
+        },
+      });
+    }
+
+    // ── 預算 ──────────────────────────────────
+    function renderBudgets() {
+      const cats   = catsGet();
+      const now    = new Date();
+      const txs    = txGetByMonth(now.getFullYear(), now.getMonth()+1);
+      const stats  = calcStats(txs);
+      const el     = document.getElementById('budget-list');
+
+      el.innerHTML = cats.map(cat => {
+        const budget = budgetGet(cat.id);
+        const spent  = stats.byCat[cat.id] || 0;
+        const pct    = budget > 0 ? Math.min(spent / budget * 100, 100) : 0;
+        const over   = budget > 0 && spent > budget;
+        const near   = budget > 0 && !over && pct >= 80;
+        return `<div class="budget-item">
+          <div class="budget-header">
+            <span class="budget-cat">${cat.name}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <input type="number" class="form-control" style="width:100px;font-size:0.8rem;padding:6px 10px;"
+                value="${budget || ''}" placeholder="設定預算"
+                onchange="saveBudget('${cat.id}',this.value)"
+                onfocus="this.select()">
+            </div>
+          </div>
+          ${budget > 0 ? `
+            <div class="budget-amounts">已用 $${fmt(spent)} / $${fmt(budget)}</div>
+            <div class="budget-bar" style="margin-top:6px;">
+              <div class="budget-fill ${over?'danger':near?'warn':''}" style="width:${pct}%"></div>
+            </div>
+            ${over ? '<div class="budget-warn-text danger">⚠️ 已超支 $'+fmt(spent-budget)+'</div>' :
+              near ? '<div class="budget-warn-text warn">🔔 已使用 '+Math.round(pct)+'%，接近上限</div>' : ''}
+          ` : `<div style="font-size:0.72rem;color:var(--text3);margin-top:4px;">本月消費：$${fmt(spent)}（未設預算）</div>`}
+        </div>`;
+      }).join('');
+    }
+
+    function saveBudget(catId, val) {
+      const n = parseInt(val) || 0;
+      budgetSet(catId, n);
+      renderBudgets();
+      showToast('預算已更新', 'success');
+    }
+
+    function switchTab(id, el) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('show'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('tab-'+id).classList.add('show');
+      el.classList.add('active');
+    }
+
+    init();
+  </script>
+</body>
+</html>

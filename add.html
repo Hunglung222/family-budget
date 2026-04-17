@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1117">
+  <title>新增記帳</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .amount-big {
+      background: var(--card);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      text-align: center;
+      position: relative;
+    }
+    .amount-display {
+      font-size: 3rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: -0.03em;
+      color: var(--primary);
+      line-height: 1;
+      min-height: 3.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .amount-display .prefix {
+      font-size: 1.4rem;
+      color: var(--text2);
+      margin-right: 6px;
+      font-weight: 400;
+    }
+    .amount-display .cursor {
+      display: inline-block;
+      width: 2px;
+      height: 2.6rem;
+      background: var(--primary);
+      margin-left: 4px;
+      animation: blink 1s infinite;
+      vertical-align: middle;
+    }
+    @keyframes blink { 0%,50% { opacity:1; } 51%,100% { opacity:0; } }
+    .amount-display.has-value .cursor { display: none; }
+
+    /* 數字鍵盤 */
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .numpad-btn {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 8px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: var(--text);
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .numpad-btn:active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+      transform: scale(0.95);
+    }
+    .numpad-btn.del {
+      background: rgba(239,68,68,0.1);
+      border-color: rgba(239,68,68,0.2);
+      color: var(--danger);
+      font-size: 1rem;
+    }
+    .numpad-btn.ok {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-color: transparent;
+      color: white;
+      font-size: 1rem;
+      font-weight: 700;
+      grid-row: span 2;
+    }
+    .numpad-btn.zero { grid-column: span 2; }
+
+    /* 收起鍵盤後的詳情區 */
+    .detail-section {
+      animation: slideDown 0.25s ease;
+    }
+    @keyframes slideDown {
+      from { opacity:0; transform: translateY(-8px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    .datetime-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .datetime-row .form-control {
+      flex: 1;
+      font-size: 0.85rem;
+      padding: 10px 12px;
+      color-scheme: dark;
+    }
+    .step-indicator {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .step-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: var(--transition);
+    }
+    .step-dot.active { background: var(--primary); transform: scale(1.3); }
+    .step-dot.done   { background: var(--primary); opacity: 0.5; }
+
+    .success-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,198,162,0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .success-overlay.show { opacity: 1; pointer-events: all; }
+    .success-icon {
+      font-size: 5rem;
+      animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+    .success-text {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>➕ 新增記帳</h1>
+      <div class="header-sub" id="now-time"></div>
+    </div>
+    <a href="index.html" class="header-action">✕</a>
+  </header>
+
+  <main class="content">
+    <!-- 步驟指示 -->
+    <div class="step-indicator">
+      <div class="step-dot active" id="dot-0"></div>
+      <div class="step-dot" id="dot-1"></div>
+      <div class="step-dot" id="dot-2"></div>
+      <span style="font-size:0.7rem;color:var(--text3);margin-left:4px;" id="step-hint">輸入金額</span>
+    </div>
+
+    <!-- 金額大顯示 -->
+    <div class="amount-big">
+      <div class="amount-display" id="amount-display">
+        <span class="prefix">$</span>
+        <span id="amount-val">0</span>
+        <span class="cursor"></span>
+      </div>
+    </div>
+
+    <!-- Step 1: 數字鍵盤 -->
+    <div id="step-numpad">
+      <div class="numpad">
+        <button class="numpad-btn" onclick="numpad(7)">7</button>
+        <button class="numpad-btn" onclick="numpad(8)">8</button>
+        <button class="numpad-btn" onclick="numpad(9)">9</button>
+        <button class="numpad-btn" onclick="numpad(4)">4</button>
+        <button class="numpad-btn" onclick="numpad(5)">5</button>
+        <button class="numpad-btn" onclick="numpad(6)">6</button>
+        <button class="numpad-btn" onclick="numpad(1)">1</button>
+        <button class="numpad-btn" onclick="numpad(2)">2</button>
+        <button class="numpad-btn" onclick="numpad(3)">3</button>
+        <button class="numpad-btn del" onclick="numpadDel()">⌫</button>
+        <button class="numpad-btn zero" onclick="numpad(0)">0</button>
+        <button class="numpad-btn ok" onclick="confirmAmount()">確認<br>金額</button>
+      </div>
+    </div>
+
+    <!-- Step 2: 詳情欄位 -->
+    <div id="step-detail" style="display:none;" class="detail-section">
+
+      <!-- 日期時間 -->
+      <div class="form-group">
+        <label class="form-label">📅 日期時間</label>
+        <div class="datetime-row">
+          <input type="datetime-local" class="form-control" id="tx-datetime" style="color-scheme:dark;">
+        </div>
+      </div>
+
+      <!-- 快速分類 -->
+      <div class="form-group">
+        <label class="form-label">🏷️ 分類</label>
+        <div class="quick-cats" id="quick-cats"></div>
+        <select class="form-control" id="sub-category" style="display:none;">
+          <option value="">選擇子分類（可略）</option>
+        </select>
+      </div>
+
+      <!-- 明細 -->
+      <div class="form-group">
+        <label class="form-label">📝 明細（可略）</label>
+        <input type="text" class="form-control" id="tx-detail" placeholder="例：家樂福採購" maxlength="30">
+      </div>
+
+      <!-- 記帳人 -->
+      <div class="form-group">
+        <label class="form-label">👤 記帳人</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-person="宏龍" onclick="setPerson('宏龍',this)">🙋 宏龍</button>
+          <button class="toggle-btn" data-person="盈慧" onclick="setPerson('盈慧',this)">🙋‍♀️ 盈慧</button>
+        </div>
+      </div>
+
+      <!-- 付款方式 -->
+      <div class="form-group">
+        <label class="form-label">💳 付款方式</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" data-pay="cash" onclick="setPayMethod('cash',this)">💵 現金</button>
+          <button class="toggle-btn" data-pay="card" onclick="setPayMethod('card',this)">💳 信用卡</button>
+        </div>
+      </div>
+
+      <!-- 卡片選擇 (信用卡時顯示) -->
+      <div class="form-group" id="card-select-area" style="display:none;">
+        <label class="form-label">🃏 選擇卡片</label>
+        <div class="card-chips" id="card-chips"></div>
+      </div>
+
+      <!-- Step 3: 提交按鈕 -->
+      <div style="margin-top:20px;">
+        <button class="btn btn-primary" onclick="submitTx()">✅ 確定記帳</button>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="btn btn-secondary" onclick="resetForm()">🔄 繼續新增</button>
+          <a href="index.html" class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;">🏠 回首頁</a>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- 成功動畫 -->
+  <div class="success-overlay" id="success-overlay">
+    <div class="success-icon">✅</div>
+    <div class="success-text">記帳成功！</div>
+  </div>
+
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+
+  <script src="js/db.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    let amountStr  = '';
+    let selCat     = '';
+    let selCardId  = '';
+    let payMethod  = 'cash';
+    let person     = '宏龍';
+
+    // ── 初始化 ──────────────────────────────
+    function init() {
+      renderBottomNav('add');
+      // 自動帶入現在時間
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+        .toISOString().slice(0, 16);
+      document.getElementById('tx-datetime').value = local;
+
+      // 顯示現在時間
+      updateClock();
+      setInterval(updateClock, 1000);
+
+      // 建立快速分類 chips
+      buildCatChips();
+
+      // 建立卡片chips
+      buildCardChips();
+    }
+
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('now-time').textContent =
+        now.toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    }
+
+    // ── 數字鍵盤 ────────────────────────────
+    function numpad(n) {
+      if (amountStr.length >= 7) return;
+      if (amountStr === '0' && n === 0) return;
+      amountStr += n;
+      refreshAmountDisplay();
+    }
+
+    function numpadDel() {
+      amountStr = amountStr.slice(0, -1);
+      refreshAmountDisplay();
+    }
+
+    function refreshAmountDisplay() {
+      const el = document.getElementById('amount-val');
+      const display = document.getElementById('amount-display');
+      const val = parseInt(amountStr) || 0;
+      el.textContent = val > 0 ? fmt(val) : '0';
+      display.classList.toggle('has-value', val > 0);
+    }
+
+    function confirmAmount() {
+      const val = parseInt(amountStr) || 0;
+      if (val <= 0) {
+        showToast('請輸入金額', 'warn');
+        return;
+      }
+      // 切到詳情
+      document.getElementById('step-numpad').style.display = 'none';
+      document.getElementById('step-detail').style.display = 'block';
+      setStep(1);
+    }
+
+    // ── 分類 ────────────────────────────────
+    function buildCatChips() {
+      const cats = catsGet();
+      const el = document.getElementById('quick-cats');
+      el.innerHTML = cats.map(c => `
+        <button class="cat-chip" data-id="${c.id}" onclick="selectCat('${c.id}',this)">
+          ${c.name}
+        </button>`).join('');
+    }
+
+    function selectCat(id, el) {
+      selCat = id;
+      document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+
+      // 子分類
+      const cat = catFind(id);
+      const subEl = document.getElementById('sub-category');
+      if (cat.sub && cat.sub.length > 0) {
+        subEl.style.display = 'block';
+        subEl.innerHTML = `<option value="">子分類（可略）</option>` +
+          cat.sub.map(s => `<option value="${s}">${s}</option>`).join('');
+      } else {
+        subEl.style.display = 'none';
+      }
+    }
+
+    // ── 付款方式 ────────────────────────────
+    function setPayMethod(method, el) {
+      payMethod = method;
+      document.querySelectorAll('[data-pay]').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('card-select-area').style.display =
+        method === 'card' ? 'block' : 'none';
+    }
+
+    function setPerson(p, el) {
+      person = p;
+      document.querySelectorAll('[data-person]').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ── 信用卡 ──────────────────────────────
+    function buildCardChips() {
+      const cards = cardsGet();
+      const el = document.getElementById('card-chips');
+      el.innerHTML = cards.map(c => `
+        <button class="card-chip" data-id="${c.id}" onclick="selectCard('${c.id}',this)">
+          ${c.name} ···${c.last4}
+        </button>`).join('');
+      if (cards.length) {
+        selCardId = cards[0].id;
+        el.querySelector('.card-chip').classList.add('active');
+      }
+    }
+
+    function selectCard(id, el) {
+      selCardId = id;
+      document.querySelectorAll('.card-chip').forEach(c => c.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // ── 提交 ────────────────────────────────
+    function submitTx() {
+      const amount = parseInt(amountStr) || 0;
+      if (amount <= 0) { showToast('金額不可為 0', 'warn'); return; }
+      if (!selCat)     { showToast('請選擇分類', 'warn'); return; }
+      if (payMethod === 'card' && !selCardId) { showToast('請選擇卡片', 'warn'); return; }
+
+      const dtVal = document.getElementById('tx-datetime').value;
+      const detail = document.getElementById('tx-detail').value.trim();
+      const subCat = document.getElementById('sub-category').value;
+
+      const tx = {
+        amount,
+        category: selCat,
+        subCategory: subCat,
+        detail,
+        person,
+        payMethod,
+        cardId: payMethod === 'card' ? selCardId : null,
+        createdAt: dtVal ? new Date(dtVal).toISOString() : new Date().toISOString(),
+      };
+
+      txAdd(tx);
+      notifyDiscord(tx);
+
+      // 預算警告
+      checkBudgetWarning(tx);
+
+      // 成功動畫
+      const overlay = document.getElementById('success-overlay');
+      overlay.classList.add('show');
+      setTimeout(() => {
+        overlay.classList.remove('show');
+      }, 1200);
+
+      showToast(`已記帳 $${fmt(amount)}`, 'success');
+      resetForm();
+    }
+
+    function checkBudgetWarning(tx) {
+      const budget = budgetGet(tx.category);
+      if (!budget) return;
+      const now = new Date();
+      const monthTxs = txGetByMonth(now.getFullYear(), now.getMonth()+1);
+      const spent = monthTxs.filter(t => t.category === tx.category).reduce((s,t) => s+t.amount, 0);
+      const pct = spent / budget;
+      if (pct >= 1) {
+        setTimeout(() => showToast(`⚠️ ${catFind(tx.category).name} 預算已超支！`, 'error'), 1500);
+      } else if (pct >= 0.8) {
+        setTimeout(() => showToast(`🔔 ${catFind(tx.category).name} 已用 ${Math.round(pct*100)}%`, 'warn'), 1500);
+      }
+    }
+
+    function resetForm() {
+      amountStr = '';
+      selCat    = '';
+      payMethod = 'cash';
+      person    = '宏龍';
+      document.getElementById('amount-val').textContent = '0';
+      document.getElementById('amount-display').classList.remove('has-value');
+      document.getElementById('step-numpad').style.display = 'block';
+      document.getElementById('step-detail').style.display = 'none';
+      document.getElementById('tx-detail').value = '';
+      document.getElementById('sub-category').style.display = 'none';
+      document.getElementById('card-select-area').style.display = 'none';
+      document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+      document.querySelectorAll('[data-pay]').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-pay="cash"]').classList.add('active');
+      document.querySelectorAll('[data-person]').forEach(b => b.classList.remove('active'));
+      document.querySelector('[data-person="宏龍"]').classList.add('active');
+
+      const now = new Date();
+      const local = new Date(now.getTime() - now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+      document.getElementById('tx-datetime').value = local;
+
+      setStep(0);
+    }
+
+    function setStep(s) {
+      const hints = ['輸入金額', '填寫詳情', '完成記帳'];
+      document.getElementById('step-hint').textContent = hints[s] || '';
+      [0,1,2].forEach(i => {
+        const dot = document.getElementById('dot-'+i);
+        dot.className = 'step-dot' + (i < s ? ' done' : i === s ? ' active' : '');
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

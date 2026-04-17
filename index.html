@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1117">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>家庭記帳</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .hero-card {
+      background: linear-gradient(135deg, #0d2b35, #0f1f2e);
+      border: 1px solid #1e3d52;
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(0,198,162,0.12) 0%, transparent 70%);
+    }
+    .hero-label {
+      font-size: 0.72rem;
+      color: var(--text2);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .hero-amount {
+      font-size: 2.6rem;
+      font-weight: 700;
+      font-family: 'DM Sans', sans-serif;
+      letter-spacing: -0.03em;
+      color: var(--text);
+      line-height: 1;
+    }
+    .hero-amount .currency {
+      font-size: 1.2rem;
+      color: var(--text2);
+      font-weight: 400;
+      margin-right: 2px;
+    }
+    .hero-sub {
+      font-size: 0.75rem;
+      color: var(--text2);
+      margin-top: 6px;
+    }
+    .hero-sub span {
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .person-toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .person-btn {
+      padding: 7px 16px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      color: var(--text2);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: inherit;
+    }
+    .person-btn.active {
+      background: var(--primary-dim);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+    .fab {
+      position: fixed;
+      bottom: calc(var(--nav-h) + 16px);
+      right: 20px;
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 4px 20px rgba(0,198,162,0.4);
+      cursor: pointer;
+      transition: var(--transition);
+      z-index: 100;
+      text-decoration: none;
+    }
+    .fab:active { transform: scale(0.93); }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div>
+      <h1>🏡 家庭記帳</h1>
+      <div class="header-sub" id="header-date"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <a href="settings.html" class="header-action">⚙️</a>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- 月份切換 -->
+    <div class="month-selector">
+      <button class="month-btn" onclick="prevMonth()">‹</button>
+      <div class="month-label" id="month-label">載入中...</div>
+      <button class="month-btn" onclick="nextMonth()">›</button>
+    </div>
+
+    <!-- 本月總覽大卡 -->
+    <div class="hero-card">
+      <div class="hero-label">📅 本月總支出</div>
+      <div class="hero-amount">
+        <span class="currency">$</span><span id="monthly-total">0</span>
+      </div>
+      <div class="hero-sub">
+        💳 信用卡 <span id="card-total">0</span>
+        &nbsp;&nbsp;
+        💵 現金 <span id="cash-total">0</span>
+      </div>
+    </div>
+
+    <!-- 統計卡片 -->
+    <div class="stat-row three">
+      <div class="stat-card green">
+        <div class="stat-label">👛 錢包餘額</div>
+        <div class="stat-value" id="wallet-balance">0</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">🧑 宏龍</div>
+        <div class="stat-value" id="person1-total">0</div>
+      </div>
+      <div class="stat-card warn">
+        <div class="stat-label">👩 盈慧</div>
+        <div class="stat-value" id="person2-total">0</div>
+      </div>
+    </div>
+
+    <!-- 篩選 -->
+    <div class="person-toggle">
+      <button class="person-btn active" data-filter="all" onclick="setFilter('all',this)">全部</button>
+      <button class="person-btn" data-filter="宏龍" onclick="setFilter('宏龍',this)">宏龍</button>
+      <button class="person-btn" data-filter="盈慧" onclick="setFilter('盈慧',this)">盈慧</button>
+    </div>
+
+    <!-- 交易列表 -->
+    <div id="tx-container"></div>
+  </main>
+
+  <!-- 底部導航 -->
+  <nav class="bottom-nav" id="bottom-nav"></nav>
+
+  <!-- 快速新增 FAB -->
+  <a href="add.html" class="fab">➕</a>
+
+  <script src="js/db.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    let curYear  = new Date().getFullYear();
+    let curMonth = new Date().getMonth() + 1;
+    let filter   = 'all';
+
+    function init() {
+      renderBottomNav('home');
+      document.getElementById('header-date').textContent =
+        new Date().toLocaleDateString('zh-TW', { weekday:'long', month:'long', day:'numeric' });
+      render();
+    }
+
+    function render() {
+      const months = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+      document.getElementById('month-label').textContent = `${curYear} 年 ${months[curMonth-1]} 月`;
+
+      let txs = txGetByMonth(curYear, curMonth);
+      const stats = calcStats(txs);
+
+      document.getElementById('monthly-total').textContent = fmt(stats.total);
+      document.getElementById('card-total').textContent    = fmt(stats.card);
+      document.getElementById('cash-total').textContent    = fmt(stats.cash);
+      document.getElementById('wallet-balance').textContent = fmt(walletGet().balance);
+      document.getElementById('person1-total').textContent = fmt(stats.byPerson['宏龍'] || 0);
+      document.getElementById('person2-total').textContent = fmt(stats.byPerson['盈慧'] || 0);
+
+      if (filter !== 'all') txs = txs.filter(t => t.person === filter);
+      renderTxList(document.getElementById('tx-container'), txs, { showDelete: true });
+    }
+
+    function setFilter(f, el) {
+      filter = f;
+      document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      render();
+    }
+
+    function prevMonth() {
+      curMonth--;
+      if (curMonth < 1) { curMonth = 12; curYear--; }
+      render();
+    }
+
+    function nextMonth() {
+      curMonth++;
+      if (curMonth > 12) { curMonth = 1; curYear++; }
+      render();
+    }
+
+    function handleTxClick(id) { /* 可擴充：跳到詳情 */ }
+
+    function handleTxDelete(id, e) {
+      e.stopPropagation();
+      showConfirm('刪除記錄', '確定要刪除這筆記帳嗎？', () => {
+        txDelete(id);
+        showToast('已刪除', 'error');
+        render();
+      });
+    }
+
+    init();
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  </script>
+</body>
+</html>
