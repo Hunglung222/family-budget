@@ -11,7 +11,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
 </head>
-<body>
+<body><script>
+window.onerror = function(msg, src, line) {
+  const d = document.getElementById('_err');
+  if (d) d.innerHTML += `<div style="background:#f43f5e;color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:6px;font-size:.78rem">❌ ${msg}<br><small>${src}:${line}</small></div>`;
+  return false;
+};
+</script>
+<div id="_err" style="position:fixed;top:70px;left:10px;right:10px;z-index:9999;pointer-events:none"></div>
+
 <header class="hdr">
   <div><h1>⚙️ 設定</h1><div class="hdr-sub">主題 / 分類 / 備份</div></div>
   <a href="./index.html" class="hdr-btn">📋</a>
