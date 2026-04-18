@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
 <title>錢包</title>
@@ -12,18 +13,16 @@
 </head>
 <body>
 <header class="hdr">
-  <div><h1>👛 錢包</h1><div class="hdr-sub">現金管理</div></div>
+  <div><h1>👛 錢包</h1><div class="hdr-sub">現金 & 信用卡管理</div></div>
 </header>
 
 <div class="w">
-  <!-- 餘額 -->
   <div class="wallet-hero">
     <div class="wlbl">現金餘額</div>
     <div class="wamt"><span class="cur">$</span><span id="bal">0</span></div>
     <div class="wupd" id="wupd"></div>
   </div>
 
-  <!-- 快速提領 -->
   <div class="qadd">
     <div class="sec-t" style="margin-top:0">➕ 提領現金</div>
     <div class="qgrid">
@@ -38,7 +37,6 @@
     </div>
   </div>
 
-  <!-- 本月統計 -->
   <div class="sg2">
     <div class="sc g"><div class="sc-lbl">本月現金支出</div><div class="sc-val"><span class="u">$</span><span id="m-out">0</span></div></div>
     <div class="sc b"><div class="sc-lbl">本月現金收入</div><div class="sc-val"><span class="u">$</span><span id="m-in">0</span></div></div>
@@ -47,13 +45,16 @@
   <!-- 信用卡管理 -->
   <div class="card-box">
     <div class="card-hdr">
-      <span class="card-hdr-t">💳 信用卡</span>
+      <span class="card-hdr-t">💳 信用卡管理</span>
       <button class="btn-nc" onclick="showAddCard()">＋ 新增卡片</button>
     </div>
-    <div id="card-list"></div>
+    <div id="card-list">
+      <div style="color:var(--t3);font-size:.85rem;text-align:center;padding:16px 0">
+        尚未新增信用卡，點上方「＋ 新增卡片」
+      </div>
+    </div>
   </div>
 
-  <!-- 現金記錄 -->
   <div class="sec-t">📋 現金記錄</div>
   <div class="hist-box"><div id="hist"></div></div>
 </div>
@@ -65,11 +66,22 @@
     <div class="st">💳 新增信用卡</div>
     <div class="fg">
       <span class="flbl">銀行 / 卡名</span>
-      <input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡">
+      <input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡" maxlength="20">
     </div>
     <div class="fg">
       <span class="flbl">末四碼</span>
-      <input type="number" class="fc" id="nc-last4" placeholder="1234">
+      <input type="text" class="fc" id="nc-last4" placeholder="1234" maxlength="4" pattern="\d{4}" inputmode="numeric">
+    </div>
+    <div class="fg">
+      <span class="flbl">卡片顏色</span>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;padding:6px 0" id="color-picker">
+        <div class="cdot-pick on" data-color="#1d4ed8" onclick="pickColor('#1d4ed8',this)" style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;cursor:pointer;border:3px solid white;box-shadow:0 0 0 2px #1d4ed8"></div>
+        <div class="cdot-pick" data-color="#be185d" onclick="pickColor('#be185d',this)" style="width:32px;height:32px;border-radius:50%;background:#be185d;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" data-color="#374151" onclick="pickColor('#374151',this)" style="width:32px;height:32px;border-radius:50%;background:#374151;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" data-color="#0d9488" onclick="pickColor('#0d9488',this)" style="width:32px;height:32px;border-radius:50%;background:#0d9488;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" data-color="#7c3aed" onclick="pickColor('#7c3aed',this)" style="width:32px;height:32px;border-radius:50%;background:#7c3aed;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" data-color="#b45309" onclick="pickColor('#b45309',this)" style="width:32px;height:32px;border-radius:50%;background:#b45309;cursor:pointer;border:3px solid transparent"></div>
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('card-modal')">取消</button>
@@ -92,7 +104,7 @@
 </div>
 
 <nav class="nav">
-  <a class="ni" href="./index.html"><span class="ic">🏠</span><span>首頁</span></a>
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni on" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
@@ -104,24 +116,25 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/ui.js"></script>
 <script>
-function init() { renderWallet(); renderCards(); renderStats(); }
+let pickedColor = '#1d4ed8';
+
+function init() {
+  applyTheme();
+  renderWallet(); renderCards(); renderStats();
+}
 
 function renderWallet() {
   const w = getWal();
   document.getElementById('bal').textContent = fmt(w.balance);
   if (w.history.length)
-    document.getElementById('wupd').textContent = '更新：' + new Date(w.history[0].time).toLocaleString('zh-TW');
+    document.getElementById('wupd').textContent = '更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
   const h = document.getElementById('hist');
-  if (!w.history.length) { h.innerHTML = '<div style="color:var(--t3);font-size:.88rem;text-align:center;padding:16px">尚無記錄</div>'; return; }
-  h.innerHTML = w.history.slice(0, 30).map(e => `
+  if (!w.history.length) { h.innerHTML='<div style="color:var(--t3);font-size:.88rem;text-align:center;padding:16px">尚無記錄</div>'; return; }
+  h.innerHTML = w.history.slice(0,30).map(e=>`
     <div class="hitem">
       <div class="hico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
-      <div class="hinfo">
-        <div class="hnote">${e.note||'現金'}</div>
-        <div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div>
-      </div>
+      <div class="hinfo"><div class="hnote">${e.note||'現金'}</div><div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
       <div class="hamt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div>
     </div>`).join('');
 }
@@ -129,62 +142,82 @@ function renderWallet() {
 function renderCards() {
   const cs = getCards();
   const el = document.getElementById('card-list');
-  if (!cs.length) { el.innerHTML = '<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無信用卡</div>'; return; }
-  el.innerHTML = cs.map(c => `
+  if (!cs.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:16px 0">尚未新增信用卡，點上方「＋ 新增卡片」</div>';
+    return;
+  }
+  el.innerHTML = cs.map(c=>`
     <div class="citem">
       <div class="cdot" style="background:${c.color||'#4f8ef7'}"></div>
-      <div class="cinfo"><div class="cname">${c.name}</div><div class="clast">···· ···· ···· ${c.last4}</div></div>
-      <button class="btn-del-c" onclick="confirmDelCard('${c.id}')">🗑️</button>
+      <div class="cinfo">
+        <div class="cname">${c.name}</div>
+        <div class="clast">···· ···· ···· ${c.last4}</div>
+      </div>
+      <button class="btn-del-c" onclick="confirmDelCard('${c.id}','${c.name}')">🗑️</button>
     </div>`).join('');
 }
 
 function renderStats() {
   const now = new Date();
   const txs = txByMonth(now.getFullYear(), now.getMonth()+1);
-  const out = txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount, 0);
+  const out = txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
   const w = getWal();
-  const inn = w.history.filter(h => {
-    const d = new Date(h.time);
-    return h.type==='in' && d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
-  }).reduce((s,h)=>s+h.amount, 0);
-  document.getElementById('m-out').textContent = fmt(out);
-  document.getElementById('m-in').textContent  = fmt(inn);
+  const inn = w.history.filter(h=>{
+    const d=new Date(h.time);
+    return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  }).reduce((s,h)=>s+h.amount,0);
+  document.getElementById('m-out').textContent=fmt(out);
+  document.getElementById('m-in').textContent=fmt(inn);
 }
 
-function qadd(n) { walIn(n, '提領現金'); fbSyncWal(); toast(`已新增 $${fmt(n)}`); renderWallet(); renderStats(); }
+function qadd(n) { walIn(n,'提領現金'); fbSyncWal(); toast(`已新增 $${fmt(n)}`); renderWallet(); renderStats(); }
 function addCustom() {
-  const n = parseInt(document.getElementById('custom-amt').value) || 0;
-  if (!n) { toast('請輸入金額', 'warn'); return; }
-  walIn(n, '手動新增'); fbSyncWal();
-  document.getElementById('custom-amt').value = '';
+  const n=parseInt(document.getElementById('custom-amt').value)||0;
+  if(!n){toast('請輸入金額','warn');return;}
+  walIn(n,'手動新增'); fbSyncWal();
+  document.getElementById('custom-amt').value='';
   toast(`已新增 $${fmt(n)}`); renderWallet(); renderStats();
 }
 
 function showAddCard() { document.getElementById('card-modal').classList.add('show'); }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-function submitCard() {
-  const name = document.getElementById('nc-name').value.trim();
-  const last4 = document.getElementById('nc-last4').value.trim();
-  if (!name || !last4) { toast('請填寫完整', 'warn'); return; }
-  const cols = ['#1d4ed8','#be185d','#374151','#0d9488','#7c3aed'];
-  addCard({ name, last4, color: cols[Math.floor(Math.random()*cols.length)] });
-  closeModal('card-modal'); renderCards(); toast(`已新增 ${name}`);
-  document.getElementById('nc-name').value = '';
-  document.getElementById('nc-last4').value = '';
+
+function pickColor(color, el) {
+  pickedColor = color;
+  document.querySelectorAll('.cdot-pick').forEach(d => {
+    d.style.border = '3px solid transparent';
+    d.style.boxShadow = 'none';
+  });
+  el.style.border = '3px solid white';
+  el.style.boxShadow = `0 0 0 2px ${color}`;
 }
-function confirmDelCard(id) {
-  document.getElementById('cm-title').textContent = '刪除信用卡';
-  document.getElementById('cm-msg').textContent = '確定刪除這張卡片嗎？';
+
+function submitCard() {
+  const name  = document.getElementById('nc-name').value.trim();
+  const last4 = document.getElementById('nc-last4').value.trim();
+  if (!name)           { toast('請輸入卡名','warn');   return; }
+  if (!/^\d{4}$/.test(last4)) { toast('末四碼請輸入4位數字','warn'); return; }
+  addCard({ name, last4, color: pickedColor });
+  fbSyncCards();
+  closeModal('card-modal');
+  renderCards();
+  toast(`已新增 ${name}`);
+  document.getElementById('nc-name').value='';
+  document.getElementById('nc-last4').value='';
+}
+
+function confirmDelCard(id, name) {
+  document.getElementById('cm-title').textContent='刪除信用卡';
+  document.getElementById('cm-msg').textContent=`確定刪除「${name}」嗎？相關記帳記錄不會被刪除。`;
   document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick = () => { delCard(id); closeModal('confirm-modal'); renderCards(); toast('已刪除','err'); };
+  document.getElementById('cm-ok').onclick=()=>{
+    delCard(id); fbSyncCards();
+    closeModal('confirm-modal'); renderCards(); toast('已刪除','err');
+  };
 }
 
 let _tt;
-function toast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show'+(type?' '+type:'');
-  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2400);
-}
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
 init();
 </script>

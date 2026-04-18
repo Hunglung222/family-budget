@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
 <title>報表</title>
@@ -17,7 +18,6 @@
 </header>
 
 <div class="w">
-  <!-- 日期區間 -->
   <div class="range-card">
     <div class="range-t">📅 日期區間</div>
     <div class="date-row">
@@ -33,7 +33,6 @@
     </div>
   </div>
 
-  <!-- 頁籤 -->
   <div class="tabs">
     <button class="tab on" onclick="sw('ov',this)">📈 總覽</button>
     <button class="tab" onclick="sw('cat',this)">🏷️ 分類</button>
@@ -41,7 +40,6 @@
     <button class="tab" onclick="sw('bud',this)">🎯 預算</button>
   </div>
 
-  <!-- 總覽 -->
   <div class="panel on" id="p-ov">
     <div class="sg4">
       <div class="sc4"><div class="v" id="ov-t">$0</div><div class="l">💰 總支出</div></div>
@@ -52,14 +50,11 @@
     <div class="chart-card">
       <div class="ct">付款方式比例</div>
       <div class="rbar"><div class="rf-c" id="rbar-c" style="width:50%"></div><div class="rf-cc"></div></div>
-      <div class="rlbls">
-        <span>💵 現金 <strong id="rp-c">0%</strong></span>
-        <span>💳 信用卡 <strong id="rp-cc">0%</strong></span>
-      </div>
+      <div class="rlbls"><span>💵 現金 <strong id="rp-c">0%</strong></span><span>💳 信用卡 <strong id="rp-cc">0%</strong></span></div>
     </div>
     <div class="chart-card">
       <div class="ct">信用卡各卡消費</div>
-      <div id="cb-list"><div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無資料</div></div>
+      <div id="cb-list"></div>
     </div>
     <div class="chart-card">
       <div class="ct">👥 雙人消費</div>
@@ -67,7 +62,6 @@
     </div>
   </div>
 
-  <!-- 分類 -->
   <div class="panel" id="p-cat">
     <div class="chart-card">
       <div class="ct">分類支出</div>
@@ -76,7 +70,6 @@
     </div>
   </div>
 
-  <!-- 月份 -->
   <div class="panel" id="p-mon">
     <div class="chart-card">
       <div class="ct">每月支出趨勢</div>
@@ -84,15 +77,14 @@
     </div>
   </div>
 
-  <!-- 預算 -->
   <div class="panel" id="p-bud">
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px">輸入金額後自動儲存</div>
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px">輸入金額後自動儲存（本月數據）</div>
     <div id="bud-list"></div>
   </div>
 </div>
 
 <nav class="nav">
-  <a class="ni" href="./index.html"><span class="ic">🏠</span><span>首頁</span></a>
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni on" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
@@ -104,125 +96,95 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/ui.js"></script>
 <script>
-Chart.defaults.color = '#8896b3';
-Chart.defaults.font.family = "'Noto Sans TC',sans-serif";
+Chart.defaults.color='#8896b3';
+Chart.defaults.font.family="'Noto Sans TC',sans-serif";
+const COLS=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
+let pieC=null,barC=null,personC=null,txData=[];
 
-const COLS = ['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
-let pieC = null, barC = null, personC = null, txData = [];
+function init(){applyTheme();preset('month');load();}
 
-function init() { preset('month'); load(); }
-
-function preset(t) {
-  const now = new Date(); let f, e;
-  if (t === 'month') { f = new Date(now.getFullYear(), now.getMonth(), 1); e = new Date(now.getFullYear(), now.getMonth()+1, 0); }
-  else if (t === '30') { f = new Date(now - 30*864e5); e = now; }
-  else { f = new Date(now.getFullYear(), now.getMonth()-2, 1); e = now; }
-  document.getElementById('df').value = f.toISOString().slice(0,10);
-  document.getElementById('dt').value = e.toISOString().slice(0,10);
+function preset(t){
+  const now=new Date();let f,e;
+  if(t==='month'){f=new Date(now.getFullYear(),now.getMonth(),1);e=new Date(now.getFullYear(),now.getMonth()+1,0);}
+  else if(t==='30'){f=new Date(now-30*864e5);e=now;}
+  else{f=new Date(now.getFullYear(),now.getMonth()-2,1);e=now;}
+  document.getElementById('df').value=f.toISOString().slice(0,10);
+  document.getElementById('dt').value=e.toISOString().slice(0,10);
 }
 
-function load() {
-  const f = document.getElementById('df').value, e = document.getElementById('dt').value;
-  if (!f || !e) { toast('請選擇日期', 'warn'); return; }
-  txData = txByRange(f, e);
-  document.getElementById('range-lbl').textContent = `${f} ～ ${e}（${txData.length}筆）`;
-  renderOv(); renderPie(); renderBar(); renderBud();
+function load(){
+  const f=document.getElementById('df').value,e=document.getElementById('dt').value;
+  if(!f||!e){toast('請選擇日期','warn');return;}
+  txData=txByRange(f,e);
+  document.getElementById('range-lbl').textContent=`${f} ～ ${e}（${txData.length}筆）`;
+  renderOv();renderPie();renderBar();renderBud();
 }
 
-function renderOv() {
-  const s = calcStats(txData);
-  document.getElementById('ov-t').textContent  = '$' + fmt(s.total);
-  document.getElementById('ov-n').textContent  = txData.length;
-  document.getElementById('ov-cd').textContent = '$' + fmt(s.card);
-  document.getElementById('ov-cs').textContent = '$' + fmt(s.cash);
-  const cp = s.total > 0 ? Math.round(s.cash / s.total * 100) : 0;
-  document.getElementById('rbar-c').style.width = cp + '%';
-  document.getElementById('rp-c').textContent  = cp + '%';
-  document.getElementById('rp-cc').textContent = (100-cp) + '%';
-  // 信用卡分卡
-  const el = document.getElementById('cb-list');
-  if (!Object.keys(s.byCard).length) { el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無信用卡消費</div>'; }
-  else { el.innerHTML = Object.entries(s.byCard).sort((a,b)=>b[1]-a[1]).map(([cid,amt]) => {
-    const c = cardFind(cid); const pct = s.card > 0 ? Math.round(amt/s.card*100) : 0;
+function renderOv(){
+  const s=calcStats(txData);
+  document.getElementById('ov-t').textContent='$'+fmt(s.total);
+  document.getElementById('ov-n').textContent=txData.length;
+  document.getElementById('ov-cd').textContent='$'+fmt(s.card);
+  document.getElementById('ov-cs').textContent='$'+fmt(s.cash);
+  const cp=s.total>0?Math.round(s.cash/s.total*100):0;
+  document.getElementById('rbar-c').style.width=cp+'%';
+  document.getElementById('rp-c').textContent=cp+'%';
+  document.getElementById('rp-cc').textContent=(100-cp)+'%';
+  const el=document.getElementById('cb-list');
+  if(!Object.keys(s.byCard).length){el.innerHTML='<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無信用卡消費</div>';}
+  else{el.innerHTML=Object.entries(s.byCard).sort((a,b)=>b[1]-a[1]).map(([cid,amt])=>{
+    const c=cardFind(cid);const pct=s.card>0?Math.round(amt/s.card*100):0;
     return `<div class="cb-item"><div class="cb-hdr"><span>${c?c.name:cid}</span><span style="font-weight:700">$${fmt(amt)}</span></div><div class="cb-bar"><div class="cb-fill" style="width:${pct}%;background:${c?.color||'var(--blue)'}"></div></div></div>`;
-  }).join(''); }
-  // 雙人圓餅
-  if (personC) personC.destroy();
-  const p1 = s.byPerson['宏龍']||0, p2 = s.byPerson['盈慧']||0;
-  personC = new Chart(document.getElementById('person-c'), {
-    type:'doughnut',
-    data:{ labels:['宏龍','盈慧'], datasets:[{data:[p1,p2], backgroundColor:['#00e5b4','#4f8ef7'], borderColor:'#1a2235', borderWidth:3}] },
-    options:{ cutout:'65%', plugins:{ legend:{position:'bottom'}, tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(p1+p2||1)*100)}%)`}} } }
-  });
+  }).join('');}
+  if(personC)personC.destroy();
+  const p1=s.byPerson['宏龍']||0,p2=s.byPerson['盈慧']||0;
+  personC=new Chart(document.getElementById('person-c'),{type:'doughnut',
+    data:{labels:['宏龍','盈慧'],datasets:[{data:[p1,p2],backgroundColor:['#00e5b4','#4f8ef7'],borderColor:'#1a2235',borderWidth:3}]},
+    options:{cutout:'65%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(p1+p2||1)*100)}%)`}}}}});
 }
 
-function renderPie() {
-  const s = calcStats(txData);
-  const ent = Object.entries(s.byCat).sort((a,b)=>b[1]-a[1]);
-  if (pieC) pieC.destroy();
-  if (!ent.length) { document.getElementById('pie-leg').innerHTML = '<div class="empty"><div class="ei">📊</div><p>無資料</p></div>'; return; }
-  const labs = ent.map(([id]) => catName(id));
-  const vals = ent.map(([,v]) => v);
-  const cols = ent.map(([id],i) => catFind(id).color || COLS[i%COLS.length]);
-  pieC = new Chart(document.getElementById('pie-c'), {
-    type:'doughnut',
-    data:{ labels:labs, datasets:[{data:vals, backgroundColor:cols, borderColor:'#1a2235', borderWidth:3}] },
-    options:{ cutout:'58%', plugins:{ legend:{display:false}, tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(s.total||1)*100)}%)`}} } }
-  });
-  document.getElementById('pie-leg').innerHTML = ent.map(([id,amt],i) => {
-    const pct = s.total > 0 ? Math.round(amt/s.total*100) : 0;
+function renderPie(){
+  const s=calcStats(txData);const ent=Object.entries(s.byCat).sort((a,b)=>b[1]-a[1]);
+  if(pieC)pieC.destroy();
+  if(!ent.length){document.getElementById('pie-leg').innerHTML='<div class="empty"><div class="ei">📊</div><p>無資料</p></div>';return;}
+  const labs=ent.map(([id])=>catName(id)),vals=ent.map(([,v])=>v),cols=ent.map(([id],i)=>catFind(id).color||COLS[i%COLS.length]);
+  pieC=new Chart(document.getElementById('pie-c'),{type:'doughnut',
+    data:{labels:labs,datasets:[{data:vals,backgroundColor:cols,borderColor:'#1a2235',borderWidth:3}]},
+    options:{cutout:'58%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(s.total||1)*100)}%)`}}}}});
+  document.getElementById('pie-leg').innerHTML=ent.map(([id,amt],i)=>{
+    const pct=s.total>0?Math.round(amt/s.total*100):0;
     return `<div class="li"><div class="ldot" style="background:${cols[i]}"></div><span class="lname">${catName(id)}</span><span class="lpct">${pct}%</span><span class="lamt">$${fmt(amt)}</span></div>`;
   }).join('');
 }
 
-function renderBar() {
-  const all = getTx(); const mm = {};
-  all.forEach(t => { const d = new Date(t.at); const k = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`; mm[k] = (mm[k]||0) + t.amount; });
-  const ks = Object.keys(mm).sort().slice(-12); const vs = ks.map(k => mm[k]);
-  if (barC) barC.destroy();
-  barC = new Chart(document.getElementById('bar-c'), {
-    type:'bar',
-    data:{ labels:ks.map(k=>k.slice(2)), datasets:[{label:'支出', data:vs, backgroundColor:ks.map((_,i)=>i===ks.length-1?'rgba(0,229,180,.7)':'rgba(79,142,247,.35)'), borderColor:ks.map((_,i)=>i===ks.length-1?'#00e5b4':'#4f8ef7'), borderWidth:1.5, borderRadius:8}] },
-    options:{ plugins:{legend:{display:false}}, scales:{ y:{grid:{color:'rgba(42,53,80,.5)'},ticks:{callback:v=>'$'+fmt(v)}}, x:{grid:{display:false}} } }
-  });
+function renderBar(){
+  const all=getTx();const mm={};
+  all.forEach(t=>{const d=new Date(t.at);const k=`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}`;mm[k]=(mm[k]||0)+t.amount;});
+  const ks=Object.keys(mm).sort().slice(-12),vs=ks.map(k=>mm[k]);
+  if(barC)barC.destroy();
+  barC=new Chart(document.getElementById('bar-c'),{type:'bar',
+    data:{labels:ks.map(k=>k.slice(2)),datasets:[{data:vs,backgroundColor:ks.map((_,i)=>i===ks.length-1?'rgba(0,229,180,.7)':'rgba(79,142,247,.35)'),borderColor:ks.map((_,i)=>i===ks.length-1?'#00e5b4':'#4f8ef7'),borderWidth:1.5,borderRadius:8}]},
+    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(42,53,80,.5)'},ticks:{callback:v=>'$'+fmt(v)}},x:{grid:{display:false}}}}});
 }
 
-function renderBud() {
-  const now = new Date(); const txs = txByMonth(now.getFullYear(), now.getMonth()+1); const s = calcStats(txs);
-  document.getElementById('bud-list').innerHTML = getCats().map(c => {
-    const bud = getBudget(c.id); const sp = s.byCat[c.id]||0;
-    const pct = bud > 0 ? Math.min(sp/bud*100, 100) : 0;
-    const over = bud > 0 && sp > bud; const near = bud > 0 && !over && pct >= 80;
-    return `<div class="bitem">
-      <div class="bhdr">
-        <span class="bcat">${c.name}</span>
-        <input type="number" class="binput" value="${bud||''}" placeholder="設定預算" onchange="saveBud('${c.id}',this.value)" onfocus="this.select()">
-      </div>
-      ${bud>0 ? `<div class="bamts">已用 $${fmt(sp)} / $${fmt(bud)}</div>
-        <div class="bbar"><div class="bfill${over?' d':near?' w':''}" style="width:${pct}%"></div></div>
-        ${over?`<div class="bwarn d">⚠️ 超支 $${fmt(sp-bud)}</div>`:near?`<div class="bwarn w">🔔 已用 ${Math.round(pct)}%</div>`:''}` :
-        `<div style="font-size:.72rem;color:var(--t3);margin-top:4px">本月：$${fmt(sp)}（未設預算）</div>`}
+function renderBud(){
+  const now=new Date();const txs=txByMonth(now.getFullYear(),now.getMonth()+1);const s=calcStats(txs);
+  document.getElementById('bud-list').innerHTML=getCats().map(c=>{
+    const bud=getBudget(c.id),sp=s.byCat[c.id]||0;
+    const pct=bud>0?Math.min(sp/bud*100,100):0,over=bud>0&&sp>bud,near=bud>0&&!over&&pct>=80;
+    return `<div class="bitem"><div class="bhdr"><span class="bcat">${c.name}</span>
+      <input type="number" class="binput" value="${bud||''}" placeholder="設定預算" onchange="saveBud('${c.id}',this.value)" onfocus="this.select()"></div>
+      ${bud>0?`<div class="bamts">已用 $${fmt(sp)} / $${fmt(bud)}</div><div class="bbar"><div class="bfill${over?' d':near?' w':''}" style="width:${pct}%"></div></div>${over?`<div class="bwarn d">⚠️ 超支 $${fmt(sp-bud)}</div>`:near?`<div class="bwarn w">🔔 已用 ${Math.round(pct)}%</div>`:''}`:`<div style="font-size:.72rem;color:var(--t3);margin-top:4px">本月：$${fmt(sp)}（未設預算）</div>`}
     </div>`;
   }).join('');
 }
 
-function saveBud(id, v) { setBudget(id, parseInt(v)||0); renderBud(); toast('預算已儲存'); }
-
-function sw(id, el) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
-  document.getElementById('p-'+id).classList.add('on');
-  el.classList.add('on');
-}
+function saveBud(id,v){setBudget(id,parseInt(v)||0);renderBud();toast('預算已儲存');}
+function sw(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');el.classList.add('on');}
 
 let _tt;
-function toast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show'+(type?' '+type:'');
-  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2400);
-}
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
 init();
 </script>

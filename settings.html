@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
 <title>設定</title>
@@ -12,11 +13,22 @@
 </head>
 <body>
 <header class="hdr">
-  <div><h1>⚙️ 設定</h1><div class="hdr-sub">管理與備份</div></div>
-  <a href="./index.html" class="hdr-btn">🏠</a>
+  <div><h1>⚙️ 設定</h1><div class="hdr-sub">主題 / 分類 / 備份</div></div>
+  <a href="./index.html" class="hdr-btn">📋</a>
 </header>
 
 <div class="w">
+  <!-- 外觀主題 -->
+  <div class="sec-t">🎨 外觀主題</div>
+  <div class="data-card" style="padding:14px 16px">
+    <div style="font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">亮色 / 暗色</div>
+    <div class="mode-row">
+      <button class="mode-btn" id="mode-dark"  onclick="setMode('dark')">🌙 暗色</button>
+      <button class="mode-btn" id="mode-light" onclick="setMode('light')">☀️ 亮色</button>
+    </div>
+    <div style="font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 8px">主題色</div>
+    <div class="theme-row" id="accent-picker"></div>
+  </div>
 
   <!-- 資料統計 -->
   <div class="sec-t">📊 資料統計</div>
@@ -29,6 +41,23 @@
     <div style="display:flex;gap:8px;margin-top:12px">
       <input type="text" class="fc" id="new-cat" placeholder="新分類名稱（含emoji）" style="flex:1">
       <button onclick="addNewCat()" style="padding:12px 16px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋新增</button>
+    </div>
+  </div>
+
+  <!-- Discord 設定 -->
+  <div class="sec-t">📣 Discord 每日結算通知</div>
+  <div class="data-card" style="padding:14px 16px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
+      每天晚上 9 點自動發送當日支出結算到 Discord 頻道。<br>
+      <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--p)">點此建立 Webhook URL</a>
+    </div>
+    <div class="fg">
+      <span class="flbl">Webhook URL</span>
+      <input type="text" class="fc" id="discord-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveDiscord()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+      <button onclick="testDiscord()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試發送</button>
     </div>
   </div>
 
@@ -47,21 +76,6 @@
     </div>
   </div>
 
-  <!-- 進階接口 -->
-  <div class="sec-t">🔌 進階功能</div>
-  <div class="set-card">
-    <div class="srow" onclick="toast('Firebase 已連線，資料自動同步中','info')">
-      <div class="sico" style="background:rgba(245,158,11,.14)">🔥</div>
-      <div class="sinfo"><div class="sname">Firebase 雙人同步</div><div class="sdesc">已啟用，即時同步兩人帳本</div></div>
-      <span class="badge bp">已啟用</span>
-    </div>
-    <div class="srow" onclick="toast('Discord Webhook：在 js/firebase.js 填入 URL','info')">
-      <div class="sico" style="background:var(--bdim)">📣</div>
-      <div class="sinfo"><div class="sname">Discord 通知</div><div class="sdesc">記帳後自動推送通知</div></div>
-      <span class="badge bw">待設定</span>
-    </div>
-  </div>
-
   <!-- 危險區 -->
   <div class="sec-t">⚠️ 危險操作</div>
   <div class="set-card">
@@ -76,7 +90,6 @@
 
 <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
 
-<!-- 確認 Modal -->
 <div class="ov" id="confirm-modal">
   <div class="sheet">
     <div class="sh"></div>
@@ -90,7 +103,7 @@
 </div>
 
 <nav class="nav">
-  <a class="ni" href="./index.html"><span class="ic">🏠</span><span>首頁</span></a>
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
@@ -102,14 +115,53 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/ui.js"></script>
 <script>
-function init() { renderStat(); renderCats(); }
+const ACCENT_DEFS = [
+  {key:'teal',   color:'#00e5b4', label:'翠綠'},
+  {key:'blue',   color:'#4f8ef7', label:'藍色'},
+  {key:'pink',   color:'#f472b6', label:'粉色'},
+  {key:'purple', color:'#a78bfa', label:'紫色'},
+  {key:'yellow', color:'#fbbf24', label:'黃色'},
+  {key:'green',  color:'#4ade80', label:'綠色'},
+];
+
+function init() {
+  applyTheme();
+  renderThemePicker();
+  renderStat();
+  renderCats();
+  // 載入 Discord URL
+  const url = localStorage.getItem('discord_webhook') || '';
+  document.getElementById('discord-url').value = url;
+}
+
+function renderThemePicker() {
+  const p = getPrefs();
+  // 亮暗模式按鈕
+  document.getElementById('mode-dark').classList.toggle('on',  p.theme==='dark');
+  document.getElementById('mode-light').classList.toggle('on', p.theme==='light');
+  // 主題色
+  document.getElementById('accent-picker').innerHTML = ACCENT_DEFS.map(a=>`
+    <div class="theme-item">
+      <div class="theme-dot${p.accent===a.key?' on':''}" style="background:${a.color}" onclick="setAccent('${a.key}')"></div>
+      <div class="theme-label">${a.label}</div>
+    </div>`).join('');
+}
+
+function setMode(mode) {
+  setPrefs({theme: mode});
+  renderThemePicker();
+}
+function setAccent(key) {
+  setPrefs({accent: key});
+  renderThemePicker();
+  applyTheme();
+}
 
 function renderStat() {
-  const tx = getTx(), w = getWal(), now = new Date();
-  const m = txByMonth(now.getFullYear(), now.getMonth() + 1);
-  document.getElementById('data-stat').innerHTML = `
+  const tx=getTx(), w=getWal(), now=new Date();
+  const m=txByMonth(now.getFullYear(),now.getMonth()+1);
+  document.getElementById('data-stat').innerHTML=`
     <div class="drow"><span>📋 總記帳筆數</span><span class="v">${tx.length}</span></div>
     <div class="drow"><span>📅 本月筆數</span><span class="v">${m.length}</span></div>
     <div class="drow"><span>💰 本月支出</span><span class="v">$${fmt(m.reduce((s,t)=>s+t.amount,0))}</span></div>
@@ -119,69 +171,90 @@ function renderStat() {
 }
 
 function renderCats() {
-  document.getElementById('cat-list').innerHTML = getCats().map(c => `
+  document.getElementById('cat-list').innerHTML = getCats().map(c=>`
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
       <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
       <span style="flex:1;font-size:.88rem;font-weight:500">${c.name}</span>
       <span style="font-size:.7rem;color:var(--t3)">${c.sub.length} 子分類</span>
+      <button onclick="removeCat('${c.id}')" style="background:none;border:none;color:var(--t3);font-size:.9rem;cursor:pointer;padding:2px 6px;border-radius:4px" title="刪除">✕</button>
     </div>`).join('');
 }
 
 function addNewCat() {
   const name = document.getElementById('new-cat').value.trim();
-  if (!name) { toast('請輸入分類名稱', 'warn'); return; }
-  const cols = ['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6'];
-  addCat({ name, color: cols[Math.floor(Math.random()*cols.length)], sub: [] });
-  document.getElementById('new-cat').value = '';
+  if (!name) { toast('請輸入分類名稱','warn'); return; }
+  const cols = ['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4'];
+  addCat({ name, color: cols[Math.floor(Math.random()*cols.length)], sub:[] });
+  document.getElementById('new-cat').value='';
   renderCats(); toast(`已新增 ${name}`);
 }
 
+function removeCat(id) {
+  delCat(id); renderCats(); toast('已刪除分類','err');
+}
+
+// Discord
+function saveDiscord() {
+  const url = document.getElementById('discord-url').value.trim();
+  localStorage.setItem('discord_webhook', url);
+  // 更新 firebase.js 的 DISCORD_WEBHOOK（動態修改全域變數）
+  window._discordWebhook = url;
+  toast(url ? 'Discord Webhook 已儲存' : '已清除 Discord 設定');
+}
+
+async function testDiscord() {
+  const url = document.getElementById('discord-url').value.trim();
+  if (!url) { toast('請先填入 Webhook URL','warn'); return; }
+  try {
+    const now = new Date();
+    await fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ content:`🧪 **家庭記帳測試通知**\n${now.toLocaleString('zh-TW')}\n連線成功！✅` }),
+    });
+    toast('測試通知已發送！請查看 Discord');
+  } catch(e) { toast('發送失敗，請確認 URL 正確','err'); }
+}
+
 function exportData() {
-  const d = { transactions:getTx(), wallet:getWal(), categories:getCats(), cards:getCards(), budgets:getBud(), at:new Date().toISOString() };
-  const b = new Blob([JSON.stringify(d,null,2)], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(b);
-  a.download = `家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
+  const d={transactions:getTx(),wallet:getWal(),categories:getCats(),cards:getCards(),budgets:getBud(),at:new Date().toISOString()};
+  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download=`家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
   a.click(); toast('備份已下載');
 }
 
 function importData(inp) {
-  const f = inp.files[0]; if (!f) return;
-  const r = new FileReader();
-  r.onload = e => {
+  const f=inp.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=e=>{
     try {
-      const d = JSON.parse(e.target.result);
-      if (d.transactions) DB.set('tx',    d.transactions);
-      if (d.wallet)       DB.set('wal',   d.wallet);
-      if (d.categories)   DB.set('cats',  d.categories);
-      if (d.cards)        DB.set('cards', d.cards);
-      if (d.budgets)      DB.set('bud',   d.budgets);
+      const d=JSON.parse(e.target.result);
+      if(d.transactions) DB.set('tx',d.transactions);
+      if(d.wallet)       DB.set('wal',d.wallet);
+      if(d.categories)   DB.set('cats',d.categories);
+      if(d.cards)        DB.set('cards',d.cards);
+      if(d.budgets)      DB.set('bud',d.budgets);
       toast('匯入成功！'); renderStat(); renderCats();
-    } catch { toast('格式錯誤', 'err'); }
+    } catch { toast('格式錯誤','err'); }
   };
-  r.readAsText(f); inp.value = '';
+  r.readAsText(f); inp.value='';
 }
 
 function confirmReset() {
-  document.getElementById('cm-title').textContent = '⚠️ 清除所有資料';
-  document.getElementById('cm-msg').textContent = '將刪除所有記帳、錢包、設定，且無法復原。請先匯出備份！';
+  document.getElementById('cm-title').textContent='⚠️ 清除所有資料';
+  document.getElementById('cm-msg').textContent='將刪除所有記帳、錢包、設定。無法復原，請先匯出備份！';
   document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick = () => {
-    clearAll();
-    fbClearAll();
-    toast('已清除', 'err'); closeModal();
-    setTimeout(() => location.reload(), 1500);
+  document.getElementById('cm-ok').onclick=()=>{
+    clearAll(); fbClearAll();
+    toast('已清除','err'); closeModal();
+    setTimeout(()=>location.reload(), 1500);
   };
 }
 function closeModal() { document.getElementById('confirm-modal').classList.remove('show'); }
 
 let _tt;
-function toast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show' + (type ? ' '+type : '');
-  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 2400);
-}
-
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
 init();
 </script>

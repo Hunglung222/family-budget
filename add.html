@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <link rel="manifest" href="./manifest.json">
 <title>新增記帳</title>
@@ -13,20 +14,30 @@
 <body>
 <header class="hdr">
   <h1>➕ 新增記帳</h1>
-  <a href="./index.html" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;">✕</a>
+  <a href="./index.html" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;">📋</a>
 </header>
+
 <div class="w">
   <div class="steps">
-    <div class="sd on" id="d0"></div><div class="sd" id="d1"></div><div class="sd" id="d2"></div>
+    <div class="sd on" id="d0"></div>
+    <div class="sd" id="d1"></div>
+    <div class="sd" id="d2"></div>
     <span class="shint" id="shint">輸入金額</span>
   </div>
+
   <div class="amt-card">
     <div class="amt-lbl">💰 記帳金額</div>
     <div class="amt-big" id="adisp">
       <span class="cur">$</span><span id="aval">0</span><span class="cursor"></span>
     </div>
   </div>
+
+  <!-- 數字鍵盤 -->
   <div id="s1">
+    <!-- 語音輸入按鈕 -->
+    <button class="voice-btn" id="voice-btn" onclick="toggleVoice()">
+      🎤 <span id="voice-txt">語音輸入金額</span>
+    </button>
     <div class="numpad">
       <button class="nk" onclick="nk(7)">7</button>
       <button class="nk" onclick="nk(8)">8</button>
@@ -42,6 +53,8 @@
       <button class="nk go" onclick="goStep2()">確認<br>金額</button>
     </div>
   </div>
+
+  <!-- 詳情區域 -->
   <div id="s2" style="display:none">
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
@@ -62,87 +75,256 @@
     <div class="fg">
       <span class="flbl">👤 記帳人</span>
       <div class="tg">
-        <button class="tb on" id="p-hl" onclick="setP('宏龍',this)">🙋 宏龍</button>
+        <button class="tb" id="p-hl" onclick="setP('宏龍',this)">🙋 宏龍</button>
         <button class="tb" id="p-yh" onclick="setP('盈慧',this)">🙋‍♀️ 盈慧</button>
       </div>
     </div>
     <div class="fg">
       <span class="flbl">💳 付款方式</span>
       <div class="tg">
-        <button class="tb on" id="pay-cash" onclick="setPay('cash',this)">💵 現金</button>
+        <button class="tb" id="pay-cash" onclick="setPay('cash',this)">💵 現金</button>
         <button class="tb" id="pay-card" onclick="setPay('card',this)">💳 信用卡</button>
       </div>
     </div>
     <div class="fg" id="card-fg" style="display:none">
       <span class="flbl">🃏 選擇卡片</span>
       <div class="card-chips" id="card-chips"></div>
+      <div id="no-card-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">
+        ⚠️ 尚未設定信用卡，請先至<a href="./wallet.html" style="color:var(--p);text-decoration:underline">錢包頁</a>新增
+      </div>
     </div>
     <div style="margin-top:18px">
       <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
       <div class="btn-row">
         <button class="btn btn-s" onclick="resetForm()">🔄 繼續新增</button>
-        <a href="./index.html" class="btn btn-s">🏠 回首頁</a>
+        <a href="./index.html" class="btn btn-s">📋 查看列表</a>
       </div>
     </div>
   </div>
 </div>
+
 <div class="sov" id="sov"><div class="s-ic">✅</div><div class="s-tx">記帳成功！</div></div>
+
 <nav class="nav">
-  <a class="ni" href="./index.html"><span class="ic">🏠</span><span>首頁</span></a>
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add on" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
 </nav>
 <div class="toast" id="toast"></div>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/ui.js"></script>
 <script>
-let astr='',selCat='',selCard='',pay='cash',person='宏龍';
-function init(){
-  const now=new Date();
-  document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  document.getElementById('cat-chips').innerHTML=getCats().map(c=>`<button class="cchip" onclick="selC('${c.id}',this)">${c.name}</button>`).join('');
-  const cs=getCards();
-  document.getElementById('card-chips').innerHTML=cs.map(c=>`<button class="cc" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`).join('');
-  if(cs.length){selCard=cs[0].id;document.querySelector('.cc').classList.add('on');}
+let astr='', selCat='', selCard='', pay='cash', person='宏龍';
+let voiceRec = null, isListening = false;
+
+function init() {
+  applyTheme();
+  // 設定時間
+  const now = new Date();
+  document.getElementById('tx-dt').value =
+    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  // 建分類
+  buildCatChips();
+  // 建卡片
+  buildCardChips();
+  // 套用上次選擇（智慧預設）
+  const p = getPrefs();
+  person = p.lastPerson || '宏龍';
+  pay    = p.lastPay    || 'cash';
+  selCat = p.lastCat    || '';
+  document.getElementById(person==='宏龍'?'p-hl':'p-yh').classList.add('on');
+  document.getElementById(pay==='cash'?'pay-cash':'pay-card').classList.add('on');
+  if (pay === 'card') document.getElementById('card-fg').style.display = 'block';
+  // 初始化語音
+  initVoice();
 }
-function nk(n){if(astr.length>=7)return;astr+=String(n);refreshAmt();}
-function nkd(){astr=astr.slice(0,-1);refreshAmt();}
-function refreshAmt(){const v=parseInt(astr)||0;document.getElementById('aval').textContent=v>0?fmt(v):'0';document.getElementById('adisp').classList.toggle('has-val',v>0);}
-function goStep2(){if(!(parseInt(astr)||0)){toast('請輸入金額','warn');return;}document.getElementById('s1').style.display='none';document.getElementById('s2').style.display='block';setStep(1);}
-function selC(id,el){selCat=id;document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));el.classList.add('on');const cat=catFind(id);const sf=document.getElementById('sub-fg');const ss=document.getElementById('sub-sel');if(cat.sub&&cat.sub.length){sf.style.display='block';ss.innerHTML='<option value="">子分類（可略）</option>'+cat.sub.map(s=>`<option>${s}</option>`).join('');}else{sf.style.display='none';}}
-function setPay(p,el){pay=p;document.querySelectorAll('#pay-cash,#pay-card').forEach(b=>b.classList.remove('on'));el.classList.add('on');document.getElementById('card-fg').style.display=p==='card'?'block':'none';}
-function setP(p,el){person=p;document.querySelectorAll('#p-hl,#p-yh').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
-function selCC(id,el){selCard=id;document.querySelectorAll('.cc').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
-function submit(){
-  const amt=parseInt(astr)||0;
-  if(!amt){toast('金額不可為 0','warn');return;}
-  if(!selCat){toast('請選擇分類','warn');return;}
-  if(pay==='card'&&!selCard){toast('請選擇卡片','warn');return;}
-  const dtv=document.getElementById('tx-dt').value;
-  const tx={amount:amt,cat:selCat,subCat:document.getElementById('sub-sel').value,detail:document.getElementById('tx-detail').value.trim(),person,pay,cardId:pay==='card'?selCard:null,at:dtv?new Date(dtv).toISOString():new Date().toISOString()};
-  addTx(tx);fbAddTx(tx);
-  const bud=getBudget(tx.cat);
-  if(bud){const now=new Date();const sp=txByMonth(now.getFullYear(),now.getMonth()+1).filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);const pct=sp/bud;if(pct>=1)setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 預算超支！`,'err'),1400);else if(pct>=.8)setTimeout(()=>toast(`🔔 ${catName(tx.cat)} 已用 ${Math.round(pct*100)}%`,'warn'),1400);}
-  const sov=document.getElementById('sov');sov.classList.add('show');setTimeout(()=>sov.classList.remove('show'),1300);
-  toast(`記帳 $${fmt(amt)} 成功！`);resetForm();
+
+function buildCatChips() {
+  document.getElementById('cat-chips').innerHTML = getCats().map(c =>
+    `<button class="cchip${selCat===c.id?' on':''}" onclick="selC('${c.id}',this)">${c.name}</button>`
+  ).join('');
 }
-function resetForm(){
-  astr='';selCat='';pay='cash';person='宏龍';
-  document.getElementById('aval').textContent='0';document.getElementById('adisp').classList.remove('has-val');
-  document.getElementById('s1').style.display='block';document.getElementById('s2').style.display='none';
-  document.getElementById('tx-detail').value='';document.getElementById('sub-fg').style.display='none';document.getElementById('card-fg').style.display='none';
+
+function buildCardChips() {
+  const cs = getCards();
+  const el = document.getElementById('card-chips');
+  const hint = document.getElementById('no-card-hint');
+  if (!cs.length) {
+    el.innerHTML = '';
+    hint.style.display = 'block';
+    selCard = '';
+    return;
+  }
+  hint.style.display = 'none';
+  el.innerHTML = cs.map(c =>
+    `<button class="cc" data-id="${c.id}" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`
+  ).join('');
+  selCard = cs[0].id;
+  el.querySelector('.cc').classList.add('on');
+}
+
+// 數字鍵盤
+function nk(n) { if(astr.length>=7)return; astr+=String(n); refreshAmt(); }
+function nkd() { astr=astr.slice(0,-1); refreshAmt(); }
+function refreshAmt() {
+  const v = parseInt(astr)||0;
+  document.getElementById('aval').textContent = v>0 ? fmt(v) : '0';
+  document.getElementById('adisp').classList.toggle('has-val', v>0);
+}
+function goStep2() {
+  if (!(parseInt(astr)||0)) { toast('請輸入金額','warn'); return; }
+  document.getElementById('s1').style.display = 'none';
+  document.getElementById('s2').style.display = 'block';
+  setStep(1);
+}
+
+// 分類
+function selC(id, el) {
+  selCat = id;
   document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
-  document.getElementById('pay-cash').classList.add('on');document.getElementById('pay-card').classList.remove('on');
-  document.getElementById('p-hl').classList.add('on');document.getElementById('p-yh').classList.remove('on');
-  const now=new Date();document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  setStep(0);
+  el.classList.add('on');
+  const cat = catFind(id);
+  const sf = document.getElementById('sub-fg');
+  const ss = document.getElementById('sub-sel');
+  if (cat.sub && cat.sub.length) {
+    sf.style.display = 'block';
+    ss.innerHTML = '<option value="">子分類（可略）</option>' + cat.sub.map(s=>`<option>${s}</option>`).join('');
+  } else { sf.style.display = 'none'; }
 }
-function setStep(s){const hints=['輸入金額','填寫詳情','完成'];document.getElementById('shint').textContent=hints[s]||'';[0,1,2].forEach(i=>{const d=document.getElementById('d'+i);d.className='sd'+(i<s?' done':i===s?' on':'');});}
+function setPay(p, el) {
+  pay = p;
+  document.querySelectorAll('#pay-cash,#pay-card').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('card-fg').style.display = p==='card' ? 'block' : 'none';
+}
+function setP(p, el) {
+  person = p;
+  document.querySelectorAll('#p-hl,#p-yh').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function selCC(id, el) {
+  selCard = id;
+  document.querySelectorAll('.cc').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// 提交
+function submit() {
+  const amt = parseInt(astr)||0;
+  if (!amt)                       { toast('金額不可為 0','warn');  return; }
+  if (!selCat)                    { toast('請選擇分類','warn');    return; }
+  if (pay==='card' && !selCard)   { toast('請先至錢包頁新增信用卡','warn'); return; }
+  const dtv = document.getElementById('tx-dt').value;
+  const tx = {
+    amount:amt, cat:selCat,
+    subCat: document.getElementById('sub-sel').value,
+    detail: document.getElementById('tx-detail').value.trim(),
+    person, pay, cardId: pay==='card' ? selCard : null,
+    at: dtv ? new Date(dtv).toISOString() : new Date().toISOString(),
+  };
+  addTx(tx); fbAddTx(tx);
+  // 預算警告
+  const bud = getBudget(tx.cat);
+  if (bud) {
+    const now = new Date();
+    const sp = txByMonth(now.getFullYear(),now.getMonth()+1).filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);
+    const pct = sp/bud;
+    if (pct>=1) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 預算超支！`,'err'),1400);
+    else if (pct>=.8) setTimeout(()=>toast(`🔔 ${catName(tx.cat)} 已用 ${Math.round(pct*100)}%`,'warn'),1400);
+  }
+  const sov = document.getElementById('sov');
+  sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
+  toast(`記帳 $${fmt(amt)} 成功！`);
+  resetForm();
+}
+
+function resetForm() {
+  astr=''; selCat='';
+  document.getElementById('aval').textContent='0';
+  document.getElementById('adisp').classList.remove('has-val');
+  document.getElementById('s1').style.display='block';
+  document.getElementById('s2').style.display='none';
+  document.getElementById('tx-detail').value='';
+  document.getElementById('sub-fg').style.display='none';
+  document.getElementById('card-fg').style.display= pay==='card'?'block':'none';
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
+  const now=new Date();
+  document.getElementById('tx-dt').value =
+    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  setStep(0);
+  // 重新套上次偏好（智慧預設）
+  const p = getPrefs();
+  if (p.lastCat) {
+    const el = document.querySelector(`.cchip[onclick="selC('${p.lastCat}',this)"]`);
+    if (el) { selCat=p.lastCat; el.classList.add('on'); }
+  }
+}
+
+function setStep(s) {
+  const hints=['輸入金額','填寫詳情','完成'];
+  document.getElementById('shint').textContent=hints[s]||'';
+  [0,1,2].forEach(i=>{ const d=document.getElementById('d'+i); d.className='sd'+(i<s?' done':i===s?' on':''); });
+}
+
+// ── 語音輸入 ─────────────────────────────────────────
+function initVoice() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('voice-btn').style.display = 'none';
+    return;
+  }
+  voiceRec = new SR();
+  voiceRec.lang = 'zh-TW';
+  voiceRec.continuous = false;
+  voiceRec.interimResults = false;
+  voiceRec.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    // 從語音中抽取數字
+    const nums = text.match(/\d+/g);
+    if (nums) {
+      astr = nums.join('').slice(0, 7);
+      refreshAmt();
+      toast(`語音辨識：${text}`, 'info');
+    } else {
+      toast(`未辨識到金額：${text}`, 'warn');
+    }
+    stopVoice();
+  };
+  voiceRec.onerror = () => { stopVoice(); toast('語音辨識失敗', 'err'); };
+  voiceRec.onend = () => stopVoice();
+}
+
+function toggleVoice() {
+  if (isListening) { stopVoice(); return; }
+  if (!voiceRec) { toast('此裝置不支援語音輸入', 'warn'); return; }
+  try {
+    voiceRec.start(); isListening = true;
+    const btn = document.getElementById('voice-btn');
+    btn.classList.add('listening');
+    document.getElementById('voice-txt').textContent = '聆聽中…點擊停止';
+  } catch(e) { toast('請允許麥克風權限', 'warn'); }
+}
+
+function stopVoice() {
+  isListening = false;
+  try { voiceRec && voiceRec.stop(); } catch {}
+  const btn = document.getElementById('voice-btn');
+  btn.classList.remove('listening');
+  document.getElementById('voice-txt').textContent = '語音輸入金額';
+}
+
+let _tt;
+function toast(msg, type='') {
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='toast show'+(type?' '+type:'');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),2400);
+}
+
 init();
 </script>
 </body>

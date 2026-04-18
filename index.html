@@ -4,15 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="./manifest.json">
 <title>家庭記帳</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
-
 <header class="hdr">
   <div>
     <h1>🏡 家庭記帳</h1>
@@ -27,7 +26,6 @@
     <div class="mlbl" id="mlbl"></div>
     <button class="mbtn" onclick="nextM()">›</button>
   </div>
-
   <div class="hero">
     <div class="hero-lbl">📅 本月總支出</div>
     <div class="hero-amt"><span class="cur">$</span><span id="h-t">0</span></div>
@@ -36,13 +34,11 @@
       <span>💵 現金 <b id="h-cs">0</b></span>
     </div>
   </div>
-
   <div class="sg">
     <div class="sc g"><div class="sc-lbl">👛 錢包</div><div class="sc-val"><span class="u">$</span><span id="s-w">0</span></div></div>
     <div class="sc b"><div class="sc-lbl">🙋 宏龍</div><div class="sc-val"><span class="u">$</span><span id="s-1">0</span></div></div>
     <div class="sc w"><div class="sc-lbl">🙋‍♀️ 盈慧</div><div class="sc-val"><span class="u">$</span><span id="s-2">0</span></div></div>
   </div>
-
   <div class="pills">
     <button class="pill on" onclick="setF('all',this)">全部</button>
     <button class="pill" onclick="setF('宏龍',this)">宏龍</button>
@@ -50,104 +46,97 @@
     <button class="pill" onclick="setF('cash',this)">💵 現金</button>
     <button class="pill" onclick="setF('card',this)">💳 信用卡</button>
   </div>
-
   <div id="list"></div>
 </div>
 
-<nav class="nav" id="bottom-nav"></nav>
+<nav class="nav">
+  <a class="ni on" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
+</nav>
 <div class="toast" id="toast"></div>
+<div class="ov" id="modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st" id="m-title"></div>
+    <p id="m-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeM()">取消</button>
+      <button class="btn btn-d" id="m-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
 
-<!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<!-- 本地模組（相對路徑） -->
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/ui.js"></script>
 <script>
-const MN = ['一','二','三','四','五','六','七','八','九','十','十一','十二'];
-let cy = new Date().getFullYear(), cm = new Date().getMonth()+1, filt = 'all';
+const CAT_IC={food:'🍜',transport:'🚌',shopping:'🛍️',home:'🏠',medical:'💊',entertain:'🎬',education:'📚',child:'👶',other:'📦'};
+const CAT_CL={food:'',transport:'b',shopping:'w',home:'pk',medical:'pu',entertain:'b',education:'',child:'w',other:''};
+const MN=['一','二','三','四','五','六','七','八','九','十','十一','十二'];
+let cy=new Date().getFullYear(), cm=new Date().getMonth()+1, filt='all';
 
 function render() {
-  document.getElementById('mlbl').textContent = `${cy} 年 ${MN[cm-1]} 月`;
-  let list = txByMonth(cy, cm);
-  const s = calcStats(list);
-  document.getElementById('h-t').textContent  = fmt(s.total);
-  document.getElementById('h-cc').textContent = fmt(s.card);
-  document.getElementById('h-cs').textContent = fmt(s.cash);
-  document.getElementById('s-w').textContent  = fmt(getWal().balance);
-  document.getElementById('s-1').textContent  = fmt(s.byPerson['宏龍'] || 0);
-  document.getElementById('s-2').textContent  = fmt(s.byPerson['盈慧'] || 0);
-
-  if (filt === '宏龍' || filt === '盈慧') list = list.filter(t => t.person === filt);
-  else if (filt === 'cash') list = list.filter(t => t.pay === 'cash');
-  else if (filt === 'card') list = list.filter(t => t.pay === 'card');
-
-  const el = document.getElementById('list');
-  if (!list.length) {
-    el.innerHTML = '<div class="empty"><div class="ei">📭</div><p>還沒有記帳<br>點 ➕ 開始記帳</p></div>';
-    return;
-  }
-  const g = groupDay(list);
-  el.innerHTML = Object.entries(g).map(([d, ts]) => {
-    const dt = ts.reduce((s, t) => s + t.amount, 0);
-    return `<div class="day-h"><span class="day-d">📅 ${d}</span><span class="day-t">-$${fmt(dt)}</span></div>`
-      + ts.map(txHTML).join('');
+  document.getElementById('mlbl').textContent=`${cy} 年 ${MN[cm-1]} 月`;
+  let list=txByMonth(cy,cm); const s=calcStats(list);
+  document.getElementById('h-t').textContent=fmt(s.total);
+  document.getElementById('h-cc').textContent=fmt(s.card);
+  document.getElementById('h-cs').textContent=fmt(s.cash);
+  document.getElementById('s-w').textContent=fmt(getWal().balance);
+  document.getElementById('s-1').textContent=fmt(s.byPerson['宏龍']||0);
+  document.getElementById('s-2').textContent=fmt(s.byPerson['盈慧']||0);
+  if(filt==='宏龍'||filt==='盈慧') list=list.filter(t=>t.person===filt);
+  else if(filt==='cash') list=list.filter(t=>t.pay==='cash');
+  else if(filt==='card') list=list.filter(t=>t.pay==='card');
+  const el=document.getElementById('list');
+  if(!list.length){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>還沒有記帳<br>點 ➕ 開始記帳</p></div>';return;}
+  const g=groupDay(list);
+  el.innerHTML=Object.entries(g).map(([d,ts])=>{
+    const dt=ts.reduce((s,t)=>s+t.amount,0);
+    return `<div class="day-h"><span class="day-d">📅 ${d}</span><span class="day-t">-$${fmt(dt)}</span></div>`+ts.map(txHTML).join('');
   }).join('');
 }
 
 function txHTML(t) {
-  const ic = CAT_IC[t.cat] || '📦';
-  const cl = CAT_CL[t.cat] || '';
-  const pay = t.pay === 'cash' ? '💵 現金' : `💳 ${cardFind(t.cardId)?.name || '信用卡'}`;
-  return `<div class="tx">
-    <div class="tx-ic ${cl}">${ic}</div>
+  const ic=CAT_IC[t.cat]||'📦', cl=CAT_CL[t.cat]||'';
+  const pay=t.pay==='cash'?'💵 現金':`💳 ${cardFind(t.cardId)?.name||'信用卡'}`;
+  return `<div class="tx"><div class="tx-ic ${cl}">${ic}</div>
     <div class="tx-body">
-      <div class="tx-name">${t.detail || catName(t.cat)}</div>
-      <div class="tx-meta">
-        <span class="tag">${catName(t.cat)}</span>
-        <span class="tag">${t.person}</span>
-        <span class="tag">${pay}</span>
-      </div>
+      <div class="tx-name">${t.detail||catName(t.cat)}</div>
+      <div class="tx-meta"><span class="tag">${catName(t.cat)}</span><span class="tag">${t.person}</span><span class="tag">${pay}</span></div>
       <button class="tx-del" onclick="askDel('${t.id}',event)">刪除</button>
     </div>
-    <div class="tx-r">
-      <div class="tx-amt">-$${fmt(t.amount)}</div>
-      <div class="tx-time">${fmtT(t.at)}</div>
-    </div>
+    <div class="tx-r"><div class="tx-amt">-$${fmt(t.amount)}</div><div class="tx-time">${fmtT(t.at)}</div></div>
   </div>`;
 }
 
-function setF(f, el) {
-  filt = f;
-  document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
-  el.classList.add('on');
-  render();
-}
-function prevM() { cm--; if (cm < 1)  { cm = 12; cy--; } render(); }
-function nextM() { cm++; if (cm > 12) { cm = 1;  cy++; } render(); }
+function setF(f,el){filt=f;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');render();}
+function prevM(){cm--;if(cm<1){cm=12;cy--}render();}
+function nextM(){cm++;if(cm>12){cm=1;cy++}render();}
 
-function askDel(id, e) {
+function askDel(id,e){
   e.stopPropagation();
-  showConfirm('刪除這筆記帳？', '刪除後不可復原，現金支出會歸還錢包。', () => {
-    delTx(id);
-    fbDelTx(id);
-    toast('已刪除', 'err');
-    render();
-  });
+  document.getElementById('m-title').textContent='刪除這筆記帳？';
+  document.getElementById('m-msg').textContent='刪除後不可復原，現金支出會歸還錢包。';
+  document.getElementById('modal').classList.add('show');
+  document.getElementById('m-ok').onclick=()=>{delTx(id);fbDelTx(id);closeM();toast('已刪除','err');render();};
 }
+function closeM(){document.getElementById('modal').classList.remove('show');}
 
-// 啟動
-renderNav('home');
-document.getElementById('hdr-date').textContent =
-  new Date().toLocaleDateString('zh-TW', { weekday:'long', month:'long', day:'numeric' });
+let _tt;
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
+
+applyTheme();
+document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
-// Firebase 背景同步
-fbPullAll().then(() => render());
-fbListenTx(() => render());
-fbListenWal(() => render());
-
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+fbPullAll().then(()=>render());
+fbListenTx(()=>render());
+fbListenWal(()=>render());
+scheduleDailyDiscord();
+if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 </script>
 </body>
 </html>
