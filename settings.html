@@ -431,7 +431,7 @@ function closeModal(){document.getElementById('confirm-modal').classList.remove(
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
-init();
+window.addEventListener("DOMContentLoaded", ()=>setTimeout(init, 150));
 </script>
 </body>
 </html>

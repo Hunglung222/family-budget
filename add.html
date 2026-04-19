@@ -21,26 +21,34 @@
     <div class="sd on" id="d0"></div><div class="sd" id="d1"></div><div class="sd" id="d2"></div>
     <span class="shint" id="shint">輸入金額</span>
   </div>
-  <div class="amt-card">
-    <div class="amt-lbl">💰 記帳金額</div>
+  <div class="amt-card" id="amt-card" onclick="backToStep1()" style="cursor:pointer" title="點此重新輸入金額">
+    <div class="amt-lbl">💰 記帳金額 <span id="edit-hint" style="font-size:.65rem;opacity:.6">（點此修改）</span></div>
     <div class="amt-big" id="adisp">
       <span class="cur">$</span><span id="aval">0</span><span class="cursor"></span>
     </div>
   </div>
+
+  <!-- Step 1：金額輸入 -->
   <div id="s1">
-    <div style="display:flex;gap:8px;margin-bottom:10px">
-      <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" style="flex:1">
-        🎤 <span id="voice-txt">語音輸入</span>
-      </button>
-      <button onclick="showTextInput()" style="padding:13px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--t2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">⌨️ 文字</button>
-    </div>
-    <!-- 文字輸入備用（語音不支援時使用） -->
-    <div id="text-input-area" style="display:none;margin-bottom:10px">
+    <!-- AI 文字輸入（直接顯示，不需要多按一鍵） -->
+    <div style="margin-bottom:10px">
       <div style="display:flex;gap:8px">
-        <input type="text" class="fc" id="text-voice-input" placeholder="例：今天早餐蛋餅100元" style="flex:1">
-        <button onclick="submitTextInput()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">AI解析</button>
+        <input type="text" class="fc" id="ai-input" placeholder="🤖 說一句話讓 AI 填表，例：今天早餐蛋餅豆漿100元" style="flex:1;font-size:.85rem">
+        <button id="ai-btn" onclick="submitAI()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;min-width:80px">AI 記帳</button>
       </div>
-      <div style="font-size:.72rem;color:var(--t3);margin-top:5px">語音不支援時，用文字輸入讓 AI 自動填表</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:4px">輸入自然語言，AI 自動辨識分類・金額・日期</div>
+      <div id="api-hint" style="display:none;margin-top:8px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;font-size:.76rem;color:var(--warn);line-height:1.6">
+        ⚠️ <b>API Key 需要解除限制：</b><br>
+        1. 打開 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--p)">Google Cloud Console</a><br>
+        2. 點你的 API Key → 「應用程式限制」<br>
+        3. 選「無限制」或加入 <b>hunglung222.github.io</b><br>
+        4. 儲存後等 5 分鐘即可使用
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <span style="font-size:.7rem;color:var(--t3)">或手動輸入金額</span>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
     <div class="numpad">
       <button class="nk" onclick="nk(7)">7</button><button class="nk" onclick="nk(8)">8</button><button class="nk" onclick="nk(9)">9</button>
@@ -51,6 +59,8 @@
       <button class="nk go" onclick="goStep2()">確認<br>金額</button>
     </div>
   </div>
+
+  <!-- Step 2：詳情 -->
   <div id="s2" style="display:none">
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
@@ -106,6 +116,7 @@
     </div>
   </div>
 </div>
+
 <div class="sov" id="sov"><div class="s-ic">✅</div><div class="s-tx">記帳成功！</div></div>
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
@@ -116,315 +127,329 @@
 </nav>
 <div class="toast" id="toast"></div>
 
+<!-- Firebase Auth -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
 (function(){
   const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length)firebase.initializeApp(FB_CFG);
+  const CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
+  if(!firebase.apps.length)firebase.initializeApp(CFG);
   firebase.auth().onAuthStateChanged(user=>{
     if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
-    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);}
+    else{
+      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
+      localStorage.setItem('current_user',name);
+      localStorage.setItem('current_email',user.email);
+    }
   });
 })();
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+
+<!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
-let astr='',selCat='',selCard='',selIcard='',pay='cash',person='宏龍';
-let voiceRec=null,isListening=false;
-
-function showTextInput(){
-  const area = document.getElementById('text-input-area');
-  area.style.display = area.style.display==='none' ? 'block' : 'none';
-  if(area.style.display==='block') document.getElementById('text-voice-input').focus();
-}
-
-async function submitTextInput(){
-  const text = document.getElementById('text-voice-input').value.trim();
-  if(!text){toast('請輸入內容','warn');return;}
-  const btn = document.querySelector('#text-input-area button:last-child');
-  btn.textContent='解析中...';btn.disabled=true;
-  toast(`解析：${text}`,'info');
-  try{
-    const result = await geminiParse(text);
-    applyGeminiResult(result);
-    if(result.amount>0&&document.getElementById('s1').style.display!=='none') goStep2();
-    toast('✅ AI 解析完成！請確認資料','info');
-    document.getElementById('text-voice-input').value='';
-    document.getElementById('text-input-area').style.display='none';
-  }catch(err){
-    console.warn('[Gemini]',err);
-    toast('AI 解析失敗，請手動輸入','warn');
-  }finally{
-    btn.textContent='AI解析';btn.disabled=false;
-  }
-}
-
-function init(){
-  applyTheme();
-  const now=new Date();
-  document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  // 依登入者預設記帳人
-  person=currentUser();
-  document.getElementById(person==='宏龍'?'p-hl':'p-yh').classList.add('on');
-  // 套用上次偏好
-  const p=getPrefs();
-  pay=p.lastPay||'cash';
-  document.getElementById('pay-'+pay).classList.add('on');
-  if(pay==='card')  document.getElementById('card-fg').style.display='block';
-  if(pay==='icard') document.getElementById('icard-fg').style.display='block';
-  buildCatChips(); buildCardChips(); buildIcardChips();
-  initVoice();
-}
-
-function buildCatChips(){
-  const p=getPrefs();
-  document.getElementById('cat-chips').innerHTML=getCats().map(c=>
-    `<button class="cchip${selCat===c.id||p.lastCat===c.id&&!selCat?' on':''}" onclick="selC('${c.id}',this)">${c.name}</button>`
-  ).join('');
-  if(!selCat&&p.lastCat){selCat=p.lastCat;const el=document.querySelector('.cchip.on');if(el)triggerCatSub(p.lastCat);}
-}
-
-function triggerCatSub(id){
-  const cat=catFind(id);const sf=document.getElementById('sub-fg');const ss=document.getElementById('sub-sel');
-  if(cat.sub&&cat.sub.length){sf.style.display='block';ss.innerHTML='<option value="">子分類（可略）</option>'+cat.sub.map(s=>`<option>${s}</option>`).join('');}
-  else sf.style.display='none';
-}
-
-function buildCardChips(){
-  const cs=getCards();const el=document.getElementById('card-chips');const hint=document.getElementById('no-card-hint');
-  if(!cs.length){el.innerHTML='';hint.style.display='block';selCard='';return;}
-  hint.style.display='none';
-  el.innerHTML=cs.map(c=>`<button class="cc" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`).join('');
-  selCard=cs[0].id;el.querySelector('.cc').classList.add('on');
-}
-
-function buildIcardChips(){
-  const cs=getIcards();const el=document.getElementById('icard-chips');const hint=document.getElementById('no-icard-hint');
-  if(!cs.length){el.innerHTML='';hint.style.display='block';selIcard='';return;}
-  hint.style.display='none';
-  el.innerHTML=cs.map(c=>`<button class="cc" onclick="selIC('${c.id}',this)">${c.name} <span style="font-size:.75rem;opacity:.7">$${fmt(c.balance||0)}</span></button>`).join('');
-  selIcard=cs[0].id;el.querySelector('.cc').classList.add('on');
-}
-
-function nk(n){if(astr.length>=7)return;astr+=String(n);refreshAmt();}
-function nkd(){astr=astr.slice(0,-1);refreshAmt();}
-function refreshAmt(){const v=parseInt(astr)||0;document.getElementById('aval').textContent=v>0?fmt(v):'0';document.getElementById('adisp').classList.toggle('has-val',v>0);}
-function goStep2(){if(!(parseInt(astr)||0)){toast('請輸入金額','warn');return;}document.getElementById('s1').style.display='none';document.getElementById('s2').style.display='block';setStep(1);}
-
-function selC(id,el){
-  selCat=id;
-  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));el.classList.add('on');
-  triggerCatSub(id);
-  showHints();
-}
-function onSubChange(){showHints();}
-
-function setPay(p,el){
-  pay=p;
-  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard').forEach(b=>b.classList.remove('on'));el.classList.add('on');
-  document.getElementById('card-fg').style.display=p==='card'?'block':'none';
-  document.getElementById('icard-fg').style.display=p==='icard'?'block':'none';
-}
-function setP(p,el){person=p;document.querySelectorAll('#p-hl,#p-yh').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
-function selCC(id,el){selCard=id;document.querySelectorAll('#card-chips .cc').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
-function selIC(id,el){selIcard=id;document.querySelectorAll('#icard-chips .cc').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
-
-// 智慧輸入提示
-function showHints(){
-  const inp=document.getElementById('tx-detail');const val=inp.value;
-  const subCat=document.getElementById('sub-sel').value;
-  let hints=selCat?getAllDetailHints(selCat):[];
-  if(val) hints=hints.filter(h=>h.includes(val));
-  const box=document.getElementById('hint-list');
-  if(!hints.length){box.style.display='none';return;}
-  box.style.display='block';
-  box.innerHTML=hints.map(h=>`<div onclick="pickHint('${h.replace(/'/g,"\\'")}')"`+
-    ` style="padding:11px 14px;font-size:.88rem;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent">${h}</div>`).join('');
-}
-function hideHints(){document.getElementById('hint-list').style.display='none';}
-function pickHint(v){document.getElementById('tx-detail').value=v;hideHints();}
-
-// ── Gemini AI 語音辨識 ──────────────────────────────
+// Gemini API（透過 CORS Proxy 呼叫）
 const GEMINI_KEY = 'AIzaSyCF2V8sjzzuyVK4wqk9UCV0A3tf9VMXb8U';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_KEY}`;
 
-// CAT_LIST 動態取得（在 db.js 載入後）
-
-async function geminiParse(text) {
+async function callGemini(text) {
+  const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
   const today = new Date();
-  const todayStr = `${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
-  const yesterdayStr = new Date(today-864e5).toLocaleDateString('zh-TW');
+  const todayStr = fmtD(today.toISOString());
+  const yestStr  = fmtD(new Date(today-864e5).toISOString());
 
-  const CAT_LIST = getCats().map(c=>`${c.id}:${c.name}`).join(', ');
-  const prompt = `你是一個記帳助理，請從以下語音辨識文字中提取記帳資訊，並以 JSON 格式回傳。
+  const prompt = `你是記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
+今天:${todayStr} 昨天:${yestStr}
+可用分類ID: ${cats}
+文字:「${text}」
+回傳格式:{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細","date":"${todayStr}格式","pay":"cash或card"}`;
 
-今天日期：${todayStr}
-昨天日期：${yesterdayStr}
-
-可用分類（格式為 id:名稱）：${CAT_LIST}
-
-請從這段文字提取：「${text}」
-
-回傳格式（只回傳 JSON，不要有其他文字）：
-{
-  "amount": 數字（金額，沒有就填0）,
-  "cat": "分類id（從上方清單選最符合的）",
-  "subCat": "子分類（如早餐/午餐/晚餐/加油等，沒有就填空字串）",
-  "detail": "明細描述（去掉金額和時間後的主要內容）",
-  "date": "日期（格式 YYYY/M/D，今天就填${todayStr}，昨天就填${yesterdayStr}）",
-  "pay": "付款方式（cash=現金/card=信用卡，預設cash）"
-}`;
-
-  const res = await fetch(GEMINI_URL, {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+  const res = await fetch(url, {
     method: 'POST',
-    headers: {'Content-Type': 'application/json'},
+    headers: {'Content-Type':'application/json'},
     body: JSON.stringify({
-      contents: [{parts: [{text: prompt}]}],
-      generationConfig: {temperature: 0.1, maxOutputTokens: 256}
+      contents:[{parts:[{text:prompt}]}],
+      generationConfig:{temperature:0.1,maxOutputTokens:200}
     })
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  // 清除 markdown 符號
-  const clean = raw.replace(/```json|```/g,'').trim();
+  const clean = raw.replace(/```json|```|\n/g,'').trim();
   return JSON.parse(clean);
 }
 
-function applyGeminiResult(result) {
-  // 金額
-  if (result.amount > 0) {
-    astr = String(result.amount).slice(0, 7);
-    refreshAmt();
-  }
-  // 分類
-  if (result.cat) {
-    const el = document.querySelector(`.cchip[onclick="selC('${result.cat}',this)"]`);
-    if (el) { selC(result.cat, el); }
-  }
-  // 子分類
-  if (result.subCat) {
-    const ss = document.getElementById('sub-sel');
-    for (let i = 0; i < ss.options.length; i++) {
-      if (ss.options[i].text === result.subCat) { ss.selectedIndex = i; break; }
-    }
-  }
-  // 明細
-  if (result.detail) document.getElementById('tx-detail').value = result.detail;
-  // 日期
-  if (result.date) {
-    const d = new Date(result.date.replace(/\//g, '-'));
-    if (!isNaN(d)) {
-      const now = new Date();
-      d.setHours(now.getHours(), now.getMinutes());
-      document.getElementById('tx-dt').value =
-        new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-    }
-  }
-  // 付款方式
-  if (result.pay === 'card') {
-    const el = document.getElementById('pay-card');
-    if (el) setPay('card', el);
-  }
-}
-
-function initVoice(){
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    document.getElementById('voice-txt').textContent='語音不支援';
-    document.getElementById('voice-btn').onclick=showTextInput;
-    document.getElementById('text-input-area').style.display='block';
-    return;
-  }
-  voiceRec = new SR();
-  voiceRec.lang = 'zh-TW';
-  voiceRec.continuous = false;
-  voiceRec.interimResults = false;
-  voiceRec.onresult = async e => {
-    const text = e.results[0][0].transcript;
-    stopVoice();
-    document.getElementById('voice-btn').textContent = '🤖 AI 解析中...';
-    document.getElementById('voice-btn').style.opacity = '0.7';
-    toast(`辨識：${text}`, 'info');
-    try {
-      const result = await geminiParse(text);
-      applyGeminiResult(result);
-      // 金額有了就直接跳到詳情頁
-      if (result.amount > 0 && document.getElementById('s1').style.display !== 'none') {
-        goStep2();
-      }
-      toast('✅ AI 解析完成！請確認資料', 'info');
-    } catch(err) {
-      console.warn('[Gemini]', err);
-      toast('AI 解析失敗，請手動輸入', 'warn');
-    } finally {
-      document.getElementById('voice-btn').innerHTML = '🎤 <span id="voice-txt">語音輸入</span>';
-      document.getElementById('voice-btn').style.opacity = '1';
-    }
-  };
-  voiceRec.onerror = () => { stopVoice(); toast('語音辨識失敗，請再試', 'err'); };
-  voiceRec.onend = () => stopVoice();
-}
-
-function toggleVoice(){
-  if (isListening) { stopVoice(); return; }
-  if (!voiceRec) { toast('此裝置不支援語音輸入', 'warn'); return; }
+async function submitAI() {
+  const text = document.getElementById('ai-input').value.trim();
+  if (!text) { toast('請輸入描述', 'warn'); return; }
+  const btn = document.getElementById('ai-btn');
+  btn.textContent = '解析中...'; btn.disabled = true;
   try {
-    voiceRec.start(); isListening = true;
-    const btn = document.getElementById('voice-btn');
-    btn.classList.add('listening');
-    document.getElementById('voice-txt').textContent = '聆聽中…說完後自動停止';
-  } catch(e) { toast('請允許麥克風權限', 'warn'); }
-}
-function stopVoice(){
-  isListening = false;
-  try { voiceRec && voiceRec.stop(); } catch {}
-  const btn = document.getElementById('voice-btn');
-  btn.classList.remove('listening');
-  const vtxt = document.getElementById('voice-txt');
-  if (vtxt) vtxt.textContent = '語音輸入';
+    const r = await callGemini(text);
+    // 填金額
+    if (r.amount > 0) { astr = String(Math.round(r.amount)).slice(0,7); refreshAmt(); }
+    // 填分類
+    if (r.cat) {
+      const el = document.querySelector(`#cat-chips .cchip[data-id="${r.cat}"]`);
+      if (el) { selC(r.cat, el); }
+    }
+    // 填子分類
+    if (r.subCat) {
+      const ss = document.getElementById('sub-sel');
+      for (let i=0; i<ss.options.length; i++) {
+        if (ss.options[i].text === r.subCat) { ss.selectedIndex=i; break; }
+      }
+    }
+    // 填明細
+    if (r.detail) document.getElementById('tx-detail').value = r.detail;
+    // 填日期
+    if (r.date) {
+      const d = new Date(r.date.replace(/\//g,'-'));
+      if (!isNaN(d)) {
+        const now = new Date(); d.setHours(now.getHours(), now.getMinutes());
+        document.getElementById('tx-dt').value =
+          new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+      }
+    }
+    // 填付款
+    if (r.pay === 'card') { const el=document.getElementById('pay-card'); if(el) setPay('card',el); }
+    // 跳到詳情
+    if (r.amount > 0) goStep2();
+    toast('✅ AI 解析完成，請確認', 'info');
+    document.getElementById('ai-input').value = '';
+  } catch(e) {
+    console.warn('[Gemini]', e);
+    const msg = e.message||'';
+    if(msg.includes('allowlist')||msg.includes('403')){
+      toast('API Key 需要設定，請見說明', 'err');
+      document.getElementById('api-hint').style.display='block';
+    } else {
+      toast('AI 解析失敗：'+msg, 'err');
+    }
+  } finally {
+    btn.textContent = 'AI 記帳'; btn.disabled = false;
+  }
 }
 
-function submit(){
-  const amt=parseInt(astr)||0;
-  if(!amt){toast('金額不可為 0','warn');return;}
-  if(!selCat){toast('請選擇分類','warn');return;}
-  if(pay==='card'&&!selCard){toast('請先至錢包頁新增信用卡','warn');return;}
-  if(pay==='icard'&&!selIcard){toast('請先至錢包頁新增悠遊卡','warn');return;}
-  const dtv=document.getElementById('tx-dt').value;
-  const tx={amount:amt,cat:selCat,subCat:document.getElementById('sub-sel').value,detail:document.getElementById('tx-detail').value.trim(),person,pay,cardId:pay==='card'?selCard:null,icardId:pay==='icard'?selIcard:null,at:dtv?new Date(dtv).toISOString():new Date().toISOString()};
-  addTx(tx);fbAddTx(tx);
-  // Discord 通知（每筆記帳 + 預算警示）
-  discordOnAdd(tx);
-  checkBudgetAlert(tx).then(res=>{
-    if(res&&res.pct>=100) setTimeout(()=>toast(`🚨 ${catName(tx.cat)} 已超支！`,'err'),1400);
-    else if(res&&res.pct>=(getDiscord().budgetPct||80)) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`,'warn'),1400);
+// 允許按 Enter 觸發 AI 解析
+document.getElementById('ai-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') submitAI();
+});
+
+// ── 主邏輯 ──────────────────────────────────────────
+let astr='', selCat='', selCard='', selIcard='', pay='cash', person='宏龍';
+
+function init() {
+  applyTheme();
+  // 設定時間
+  const now = new Date();
+  document.getElementById('tx-dt').value =
+    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  // 依登入者預設記帳人
+  person = currentUser();
+  const pBtn = document.getElementById(person==='宏龍'?'p-hl':'p-yh');
+  if (pBtn) pBtn.classList.add('on');
+  // 上次付款方式
+  const prefs = getPrefs();
+  pay = prefs.lastPay || 'cash';
+  const payBtn = document.getElementById('pay-'+pay);
+  if (payBtn) payBtn.classList.add('on');
+  if (pay==='card')  document.getElementById('card-fg').style.display='block';
+  if (pay==='icard') document.getElementById('icard-fg').style.display='block';
+  // 建立分類、卡片
+  buildCatChips();
+  buildCardChips();
+  buildIcardChips();
+  // 隱藏金額修改提示（一開始在 step1）
+  document.getElementById('edit-hint').style.display = 'none';
+  document.getElementById('amt-card').style.cursor = 'default';
+}
+
+function backToStep1() {
+  // 點金額卡片返回 step1 重新輸入
+  if (document.getElementById('s2').style.display === 'none') return;
+  document.getElementById('s2').style.display = 'none';
+  document.getElementById('s1').style.display = 'block';
+  setStep(0);
+  document.getElementById('edit-hint').style.display = 'none';
+  document.getElementById('amt-card').style.cursor = 'default';
+}
+
+function buildCatChips() {
+  const prefs = getPrefs();
+  document.getElementById('cat-chips').innerHTML = getCats().map(c =>
+    `<button class="cchip${(selCat||prefs.lastCat)===c.id?' on':''}" data-id="${c.id}" onclick="selC('${c.id}',this)">${c.name}</button>`
+  ).join('');
+  if (!selCat && prefs.lastCat) {
+    selCat = prefs.lastCat;
+    triggerCatSub(prefs.lastCat);
+  }
+}
+
+function buildCardChips() {
+  const cs = getCards(); const el = document.getElementById('card-chips');
+  const hint = document.getElementById('no-card-hint');
+  if (!cs.length) { el.innerHTML=''; hint.style.display='block'; selCard=''; return; }
+  hint.style.display = 'none';
+  el.innerHTML = cs.map(c=>`<button class="cc" data-id="${c.id}" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}</button>`).join('');
+  selCard = cs[0].id; el.querySelector('.cc').classList.add('on');
+}
+
+function buildIcardChips() {
+  const cs = getIcards(); const el = document.getElementById('icard-chips');
+  const hint = document.getElementById('no-icard-hint');
+  if (!cs.length) { el.innerHTML=''; hint.style.display='block'; selIcard=''; return; }
+  hint.style.display = 'none';
+  el.innerHTML = cs.map(c=>`<button class="cc" onclick="selIC('${c.id}',this)">${c.name} <span style="font-size:.75rem;opacity:.7">$${fmt(c.balance||0)}</span></button>`).join('');
+  selIcard = cs[0].id; el.querySelector('.cc').classList.add('on');
+}
+
+// 數字鍵盤
+function nk(n) { if(astr.length>=7)return; astr+=String(n); refreshAmt(); }
+function nkd()  { astr=astr.slice(0,-1); refreshAmt(); }
+function refreshAmt() {
+  const v = parseInt(astr)||0;
+  document.getElementById('aval').textContent = v>0 ? fmt(v) : '0';
+  document.getElementById('adisp').classList.toggle('has-val', v>0);
+}
+
+function goStep2() {
+  if (!(parseInt(astr)||0)) { toast('請輸入金額','warn'); return; }
+  document.getElementById('s1').style.display = 'none';
+  document.getElementById('s2').style.display = 'block';
+  // 啟用點擊金額返回
+  document.getElementById('edit-hint').style.display = 'inline';
+  document.getElementById('amt-card').style.cursor = 'pointer';
+  setStep(1);
+}
+
+function triggerCatSub(id) {
+  const cat = catFind(id);
+  const sf = document.getElementById('sub-fg');
+  const ss = document.getElementById('sub-sel');
+  if (cat.sub && cat.sub.length) {
+    sf.style.display = 'block';
+    ss.innerHTML = '<option value="">子分類（可略）</option>' +
+      cat.sub.map(s=>`<option>${s}</option>`).join('');
+  } else { sf.style.display = 'none'; }
+}
+
+function selC(id, el) {
+  selCat = id;
+  document.querySelectorAll('#cat-chips .cchip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  triggerCatSub(id);
+  showHints();
+}
+function onSubChange() { showHints(); }
+function setPay(p, el) {
+  pay = p;
+  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('card-fg').style.display  = p==='card'  ? 'block' : 'none';
+  document.getElementById('icard-fg').style.display = p==='icard' ? 'block' : 'none';
+}
+function setP(p, el) {
+  person = p;
+  document.querySelectorAll('#p-hl,#p-yh').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function selCC(id, el) { selCard=id; document.querySelectorAll('#card-chips .cc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); }
+function selIC(id, el) { selIcard=id; document.querySelectorAll('#icard-chips .cc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); }
+
+// 智慧輸入提示
+function showHints() {
+  const inp = document.getElementById('tx-detail');
+  const val = inp.value;
+  const subCat = document.getElementById('sub-sel').value;
+  let hints = selCat ? getAllDetailHints(selCat) : [];
+  if (val) hints = hints.filter(h=>h.includes(val));
+  const box = document.getElementById('hint-list');
+  if (!hints.length) { box.style.display='none'; return; }
+  box.style.display = 'block';
+  box.innerHTML = hints.map(h=>`<div onclick="pickHint('${h.replace(/'/g,"\\'")}')"`+
+    ` style="padding:11px 14px;font-size:.88rem;border-bottom:1px solid var(--border);cursor:pointer">${h}</div>`).join('');
+}
+function hideHints() { document.getElementById('hint-list').style.display='none'; }
+function pickHint(v) { document.getElementById('tx-detail').value=v; hideHints(); }
+
+// 提交
+function submit() {
+  const amt = parseInt(astr)||0;
+  if (!amt)                      { toast('金額不可為 0','warn');             return; }
+  if (!selCat)                   { toast('請選擇分類','warn');               return; }
+  if (pay==='card'  && !selCard) { toast('請先至錢包頁新增信用卡','warn');    return; }
+  if (pay==='icard' && !selIcard){ toast('請先至錢包頁新增悠遊卡','warn');    return; }
+
+  const dtv = document.getElementById('tx-dt').value;
+  const tx = {
+    amount: amt, cat: selCat,
+    subCat: document.getElementById('sub-sel').value,
+    detail: document.getElementById('tx-detail').value.trim(),
+    person, pay,
+    cardId:  pay==='card'  ? selCard  : null,
+    icardId: pay==='icard' ? selIcard : null,
+    at: dtv ? new Date(dtv).toISOString() : new Date().toISOString(),
+  };
+  addTx(tx); fbAddTx(tx);
+  // Discord 通知 + 預算警示
+  if (typeof discordOnAdd === 'function') discordOnAdd(tx);
+  if (typeof checkBudgetAlert === 'function') {
+    checkBudgetAlert(tx).then(res=>{
+      if (!res) return;
+      if (res.pct>=100) setTimeout(()=>toast(`🚨 ${catName(tx.cat)} 已超支！`,'err'),1400);
+      else if (res.pct>=(getDiscord().budgetPct||80)) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`,'warn'),1400);
+    });
+  }
+  const sov = document.getElementById('sov');
+  sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
+  toast(`記帳 $${fmt(amt)} 成功！`);
+  resetForm();
+}
+
+function resetForm() {
+  astr=''; selCat='';
+  document.getElementById('aval').textContent = '0';
+  document.getElementById('adisp').classList.remove('has-val');
+  document.getElementById('s1').style.display = 'block';
+  document.getElementById('s2').style.display = 'none';
+  document.getElementById('tx-detail').value = '';
+  document.getElementById('sub-fg').style.display = 'none';
+  document.getElementById('card-fg').style.display  = pay==='card'  ? 'block' : 'none';
+  document.getElementById('icard-fg').style.display = pay==='icard' ? 'block' : 'none';
+  document.getElementById('edit-hint').style.display = 'none';
+  document.getElementById('amt-card').style.cursor = 'default';
+  const now = new Date();
+  document.getElementById('tx-dt').value =
+    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  setStep(0);
+  buildCatChips(); buildIcardChips();
+}
+
+function setStep(s) {
+  const hints = ['輸入金額','填寫詳情','完成'];
+  document.getElementById('shint').textContent = hints[s]||'';
+  [0,1,2].forEach(i=>{
+    const d = document.getElementById('d'+i);
+    d.className = 'sd'+(i<s?' done':i===s?' on':'');
   });
-  const bud=getBudget(tx.cat);
-  if(bud){const now=new Date();const sp=txByMonth(now.getFullYear(),now.getMonth()+1).filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);const pct=sp/bud;if(pct>=1)setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 預算超支！`,'err'),1400);else if(pct>=.8)setTimeout(()=>toast(`🔔 已用 ${Math.round(pct*100)}%`,'warn'),1400);}
-  const sov=document.getElementById('sov');sov.classList.add('show');setTimeout(()=>sov.classList.remove('show'),1300);
-  toast(`記帳 $${fmt(amt)} 成功！`);resetForm();
 }
-
-function resetForm(){
-  astr='';
-  document.getElementById('aval').textContent='0';document.getElementById('adisp').classList.remove('has-val');
-  document.getElementById('s1').style.display='block';document.getElementById('s2').style.display='none';
-  document.getElementById('tx-detail').value='';document.getElementById('sub-fg').style.display='none';
-  document.getElementById('card-fg').style.display=pay==='card'?'block':'none';
-  document.getElementById('icard-fg').style.display=pay==='icard'?'block':'none';
-  const now=new Date();document.getElementById('tx-dt').value=new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
-  setStep(0);buildCatChips();buildIcardChips();
-}
-function setStep(s){const hints=['輸入金額','填寫詳情','完成'];document.getElementById('shint').textContent=hints[s]||'';[0,1,2].forEach(i=>{const d=document.getElementById('d'+i);d.className='sd'+(i<s?' done':i===s?' on':'');});}
 
 let _tt;
-function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show'+(type?' '+type:'');
+  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2400);
+}
 
-init();
+// db.js 載入完成後才執行 init
+window.addEventListener('DOMContentLoaded', ()=>{
+  // 稍等確保所有 script 都載入
+  setTimeout(init, 100);
+});
 </script>
 </body>
 </html>
