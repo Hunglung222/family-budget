@@ -10,108 +10,244 @@
 <title>錢包</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
+<style>
+.tab-bar{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:12px;margin-bottom:14px}
+.tab-btn{flex:1;padding:9px 4px;border-radius:9px;background:none;border:none;color:var(--t2);font-size:.75rem;font-weight:700;cursor:pointer;transition:.18s;font-family:inherit;text-align:center}
+.tab-btn.on{background:var(--pdim);color:var(--p)}
+.panel{display:none}.panel.on{display:block}
+
+/* 資產總覽 */
+.nw-hero{background:linear-gradient(145deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:12px;text-align:center;position:relative;overflow:hidden}
+.nw-hero::after{content:'💰';position:absolute;font-size:8rem;right:-10px;top:50%;transform:translateY(-50%);opacity:.05;pointer-events:none}
+.nw-lbl{font-size:.72rem;color:var(--t2);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px}
+.nw-amt{font-size:2.8rem;font-weight:900;letter-spacing:-.04em;color:var(--p)}
+.nw-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.nw-item{background:var(--bg2);border-radius:var(--rs);padding:10px;text-align:center}
+.nw-item .v{font-size:1rem;font-weight:700}
+.nw-item .l{font-size:.65rem;color:var(--t2);margin-top:2px}
+
+/* 帳戶卡片 */
+.acct-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:8px;position:relative;overflow:hidden}
+.acct-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.acct-card.personal::before{background:var(--p)}
+.acct-card.shared::before{background:var(--blue)}
+.acct-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.acct-name{font-size:.95rem;font-weight:700}
+.acct-bal{font-size:1.6rem;font-weight:900;color:var(--p);letter-spacing:-.03em}
+.acct-bal .u{font-size:.85rem;font-weight:400;color:var(--t2);margin-right:2px}
+.acct-sub{font-size:.72rem;color:var(--t2)}
+.acct-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.acct-btn{padding:7px 14px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:.18s}
+.acct-btn.in{background:rgba(34,197,94,.15);color:var(--ok)}
+.acct-btn.out{background:rgba(244,63,94,.12);color:var(--danger)}
+.acct-btn.xfer{background:var(--pdim);color:var(--p)}
+.acct-btn.del{background:var(--card2);color:var(--t3)}
+
+/* 信用卡帳單 */
+.bill-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px}
+.bill-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.bill-title{font-size:.9rem;font-weight:700}
+.bill-amt{font-size:1.2rem;font-weight:900;color:#ff6b82}
+.bill-meta{font-size:.72rem;color:var(--t2);margin-top:4px}
+.bill-bar{height:6px;background:var(--bg2);border-radius:3px;overflow:hidden;margin:8px 0}
+.bill-fill{height:100%;border-radius:3px;background:var(--blue)}
+.bill-paid{background:rgba(34,197,94,.12);color:var(--ok);border-radius:50px;padding:3px 12px;font-size:.72rem;font-weight:700}
+.bill-due{background:rgba(244,63,94,.12);color:var(--danger);border-radius:50px;padding:3px 12px;font-size:.72rem;font-weight:700}
+
+/* 悠遊卡 */
+.ic-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.ic-icon{width:44px;height:44px;border-radius:10px;background:var(--pdim);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.ic-info{flex:1}
+.ic-name{font-size:.9rem;font-weight:700}
+.ic-bal{font-size:1.1rem;font-weight:900;color:var(--p);margin-top:2px}
+.ic-actions{display:flex;gap:6px;flex-direction:column}
+
+/* 歷史記錄 */
+.hist-item{display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)}
+.hist-item:last-child{border-bottom:none}
+.hist-ico{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.hist-ico.in{background:rgba(34,197,94,.15)}
+.hist-ico.out{background:rgba(244,63,94,.12)}
+.hist-ico.topup{background:var(--pdim)}
+.hist-info{flex:1;min-width:0}
+.hist-note{font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hist-time{font-size:.67rem;color:var(--t3);margin-top:1px}
+.hist-amt{font-size:.92rem;font-weight:900;flex-shrink:0}
+.hist-amt.in{color:var(--ok)}.hist-amt.out{color:#ff6b82}.hist-amt.topup{color:var(--p)}
+</style>
 </head>
 <body>
 <header class="hdr">
-  <div><h1>👛 錢包</h1><div class="hdr-sub">現金・信用卡・悠遊卡</div></div>
+  <div><h1>💼 財務管理</h1><div class="hdr-sub" id="user-lbl">載入中...</div></div>
 </header>
 <div class="w">
-  <!-- 現金餘額 -->
-  <div class="wallet-hero">
-    <div class="wlbl">💵 現金餘額</div>
-    <div class="wamt"><span class="cur">$</span><span id="bal">0</span></div>
-    <div class="wupd" id="wupd"></div>
-  </div>
-  <div class="qadd">
-    <div class="sec-t" style="margin-top:0">➕ 提領現金</div>
-    <div class="qgrid">
-      <button class="qb" onclick="qadd(500)">500</button>
-      <button class="qb" onclick="qadd(1000)">1,000</button>
-      <button class="qb" onclick="qadd(2000)">2,000</button>
-      <button class="qb" onclick="qadd(5000)">5,000</button>
-    </div>
-    <div class="row">
-      <input type="number" class="fc" id="custom-amt" placeholder="自訂金額" style="flex:1">
-      <button class="btn-add" onclick="addCustom()">＋ 新增</button>
-    </div>
-  </div>
-  <div class="sg2">
-    <div class="sc g"><div class="sc-lbl">本月現金支出</div><div class="sc-val"><span class="u">$</span><span id="m-out">0</span></div></div>
-    <div class="sc b"><div class="sc-lbl">本月現金收入</div><div class="sc-val"><span class="u">$</span><span id="m-in">0</span></div></div>
+  <!-- 頁籤 -->
+  <div class="tab-bar">
+    <button class="tab-btn on" onclick="sw('overview',this)">📊 總覽</button>
+    <button class="tab-btn" onclick="sw('wallet',this)">👛 錢包</button>
+    <button class="tab-btn" onclick="sw('accounts',this)">🏦 帳戶</button>
+    <button class="tab-btn" onclick="sw('cards',this)">💳 信用卡</button>
+    <button class="tab-btn" onclick="sw('icards',this)">🎫 悠遊卡</button>
   </div>
 
-  <!-- 悠遊卡管理 -->
-  <div class="card-box">
-    <div class="card-hdr">
-      <span class="card-hdr-t">🎫 悠遊卡管理</span>
-      <button class="btn-nc" onclick="showModal('add-icard-modal')">＋ 新增</button>
+  <!-- 總覽 -->
+  <div class="panel on" id="p-overview">
+    <div class="nw-hero">
+      <div class="nw-lbl">💰 個人淨資產</div>
+      <div class="nw-amt">$<span id="nw-total">0</span></div>
+      <div class="nw-grid">
+        <div class="nw-item"><div class="v" id="nw-wal">$0</div><div class="l">👛 現金</div></div>
+        <div class="nw-item"><div class="v" id="nw-acct">$0</div><div class="l">🏦 帳戶</div></div>
+        <div class="nw-item"><div class="v" id="nw-ic">$0</div><div class="l">🎫 悠遊卡</div></div>
+        <div class="nw-item"><div class="v" id="nw-bills" style="color:#ff6b82">$0</div><div class="l">💳 待繳帳單</div></div>
+      </div>
+    </div>
+    <div class="sec-t">💳 待繳信用卡帳單</div>
+    <div id="pending-bills"></div>
+  </div>
+
+  <!-- 錢包 -->
+  <div class="panel" id="p-wallet">
+    <div class="acct-card personal">
+      <div class="acct-hdr">
+        <div><div class="acct-name">👛 現金錢包</div><div class="acct-sub" id="wal-upd"></div></div>
+        <div class="acct-bal"><span class="u">$</span><span id="wal-bal">0</span></div>
+      </div>
+      <div class="acct-actions">
+        <button class="acct-btn in" onclick="showModal('withdraw-modal')">💵 從帳戶提領</button>
+        <button class="acct-btn out" onclick="showModal('walout-modal')">➕ 手動調整</button>
+      </div>
+    </div>
+    <div class="sec-t">📋 現金記錄</div>
+    <div class="data-card" style="padding:14px 16px" id="wal-hist"></div>
+  </div>
+
+  <!-- 帳戶 -->
+  <div class="panel" id="p-accounts">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="sec-t" style="margin:0">🏦 個人帳戶</div>
+      <button class="acct-btn xfer" onclick="showAddAcct(false)">＋ 新增</button>
+    </div>
+    <div id="personal-accts"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;margin-top:6px">
+      <div class="sec-t" style="margin:0">🏠 家用帳戶（共用）</div>
+      <button class="acct-btn xfer" onclick="showAddAcct(true)">＋ 新增</button>
+    </div>
+    <div id="shared-accts"></div>
+  </div>
+
+  <!-- 信用卡 -->
+  <div class="panel" id="p-cards">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="sec-t" style="margin:0">💳 信用卡管理</div>
+      <button class="acct-btn xfer" onclick="showModal('add-card-modal')">＋ 新增</button>
+    </div>
+    <div id="card-list-full"></div>
+    <div class="sec-t">📋 帳單記錄</div>
+    <div id="all-bills"></div>
+  </div>
+
+  <!-- 悠遊卡 -->
+  <div class="panel" id="p-icards">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="sec-t" style="margin:0">🎫 悠遊卡管理</div>
+      <button class="acct-btn xfer" onclick="showModal('add-icard-modal')">＋ 新增</button>
     </div>
     <div id="icard-list"></div>
   </div>
-
-  <!-- 信用卡管理 -->
-  <div class="card-box">
-    <div class="card-hdr">
-      <span class="card-hdr-t">💳 信用卡管理</span>
-      <button class="btn-nc" onclick="showModal('add-card-modal')">＋ 新增</button>
-    </div>
-    <div id="card-list"></div>
-  </div>
-
-  <div class="sec-t">📋 現金記錄</div>
-  <div class="hist-box"><div id="hist"></div></div>
 </div>
 
-<!-- 新增悠遊卡 -->
-<div class="ov" id="add-icard-modal">
-  <div class="sheet">
-    <div class="sh"></div>
-    <div class="st">🎫 新增悠遊卡</div>
-    <div class="fg"><span class="flbl">卡片名稱</span><input type="text" class="fc" id="ic-name" placeholder="例：宏龍的悠遊卡" maxlength="20"></div>
-    <div class="fg"><span class="flbl">初始餘額（可填 0）</span><input type="number" class="fc" id="ic-bal" placeholder="0"></div>
+<!-- ── Modals ── -->
+<!-- 從帳戶提領至錢包 -->
+<div class="ov" id="withdraw-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">💵 提領現金至錢包</div>
+    <div class="fg"><span class="flbl">選擇帳戶</span>
+      <select class="fc" id="wd-acct"></select></div>
+    <div class="fg"><span class="flbl">提領金額</span>
+      <input type="number" class="fc" id="wd-amt" placeholder="例：5000" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">備註</span>
+      <input type="text" class="fc" id="wd-note" placeholder="例：ATM 提款"></div>
     <div class="btn-row">
-      <button class="btn btn-s" onclick="closeModal('add-icard-modal')">取消</button>
-      <button class="btn btn-p" onclick="submitIcard()">新增</button>
+      <button class="btn btn-s" onclick="closeModal('withdraw-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitWithdraw()">確認提領</button>
     </div>
   </div>
 </div>
 
-<!-- 悠遊卡加值 -->
-<div class="ov" id="topup-modal">
-  <div class="sheet">
-    <div class="sh"></div>
-    <div class="st">🎫 悠遊卡加值</div>
-    <div style="font-size:.88rem;color:var(--t2);margin-bottom:14px" id="topup-card-name"></div>
-    <div class="fg"><span class="flbl">加值金額</span><input type="number" class="fc" id="topup-amt" placeholder="例：500"></div>
-    <div class="fg">
-      <span class="flbl">加值方式</span>
+<!-- 錢包手動調整 -->
+<div class="ov" id="walout-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">💰 錢包餘額調整</div>
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px">若實際現金與系統不符，可手動調整</div>
+    <div class="fg"><span class="flbl">調整類型</span>
       <div class="tg">
-        <button class="tb on" id="topup-cash" onclick="setTopupPay('cash',this)">💵 現金加值</button>
-        <button class="tb" id="topup-card" onclick="setTopupPay('card',this)">💳 信用卡加值</button>
+        <button class="tb on" id="wadj-in"  onclick="setWAdj('in',this)">＋ 增加</button>
+        <button class="tb"    id="wadj-out" onclick="setWAdj('out',this)">－ 減少</button>
       </div>
     </div>
+    <div class="fg"><span class="flbl">金額</span>
+      <input type="number" class="fc" id="wadj-amt" placeholder="金額" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">備註</span>
+      <input type="text" class="fc" id="wadj-note" placeholder="例：手動校正"></div>
     <div class="btn-row">
-      <button class="btn btn-s" onclick="closeModal('topup-modal')">取消</button>
-      <button class="btn btn-p" onclick="submitTopup()">確認加值</button>
+      <button class="btn btn-s" onclick="closeModal('walout-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitWalAdj()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帳戶新增 -->
+<div class="ov" id="add-acct-modal">
+  <div class="sheet"><div class="sh"></div><div class="st" id="add-acct-title">新增帳戶</div>
+    <div class="fg"><span class="flbl">銀行 / 帳戶名稱</span>
+      <input type="text" class="fc" id="acct-name" placeholder="例：華南銀行薪轉戶" maxlength="20"></div>
+    <div class="fg"><span class="flbl">目前餘額</span>
+      <input type="number" class="fc" id="acct-bal" placeholder="0" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">帳戶類型</span>
+      <select class="fc" id="acct-type">
+        <option value="checking">活儲帳戶</option>
+        <option value="saving">定存帳戶</option>
+        <option value="salary">薪轉帳戶</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('add-acct-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitAcct()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 帳戶入帳/出帳 -->
+<div class="ov" id="acct-tx-modal">
+  <div class="sheet"><div class="sh"></div><div class="st" id="acct-tx-title">帳戶異動</div>
+    <div class="fg"><span class="flbl">金額</span>
+      <input type="number" class="fc" id="atx-amt" placeholder="金額" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">備註</span>
+      <input type="text" class="fc" id="atx-note" placeholder="例：4月薪資"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('acct-tx-modal')">取消</button>
+      <button class="btn btn-p" id="atx-ok">確認</button>
     </div>
   </div>
 </div>
 
 <!-- 新增信用卡 -->
 <div class="ov" id="add-card-modal">
-  <div class="sheet">
-    <div class="sh"></div>
-    <div class="st">💳 新增信用卡</div>
-    <div class="fg"><span class="flbl">銀行 / 卡名</span><input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡" maxlength="20"></div>
-    <div class="fg"><span class="flbl">末四碼</span><input type="text" class="fc" id="nc-last4" placeholder="1234" maxlength="4" inputmode="numeric"></div>
-    <div class="fg">
-      <span class="flbl">卡片顏色</span>
+  <div class="sheet"><div class="sh"></div><div class="st">💳 新增信用卡</div>
+    <div class="fg"><span class="flbl">銀行 / 卡名</span>
+      <input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡" maxlength="20"></div>
+    <div class="fg"><span class="flbl">末四碼</span>
+      <input type="text" class="fc" id="nc-last4" placeholder="1234" maxlength="4" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">結帳日（每月幾號）</span>
+      <input type="number" class="fc" id="nc-cut" placeholder="25" min="1" max="31" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">繳費截止日（每月幾號）</span>
+      <input type="number" class="fc" id="nc-due" placeholder="15" min="1" max="31" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">卡片顏色</span>
       <div style="display:flex;gap:10px;padding:6px 0" id="color-picker">
-        <div class="cdot-pick on" data-color="#1d4ed8" onclick="pickColor('#1d4ed8',this)" style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;cursor:pointer;border:3px solid white;box-shadow:0 0 0 2px #1d4ed8"></div>
-        <div class="cdot-pick" data-color="#be185d" onclick="pickColor('#be185d',this)" style="width:32px;height:32px;border-radius:50%;background:#be185d;cursor:pointer;border:3px solid transparent"></div>
-        <div class="cdot-pick" data-color="#374151" onclick="pickColor('#374151',this)" style="width:32px;height:32px;border-radius:50%;background:#374151;cursor:pointer;border:3px solid transparent"></div>
-        <div class="cdot-pick" data-color="#0d9488" onclick="pickColor('#0d9488',this)" style="width:32px;height:32px;border-radius:50%;background:#0d9488;cursor:pointer;border:3px solid transparent"></div>
-        <div class="cdot-pick" data-color="#7c3aed" onclick="pickColor('#7c3aed',this)" style="width:32px;height:32px;border-radius:50%;background:#7c3aed;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick on" onclick="pickColor('#1d4ed8',this)" style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;cursor:pointer;border:3px solid white;box-shadow:0 0 0 2px #1d4ed8"></div>
+        <div class="cdot-pick" onclick="pickColor('#be185d',this)" style="width:32px;height:32px;border-radius:50%;background:#be185d;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" onclick="pickColor('#0d9488',this)" style="width:32px;height:32px;border-radius:50%;background:#0d9488;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" onclick="pickColor('#7c3aed',this)" style="width:32px;height:32px;border-radius:50%;background:#7c3aed;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick" onclick="pickColor('#b45309',this)" style="width:32px;height:32px;border-radius:50%;background:#b45309;cursor:pointer;border:3px solid transparent"></div>
       </div>
     </div>
     <div class="btn-row">
@@ -121,11 +257,63 @@
   </div>
 </div>
 
+<!-- 信用卡繳費 -->
+<div class="ov" id="pay-bill-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">💳 繳費</div>
+    <div style="font-size:.9rem;font-weight:600;margin-bottom:12px" id="pbm-info"></div>
+    <div class="fg"><span class="flbl">繳費來源</span>
+      <div class="tg">
+        <button class="tb on" id="pay-from-wal" onclick="setPayFrom('wallet',this)">👛 現金錢包</button>
+        <button class="tb" id="pay-from-acct" onclick="setPayFrom('acct',this)">🏦 帳戶</button>
+      </div>
+    </div>
+    <div class="fg" id="pay-acct-fg" style="display:none"><span class="flbl">選擇帳戶</span>
+      <select class="fc" id="pay-acct-sel"></select></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('pay-bill-modal')">取消</button>
+      <button class="btn btn-p" id="pay-bill-ok">確認繳費</button>
+    </div>
+  </div>
+</div>
+
+<!-- 悠遊卡新增 -->
+<div class="ov" id="add-icard-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">🎫 新增悠遊卡</div>
+    <div class="fg"><span class="flbl">卡片名稱</span>
+      <input type="text" class="fc" id="ic-name" placeholder="例：宏龍悠遊卡" maxlength="20"></div>
+    <div class="fg"><span class="flbl">目前餘額</span>
+      <input type="number" class="fc" id="ic-bal" placeholder="0" inputmode="numeric"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('add-icard-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitIcard()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 悠遊卡加值 -->
+<div class="ov" id="topup-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">🎫 悠遊卡加值</div>
+    <div style="font-size:.88rem;color:var(--t2);margin-bottom:12px" id="topup-name"></div>
+    <div class="fg"><span class="flbl">加值金額</span>
+      <input type="number" class="fc" id="topup-amt" placeholder="例：500" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">加值方式</span>
+      <div class="tg">
+        <button class="tb on" id="topup-cash" onclick="setTopupPay('cash',this)">💵 現金</button>
+        <button class="tb" id="topup-card-btn" onclick="setTopupPay('card',this)">💳 信用卡</button>
+      </div>
+    </div>
+    <div class="fg" id="topup-card-fg" style="display:none"><span class="flbl">選擇信用卡</span>
+      <select class="fc" id="topup-card-sel"></select></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('topup-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitTopup()">確認加值</button>
+    </div>
+  </div>
+</div>
+
 <!-- 確認 Modal -->
 <div class="ov" id="confirm-modal">
-  <div class="sheet">
-    <div class="sh"></div>
-    <div class="st" id="cm-title"></div>
+  <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
     <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('confirm-modal')">取消</button>
@@ -146,121 +334,372 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-(function(){const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};if(!firebase.apps.length)firebase.initializeApp(FB_CFG);firebase.auth().onAuthStateChanged(user=>{if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);}});})();
+(function(){
+  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
+  const CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
+  if(!firebase.apps.length)firebase.initializeApp(CFG);
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
+    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);}
+  });
+})();
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script>
-let pickedColor='#1d4ed8',topupCardId='',topupPayMethod='cash';
+let pickedColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
+let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
+let payFromType='wallet', payBillId='';
+let walAdjType='in';
 
-function init(){applyTheme();renderWallet();renderIcards();renderCards();renderStats();}
-
-function renderWallet(){
-  const w=getWal();
-  document.getElementById('bal').textContent=fmt(w.balance);
-  if(w.history.length) document.getElementById('wupd').textContent='更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
-  const h=document.getElementById('hist');
-  if(!w.history.length){h.innerHTML='<div style="color:var(--t3);font-size:.88rem;text-align:center;padding:16px">尚無記錄</div>';return;}
-  h.innerHTML=w.history.slice(0,30).map(e=>`
-    <div class="hitem"><div class="hico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
-    <div class="hinfo"><div class="hnote">${e.note||'現金'}</div><div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
-    <div class="hamt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div></div>`).join('');
+function init() {
+  applyTheme();
+  document.getElementById('user-lbl').textContent = currentUser() + ' 的財務';
+  render();
+  fbPullAll().then(()=>render());
 }
 
+function render() {
+  renderOverview();
+  renderWallet();
+  renderAccounts();
+  renderCards();
+  renderIcards();
+}
+
+// ── 總覽 ─────────────────────────────────────────────
+function renderOverview() {
+  const nw = calcNetWorth();
+  document.getElementById('nw-total').textContent = fmt(nw.total);
+  document.getElementById('nw-wal').textContent   = '$'+fmt(nw.wal);
+  document.getElementById('nw-acct').textContent  = '$'+fmt(nw.acTotal);
+  document.getElementById('nw-ic').textContent    = '$'+fmt(nw.icTotal);
+  document.getElementById('nw-bills').textContent = '$'+fmt(nw.pendingBills);
+  // 待繳帳單
+  const bills = getPendingBills();
+  const el = document.getElementById('pending-bills');
+  if (!bills.length) { el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">✅ 無待繳帳單</div>'; return; }
+  el.innerHTML = bills.map(b=>{
+    const card = cardFind(b.cardId);
+    const now=new Date(), due=new Date(b.year,b.month-1,b.dueDay||15);
+    const diff=Math.ceil((due-now)/864e5);
+    const urgent = diff<=3;
+    return `<div class="bill-card">
+      <div class="bill-hdr">
+        <div><div class="bill-title">${card?.name||'信用卡'} ${b.month}月帳單</div>
+          <div class="bill-meta">截止：${b.year}/${b.month}/${b.dueDay||15} ${diff>=0?`（還有${diff}天）`:'（已逾期）'}</div>
+        </div>
+        <div class="bill-amt">$${fmt(b.total)}</div>
+      </div>
+      <button onclick="showPayBill('${b.id}')" style="width:100%;padding:10px;background:${urgent?'var(--danger)':'linear-gradient(135deg,var(--p),var(--p2))'};color:${urgent?'#fff':'#000'};border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.88rem">
+        ${urgent?'⚠️ 立即繳費':'💳 繳費'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+// ── 錢包 ─────────────────────────────────────────────
+function renderWallet() {
+  const w = getWal();
+  document.getElementById('wal-bal').textContent = fmt(w.balance);
+  if (w.history.length) document.getElementById('wal-upd').textContent = '更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
+  const h = document.getElementById('wal-hist');
+  if (!w.history.length) { h.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無記錄</div>'; return; }
+  h.innerHTML = w.history.slice(0,20).map(e=>`
+    <div class="hist-item">
+      <div class="hist-ico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
+      <div class="hist-info"><div class="hist-note">${e.note||'現金'}</div><div class="hist-time">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
+      <div class="hist-amt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div>
+    </div>`).join('');
+}
+
+// 從帳戶提領
+function showModal(id) {
+  if (id==='withdraw-modal') {
+    const sel = document.getElementById('wd-acct');
+    const opts = [...getAccts(false),...getAccts(true)].map(a=>`<option value="${a.id}_${a.id.startsWith('shared')?'1':'0'}">${a.name} ($${fmt(a.balance)})</option>`).join('');
+    sel.innerHTML = opts || '<option>尚無帳戶</option>';
+  }
+  if (id==='pay-acct-fg') return;
+  document.getElementById(id).classList.add('show');
+}
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function submitWithdraw() {
+  const val = document.getElementById('wd-acct').value;
+  const amt = parseInt(document.getElementById('wd-amt').value)||0;
+  const note = document.getElementById('wd-note').value||'ATM 提款';
+  if (!val||!amt) { toast('請填寫完整','warn'); return; }
+  const [acctId, isShared] = val.split('_');
+  walWithdraw(isShared==='1'?'shared_'+acctId:acctId, amt, note);
+  fbSyncPersonal(); if(isShared==='1') fbSyncSharedAccts();
+  closeModal('withdraw-modal'); render(); toast(`已提領 $${fmt(amt)}`);
+  document.getElementById('wd-amt').value=''; document.getElementById('wd-note').value='';
+}
+
+function setWAdj(type, el) {
+  walAdjType=type;
+  document.querySelectorAll('#wadj-in,#wadj-out').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+function submitWalAdj() {
+  const amt=parseInt(document.getElementById('wadj-amt').value)||0;
+  const note=document.getElementById('wadj-note').value||'手動調整';
+  if (!amt) { toast('請輸入金額','warn'); return; }
+  if (walAdjType==='in') walIn(amt,note); else walOut(amt,note);
+  fbSyncPersonal(); closeModal('walout-modal'); renderWallet(); renderOverview();
+  toast(`已${walAdjType==='in'?'增加':'減少'} $${fmt(amt)}`);
+  document.getElementById('wadj-amt').value=''; document.getElementById('wadj-note').value='';
+}
+
+// ── 帳戶 ─────────────────────────────────────────────
+function renderAccounts() {
+  renderAcctList(getAccts(false), document.getElementById('personal-accts'), false);
+  renderAcctList(getAccts(true),  document.getElementById('shared-accts'),   true);
+}
+function renderAcctList(list, el, shared) {
+  if (!list.length) { el.innerHTML=`<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增${shared?'家用':'個人'}帳戶</div>`; return; }
+  el.innerHTML = list.map(a=>`
+    <div class="acct-card ${shared?'shared':'personal'}">
+      <div class="acct-hdr">
+        <div><div class="acct-name">${a.name}</div><div class="acct-sub">${a.type==='salary'?'薪轉':a.type==='saving'?'定存':'活儲'} ${shared?'・家用':''}</div></div>
+        <div class="acct-bal"><span class="u">$</span>${fmt(a.balance)}</div>
+      </div>
+      <div class="acct-actions">
+        <button class="acct-btn in"  onclick="showAcctTx('${a.id}',${shared},'in')">＋ 入帳</button>
+        <button class="acct-btn out" onclick="showAcctTx('${a.id}',${shared},'out')">－ 出帳</button>
+        <button class="acct-btn xfer" onclick="showWithdrawFrom('${a.id}',${shared})">→ 提領至錢包</button>
+        <button class="acct-btn del" onclick="confirmDelAcct('${a.id}',${shared})">刪除</button>
+      </div>
+      <div style="margin-top:10px;max-height:150px;overflow-y:auto">
+        ${(a.history||[]).slice(0,5).map(h=>`
+          <div class="hist-item">
+            <div class="hist-ico ${h.type}">${h.type==='in'?'⬆️':'⬇️'}</div>
+            <div class="hist-info"><div class="hist-note">${h.note||''}</div><div class="hist-time">${new Date(h.time).toLocaleString('zh-TW')}</div></div>
+            <div class="hist-amt ${h.type}">${h.type==='in'?'+':'-'}$${fmt(h.amount)}</div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+function showAddAcct(shared) {
+  addAcctShared=shared;
+  document.getElementById('add-acct-title').textContent=shared?'新增家用帳戶':'新增個人帳戶';
+  showModal('add-acct-modal');
+}
+function submitAcct() {
+  const name=document.getElementById('acct-name').value.trim();
+  const bal=parseInt(document.getElementById('acct-bal').value)||0;
+  const type=document.getElementById('acct-type').value;
+  if(!name){toast('請輸入帳戶名稱','warn');return;}
+  addAcct({name,balance:bal,type},addAcctShared);
+  if(addAcctShared) fbSyncSharedAccts(); else fbSyncPersonal();
+  closeModal('add-acct-modal'); renderAccounts(); renderOverview(); toast(`已新增 ${name}`);
+  document.getElementById('acct-name').value=''; document.getElementById('acct-bal').value='';
+}
+function showAcctTx(id, shared, type) {
+  acctTxId=id; acctTxShared=shared; acctTxType=type;
+  document.getElementById('acct-tx-title').textContent = type==='in'?'帳戶入帳':'帳戶出帳';
+  document.getElementById('atx-ok').textContent = type==='in'?'確認入帳':'確認出帳';
+  document.getElementById('atx-amt').value=''; document.getElementById('atx-note').value='';
+  showModal('acct-tx-modal');
+  document.getElementById('atx-ok').onclick = submitAcctTx;
+}
+function submitAcctTx() {
+  const amt=parseInt(document.getElementById('atx-amt').value)||0;
+  const note=document.getElementById('atx-note').value||'帳戶異動';
+  if(!amt){toast('請輸入金額','warn');return;}
+  if(acctTxType==='in') acctIn(acctTxId,amt,note,acctTxShared);
+  else acctOut(acctTxId,amt,note,acctTxShared);
+  if(acctTxShared) fbSyncSharedAccts(); else fbSyncPersonal();
+  closeModal('acct-tx-modal'); renderAccounts(); renderOverview();
+  toast(`已${acctTxType==='in'?'入帳':'出帳'} $${fmt(amt)}`);
+}
+function showWithdrawFrom(id, shared) {
+  const a = acctFind(id, shared);
+  document.getElementById('wd-acct').innerHTML = `<option value="${id}_${shared?1:0}">${a?.name||'帳戶'} ($${fmt(a?.balance||0)})</option>`;
+  document.getElementById('wd-amt').value=''; document.getElementById('wd-note').value='';
+  showModal('withdraw-modal');
+}
+function confirmDelAcct(id, shared) {
+  document.getElementById('cm-title').textContent='刪除帳戶';
+  document.getElementById('cm-msg').textContent='確定刪除此帳戶？歷史記錄也會消失。';
+  showModal('confirm-modal');
+  document.getElementById('cm-ok').onclick=()=>{
+    delAcct(id,shared); if(shared) fbSyncSharedAccts(); else fbSyncPersonal();
+    closeModal('confirm-modal'); renderAccounts(); renderOverview(); toast('已刪除','err');
+  };
+}
+
+// ── 信用卡 ───────────────────────────────────────────
+function renderCards() {
+  const cs=getCards(), el=document.getElementById('card-list-full');
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增信用卡</div>';return;}
+  el.innerHTML=cs.map(c=>`
+    <div class="bill-card">
+      <div class="bill-hdr">
+        <div>
+          <div class="bill-title" style="display:flex;align-items:center;gap:8px">
+            <div style="width:12px;height:12px;border-radius:50%;background:${c.color||'#4f8ef7'};flex-shrink:0"></div>
+            ${c.name} ···${c.last4}
+          </div>
+          <div class="bill-meta">結帳日：每月${c.cutDay||25}日 ・ 繳費日：每月${c.dueDay||15}日</div>
+        </div>
+        <button class="acct-btn del" onclick="confirmDelCard('${c.id}','${c.name}')">刪除</button>
+      </div>
+    </div>`).join('');
+
+  // 帳單列表
+  const bills=getCardBills();
+  const allBillEl=document.getElementById('all-bills');
+  if(!bills.length){allBillEl.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無帳單記錄</div>';return;}
+  const now=new Date();
+  allBillEl.innerHTML=bills.map(b=>{
+    const card=cardFind(b.cardId);
+    const due=new Date(b.year,b.month-1,b.dueDay||15);
+    const diff=Math.ceil((due-now)/864e5);
+    return `<div class="bill-card">
+      <div class="bill-hdr">
+        <div>
+          <div class="bill-title">${card?.name||'?'} ${b.year}/${b.month}月</div>
+          <div class="bill-meta">${b.paid?`✅ 已於 ${new Date(b.paidAt).toLocaleDateString('zh-TW')} 繳清`:`截止：${b.year}/${b.month}/${b.dueDay||15}（${diff>=0?'還有'+diff+'天':'已逾期'}）`}</div>
+        </div>
+        <div>
+          <div class="bill-amt">$${fmt(b.total)}</div>
+          ${b.paid?`<div class="bill-paid">已繳清</div>`:`<div class="bill-due">待繳費</div>`}
+        </div>
+      </div>
+      ${!b.paid?`<button onclick="showPayBill('${b.id}')" style="width:100%;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;margin-top:6px">💳 繳費</button>`:''}
+    </div>`;
+  }).join('');
+}
+
+function pickColor(color,el){pickedColor=color;document.querySelectorAll('.cdot-pick').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
+
+function submitCard(){
+  const name=document.getElementById('nc-name').value.trim();
+  const last4=document.getElementById('nc-last4').value.trim();
+  const cutDay=parseInt(document.getElementById('nc-cut').value)||25;
+  const dueDay=parseInt(document.getElementById('nc-due').value)||15;
+  if(!name||!/^\d{4}$/.test(last4)){toast('請填寫完整','warn');return;}
+  addCard({name,last4,color:pickedColor,cutDay,dueDay});
+  fbSyncPersonal();closeModal('add-card-modal');renderCards();toast(`已新增 ${name}`);
+  ['nc-name','nc-last4','nc-cut','nc-due'].forEach(id=>document.getElementById(id).value='');
+}
+
+function confirmDelCard(id,name){
+  document.getElementById('cm-title').textContent='刪除信用卡';
+  document.getElementById('cm-msg').textContent=`確定刪除「${name}」？帳單記錄也會消失。`;
+  showModal('confirm-modal');
+  document.getElementById('cm-ok').onclick=()=>{delCard(id);fbSyncPersonal();closeModal('confirm-modal');renderCards();toast('已刪除','err');};
+}
+
+function showPayBill(billId) {
+  payBillId=billId; payFromType='wallet';
+  const bills=getCardBills();const b=bills.find(x=>x.id===billId);
+  if(!b)return;
+  const card=cardFind(b.cardId);
+  document.getElementById('pbm-info').innerHTML=`${card?.name||'?'} ${b.month}月帳單：<b style="color:#ff6b82">$${fmt(b.total)}</b>`;
+  // 填帳戶選項
+  const sel=document.getElementById('pay-acct-sel');
+  sel.innerHTML=[...getAccts(false),...getAccts(true)].map(a=>`<option value="${a.id}_${a.id.startsWith('shared')?1:0}">${a.name} ($${fmt(a.balance)})</option>`).join('');
+  document.getElementById('pay-from-wal').classList.add('on');
+  document.getElementById('pay-from-acct').classList.remove('on');
+  document.getElementById('pay-acct-fg').style.display='none';
+  showModal('pay-bill-modal');
+  document.getElementById('pay-bill-ok').onclick=submitPayBill;
+}
+function setPayFrom(type,el){
+  payFromType=type;
+  document.querySelectorAll('#pay-from-wal,#pay-from-acct').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('pay-acct-fg').style.display=type==='acct'?'block':'none';
+}
+function submitPayBill(){
+  let fromId='wallet';
+  if(payFromType==='acct'){
+    const val=document.getElementById('pay-acct-sel').value;
+    const [id,shared]=val.split('_');
+    fromId=shared==='1'?'shared_'+id:id;
+  }
+  cardPayBill(payBillId, payFromType, fromId);
+  fbSyncPersonal();closeModal('pay-bill-modal');renderCards();renderOverview();renderWallet();
+  toast('帳單繳費完成！');
+}
+
+// ── 悠遊卡 ───────────────────────────────────────────
 function renderIcards(){
   const cs=getIcards();const el=document.getElementById('icard-list');
-  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:14px">尚未新增悠遊卡</div>';return;}
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增悠遊卡</div>';return;}
   el.innerHTML=cs.map(c=>`
-    <div class="citem">
-      <div style="width:34px;height:34px;border-radius:8px;background:var(--pdim);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🎫</div>
-      <div class="cinfo"><div class="cname">${c.name}</div><div class="clast">餘額：<b style="color:var(--p)">$${fmt(c.balance||0)}</b></div></div>
-      <button onclick="showTopup('${c.id}','${c.name}')" style="background:var(--pdim);color:var(--p);border:none;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;margin-right:6px">加值</button>
-      <button class="btn-del-c" onclick="confirmDelIcard('${c.id}','${c.name}')">🗑️</button>
+    <div class="ic-card">
+      <div class="ic-icon">🎫</div>
+      <div class="ic-info">
+        <div class="ic-name">${c.name}</div>
+        <div class="ic-bal">$${fmt(c.balance||0)}</div>
+        ${(c.history||[]).slice(0,1).map(h=>`<div style="font-size:.68rem;color:var(--t3);margin-top:2px">最近：${h.type==='topup'?'加值':'消費'} $${fmt(h.amount)}</div>`).join('')}
+      </div>
+      <div class="ic-actions">
+        <button class="acct-btn xfer" onclick="showTopup('${c.id}','${c.name}')">加值</button>
+        <button class="acct-btn del" onclick="confirmDelIcard('${c.id}','${c.name}')">刪除</button>
+      </div>
     </div>`).join('');
 }
 
-function renderCards(){
-  const cs=getCards();const el=document.getElementById('card-list');
-  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:14px">尚未新增信用卡</div>';return;}
-  el.innerHTML=cs.map(c=>`
-    <div class="citem">
-      <div class="cdot" style="background:${c.color||'#4f8ef7'}"></div>
-      <div class="cinfo"><div class="cname">${c.name}</div><div class="clast">···· ···· ···· ${c.last4}</div></div>
-      <button class="btn-del-c" onclick="confirmDelCard('${c.id}','${c.name}')">🗑️</button>
-    </div>`).join('');
-}
-
-function renderStats(){
-  const now=new Date(),txs=txByMonth(now.getFullYear(),now.getMonth()+1);
-  const out=txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
-  const w=getWal();
-  const inn=w.history.filter(h=>{const d=new Date(h.time);return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();}).reduce((s,h)=>s+h.amount,0);
-  document.getElementById('m-out').textContent=fmt(out);
-  document.getElementById('m-in').textContent=fmt(inn);
-}
-
-function qadd(n){walIn(n,'提領現金');fbSyncWal();toast(`已新增 $${fmt(n)}`);renderWallet();renderStats();}
-function addCustom(){const n=parseInt(document.getElementById('custom-amt').value)||0;if(!n){toast('請輸入金額','warn');return;}walIn(n,'手動新增');fbSyncWal();document.getElementById('custom-amt').value='';toast(`已新增 $${fmt(n)}`);renderWallet();renderStats();}
-
-// 悠遊卡
 function submitIcard(){
   const name=document.getElementById('ic-name').value.trim();
   const bal=parseInt(document.getElementById('ic-bal').value)||0;
-  if(!name){toast('請輸入卡片名稱','warn');return;}
-  addIcard({name,balance:bal});fbSyncIcards();
-  closeModal('add-icard-modal');renderIcards();toast(`已新增 ${name}`);
+  if(!name){toast('請輸入名稱','warn');return;}
+  addIcard({name,balance:bal});fbSyncPersonal();
+  closeModal('add-icard-modal');renderIcards();renderOverview();toast(`已新增 ${name}`);
   document.getElementById('ic-name').value='';document.getElementById('ic-bal').value='';
 }
+
 function showTopup(id,name){
   topupCardId=id;topupPayMethod='cash';
-  document.getElementById('topup-card-name').textContent=`🎫 ${name}`;
+  document.getElementById('topup-name').textContent='🎫 '+name;
   document.getElementById('topup-amt').value='';
   document.getElementById('topup-cash').classList.add('on');
-  document.getElementById('topup-card').classList.remove('on');
+  document.getElementById('topup-card-btn').classList.remove('on');
+  document.getElementById('topup-card-fg').style.display='none';
+  // 填信用卡選項
+  const cs=getCards();
+  document.getElementById('topup-card-sel').innerHTML=cs.map(c=>`<option value="${c.id}">${c.name} ···${c.last4}</option>`).join('')||'<option>尚無信用卡</option>';
   showModal('topup-modal');
 }
-function setTopupPay(p,el){topupPayMethod=p;document.querySelectorAll('#topup-cash,#topup-card').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function setTopupPay(p,el){
+  topupPayMethod=p;
+  document.querySelectorAll('#topup-cash,#topup-card-btn').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('topup-card-fg').style.display=p==='card'?'block':'none';
+}
 function submitTopup(){
   const amt=parseInt(document.getElementById('topup-amt').value)||0;
-  if(!amt){toast('請輸入加值金額','warn');return;}
-  const c=icardFind(topupCardId);if(!c)return;
-  icardTopup(topupCardId,amt,topupPayMethod,c.name+' 加值');
-  fbSyncIcards();if(topupPayMethod==='cash')fbSyncWal();
-  closeModal('topup-modal');renderIcards();renderWallet();renderStats();
+  if(!amt){toast('請輸入金額','warn');return;}
+  let payId=null;
+  if(topupPayMethod==='card') payId=document.getElementById('topup-card-sel').value;
+  icardTopup(topupCardId,amt,topupPayMethod,payId,icardFind(topupCardId)?.name+' 加值');
+  fbSyncPersonal();closeModal('topup-modal');renderIcards();renderOverview();renderWallet();renderCards();
   toast(`已加值 $${fmt(amt)}`);
 }
 function confirmDelIcard(id,name){
   document.getElementById('cm-title').textContent='刪除悠遊卡';
   document.getElementById('cm-msg').textContent=`確定刪除「${name}」？`;
   showModal('confirm-modal');
-  document.getElementById('cm-ok').onclick=()=>{delIcard(id);fbSyncIcards();closeModal('confirm-modal');renderIcards();toast('已刪除','err');};
+  document.getElementById('cm-ok').onclick=()=>{delIcard(id);fbSyncPersonal();closeModal('confirm-modal');renderIcards();renderOverview();toast('已刪除','err');};
 }
 
-// 信用卡
-function submitCard(){
-  const name=document.getElementById('nc-name').value.trim();
-  const last4=document.getElementById('nc-last4').value.trim();
-  if(!name||!/^\d{4}$/.test(last4)){toast('請填寫完整','warn');return;}
-  addCard({name,last4,color:pickedColor});fbSyncCards();
-  closeModal('add-card-modal');renderCards();toast(`已新增 ${name}`);
-  document.getElementById('nc-name').value='';document.getElementById('nc-last4').value='';
+function sw(id,el){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('on'));
+  document.getElementById('p-'+id).classList.add('on');
+  el.classList.add('on');
 }
-function confirmDelCard(id,name){
-  document.getElementById('cm-title').textContent='刪除信用卡';
-  document.getElementById('cm-msg').textContent=`確定刪除「${name}」？`;
-  showModal('confirm-modal');
-  document.getElementById('cm-ok').onclick=()=>{delCard(id);fbSyncCards();closeModal('confirm-modal');renderCards();toast('已刪除','err');};
-}
-function pickColor(color,el){pickedColor=color;document.querySelectorAll('.cdot-pick').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
-
-function showModal(id){document.getElementById(id).classList.add('show');}
-function closeModal(id){document.getElementById(id).classList.remove('show');}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
-init();
+window.addEventListener('DOMContentLoaded', ()=>setTimeout(init,150));
 </script>
 </body>
 </html>
