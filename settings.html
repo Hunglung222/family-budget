@@ -11,14 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
 </head>
-<body><script>
-window.onerror = function(msg, src, line) {
-  const d = document.getElementById('_err');
-  if (d) d.innerHTML += `<div style="background:#f43f5e;color:#fff;padding:8px 12px;border-radius:8px;margin-bottom:6px;font-size:.78rem">❌ ${msg}<br><small>${src}:${line}</small></div>`;
-  return false;
-};
-</script>
-<div id="_err" style="position:fixed;top:70px;left:10px;right:10px;z-index:9999;pointer-events:none"></div>
+<body>
 
 <header class="hdr">
   <div><h1>⚙️ 設定</h1><div class="hdr-sub">主題 / 分類 / 備份</div></div>
@@ -120,6 +113,24 @@ window.onerror = function(msg, src, line) {
 <div class="toast" id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
+  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
+  if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user||!ALLOWED.includes(user.email)){
+      window.location.replace('./login.html');
+    } else {
+      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
+      localStorage.setItem('current_user',name);
+      localStorage.setItem('current_email',user.email);
+    }
+  });
+})();
+</script>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>

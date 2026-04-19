@@ -2,7 +2,7 @@
   "name": "家庭記帳",
   "short_name": "記帳",
   "description": "兩人家庭記帳 PWA",
-  "start_url": "./add.html",
+  "start_url": "./login.html",
   "display": "standalone",
   "background_color": "#0a0f1e",
   "theme_color": "#00e5b4",
