@@ -135,36 +135,34 @@ async function loginGoogle() {
 
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
-    const result = await auth.signInWithPopup(provider);
-    const email = result.user.email;
-
-    if (!ALLOWED.includes(email)) {
-      // 無權限，登出並顯示錯誤
-      await auth.signOut();
-      loading.classList.remove('show');
-      btn.classList.remove('loading');
-      errEl.textContent = `❌ 抱歉，${email} 沒有使用權限。\n此 App 僅限宏龍與盈慧使用。`;
-      errEl.classList.add('show');
-      return;
-    }
-
-    // 儲存登入者身份
-    const name = email === 'kevin67222@gmail.com' ? '宏龍' : '盈慧';
-    localStorage.setItem('current_user', name);
-    localStorage.setItem('current_email', email);
-
-    // 進入 App
-    window.location.replace('./add.html');
-
+    // 用 redirect 方式，相容 PWA
+    await auth.signInWithRedirect(provider);
   } catch(e) {
     loading.classList.remove('show');
     btn.classList.remove('loading');
-    if (e.code !== 'auth/popup-closed-by-user') {
-      errEl.textContent = '登入失敗，請再試一次。';
-      errEl.classList.add('show');
-    }
+    errEl.textContent = '登入失敗，請再試一次。';
+    errEl.classList.add('show');
   }
 }
+
+// 處理 redirect 回來後的結果
+auth.getRedirectResult().then(result => {
+  if (!result || !result.user) return;
+  const email = result.user.email;
+  if (!ALLOWED.includes(email)) {
+    auth.signOut();
+    const errEl = document.getElementById('error-msg');
+    errEl.textContent = `❌ 抱歉，${email} 沒有使用權限。此 App 僅限宏龍與盈慧使用。`;
+    errEl.classList.add('show');
+    return;
+  }
+  const name = email === 'kevin67222@gmail.com' ? '宏龍' : '盈慧';
+  localStorage.setItem('current_user', name);
+  localStorage.setItem('current_email', email);
+  window.location.replace('./add.html');
+}).catch(e => {
+  console.warn('redirect result error', e);
+});
 </script>
 </body>
 </html>
