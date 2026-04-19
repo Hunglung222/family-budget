@@ -11,30 +11,46 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--bg:#0a0f1e;--card:#1a2235;--border:#2a3550;--p:#00e5b4;--p2:#00b48e;--t:#e8edf8;--t2:#8896b3;--danger:#f43f5e}
+:root{--bg:#0a0f1e;--card:#1a2235;--border:#2a3550;--p:#00e5b4;--p2:#00b48e;--pdim:rgba(0,229,180,.13);--t:#e8edf8;--t2:#8896b3;--t3:#4a5670;--danger:#f43f5e;--ok:#22c55e;--r:16px;--rs:10px}
 html{font-size:16px;-webkit-text-size-adjust:100%}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);min-height:100dvh;max-width:480px;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
-.logo-wrap{text-align:center;margin-bottom:40px}
-.logo{font-size:5rem;line-height:1;margin-bottom:16px;animation:floatin 3s ease-in-out infinite}
+
+.logo-wrap{text-align:center;margin-bottom:36px}
+.logo{font-size:5rem;line-height:1;margin-bottom:14px;animation:floatin 3s ease-in-out infinite}
 @keyframes floatin{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
-.app-name{font-size:1.8rem;font-weight:900;letter-spacing:-.02em}
+.app-name{font-size:1.9rem;font-weight:900;letter-spacing:-.02em}
 .app-sub{font-size:.88rem;color:var(--t2);margin-top:6px}
-.login-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;text-align:center}
-.login-title{font-size:1rem;font-weight:700;margin-bottom:6px}
-.login-desc{font-size:.82rem;color:var(--t2);margin-bottom:24px;line-height:1.6}
-.btn-google{width:100%;padding:16px;border-radius:14px;background:#fff;color:#1f2937;border:none;font-family:inherit;font-size:1rem;font-weight:700;display:flex;align-items:center;justify-content:center;gap:12px;cursor:pointer;transition:.2s;box-shadow:0 4px 16px rgba(0,0,0,.3);-webkit-tap-highlight-color:transparent}
-.btn-google:active{transform:scale(.97)}
-.btn-google:disabled{opacity:.6;cursor:not-allowed}
-.divider{display:flex;align-items:center;gap:12px;margin:20px 0}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
-.divider span{font-size:.72rem;color:var(--t2)}
-.members{display:flex;gap:12px;justify-content:center}
-.member{display:flex;flex-direction:column;align-items:center;gap:6px}
-.member-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem}
-.member-name{font-size:.72rem;color:var(--t2)}
-.error-msg{background:rgba(244,63,94,.12);color:var(--danger);border-radius:10px;padding:12px 16px;font-size:.84rem;margin-top:16px;display:none;line-height:1.5}
+
+.login-card{width:100%;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 22px}
+
+/* 人員選擇 */
+.person-row{display:flex;gap:12px;margin-bottom:22px}
+.person-btn{
+  flex:1;padding:16px 8px;border-radius:var(--r);
+  background:var(--bg);border:2px solid var(--border);
+  color:var(--t2);font-family:inherit;cursor:pointer;
+  transition:.18s;display:flex;flex-direction:column;align-items:center;gap:8px;
+  -webkit-tap-highlight-color:transparent;
+}
+.person-btn .av{font-size:2rem;line-height:1}
+.person-btn .nm{font-size:.9rem;font-weight:700}
+.person-btn.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.person-btn:active{transform:scale(.97)}
+
+.flbl{display:block;font-size:.72rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}
+.fg{margin-bottom:14px;position:relative}
+.fc{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rs);padding:13px 44px 13px 14px;color:var(--t);font-size:1rem;-webkit-appearance:none;appearance:none;font-family:inherit}
+.fc:focus{border-color:var(--p);outline:none}
+.eye-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;font-size:1.1rem;cursor:pointer;padding:4px;color:var(--t2)}
+
+.btn-login{width:100%;padding:16px;border-radius:var(--r);background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:1rem;font-weight:900;font-family:inherit;border:none;cursor:pointer;transition:.18s;-webkit-tap-highlight-color:transparent;margin-top:4px}
+.btn-login:active{transform:scale(.98)}
+.btn-login:disabled{opacity:.6;cursor:not-allowed}
+
+.error-msg{background:rgba(244,63,94,.12);color:var(--danger);border-radius:10px;padding:12px 14px;font-size:.84rem;margin-top:14px;display:none;line-height:1.5;text-align:center}
 .error-msg.show{display:block}
-.loading-overlay{position:fixed;inset:0;background:rgba(10,15,30,.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;display:none}
+
+.loading-overlay{position:fixed;inset:0;background:rgba(10,15,30,.9);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:999}
 .loading-overlay.show{display:flex}
 .spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:16px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -42,6 +58,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);m
 </style>
 </head>
 <body>
+
 <div class="logo-wrap">
   <div class="logo">🏡</div>
   <div class="app-name">家庭記帳</div>
@@ -49,29 +66,41 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);m
 </div>
 
 <div class="login-card">
-  <div class="login-title">👋 歡迎回來</div>
-  <div class="login-desc">使用 Google 帳號登入<br>資料即時同步，兩人共用</div>
-  <button class="btn-google" id="btn-login" onclick="loginGoogle()">
-    <img src="https://www.google.com/favicon.ico" width="24" height="24" alt="G">
-    用 Google 帳號登入
-  </button>
-  <div class="error-msg" id="error-msg"></div>
-  <div class="divider"><span>限定使用者</span></div>
-  <div class="members">
-    <div class="member"><div class="member-avatar">🙋</div><div class="member-name">宏龍</div></div>
-    <div class="member"><div class="member-avatar">🙋‍♀️</div><div class="member-name">盈慧</div></div>
+  <!-- 選擇登入者 -->
+  <span class="flbl">👤 我是</span>
+  <div class="person-row">
+    <button class="person-btn on" id="btn-hl" onclick="selectPerson('宏龍',this)">
+      <span class="av">🙋</span><span class="nm">宏龍</span>
+    </button>
+    <button class="person-btn" id="btn-yh" onclick="selectPerson('盈慧',this)">
+      <span class="av">🙋‍♀️</span><span class="nm">盈慧</span>
+    </button>
   </div>
+
+  <!-- 密碼 -->
+  <div class="fg">
+    <span class="flbl">🔑 密碼</span>
+    <input type="password" class="fc" id="pwd" placeholder="輸入你的密碼"
+      onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="eye-btn" onclick="togglePwd()" id="eye-btn">👁️</button>
+  </div>
+
+  <button class="btn-login" id="btn-login" onclick="doLogin()">登入</button>
+  <div class="error-msg" id="error-msg"></div>
 </div>
 
 <div class="loading-overlay" id="loading">
   <div class="spinner"></div>
-  <div class="loading-txt" id="loading-txt">處理中...</div>
+  <div class="loading-txt">登入中...</div>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-const ALLOWED = ['kevin67222@gmail.com','gogosuperbird@gmail.com'];
+const USERS = {
+  '宏龍': 'kevin67222@gmail.com',
+  '盈慧': 'gogosuperbird@gmail.com',
+};
 const FB_CFG = {
   apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",
   authDomain:"family-budget-aed64.firebaseapp.com",
@@ -80,68 +109,61 @@ const FB_CFG = {
   messagingSenderId:"714512661107",
   appId:"1:714512661107:web:022f9c7f7b828b5eb9c806",
 };
-
 firebase.initializeApp(FB_CFG);
 const auth = firebase.auth();
 
-function goApp(user) {
-  const name = user.email === 'kevin67222@gmail.com' ? '宏龍' : '盈慧';
-  localStorage.setItem('current_user', name);
-  localStorage.setItem('current_email', user.email);
-  window.location.replace('./add.html');
-}
+let selPerson = '宏龍';
 
-function showError(msg) {
-  document.getElementById('loading').classList.remove('show');
-  document.getElementById('btn-login').disabled = false;
-  const el = document.getElementById('error-msg');
-  el.textContent = msg;
-  el.classList.add('show');
-}
-
-// 頁面載入時先處理 redirect 結果
-document.getElementById('loading').classList.add('show');
-document.getElementById('loading-txt').textContent = '驗證登入狀態...';
-
-auth.getRedirectResult()
-  .then(result => {
-    if (result && result.user) {
-      // 剛從 Google redirect 回來
-      const email = result.user.email;
-      if (!ALLOWED.includes(email)) {
-        auth.signOut();
-        showError(`❌ ${email} 沒有使用權限，此 App 僅限宏龍與盈慧使用。`);
-        return;
-      }
-      goApp(result.user);
-    } else {
-      // 沒有 redirect，檢查是否已登入
-      auth.onAuthStateChanged(user => {
-        if (user && ALLOWED.includes(user.email)) {
-          goApp(user);
-        } else {
-          // 未登入，顯示登入畫面
-          document.getElementById('loading').classList.remove('show');
-        }
-      });
-    }
-  })
-  .catch(e => {
-    console.error(e);
-    showError('登入失敗：' + e.message);
-  });
-
-async function loginGoogle() {
-  document.getElementById('btn-login').disabled = true;
-  document.getElementById('error-msg').classList.remove('show');
-  document.getElementById('loading').classList.add('show');
-  document.getElementById('loading-txt').textContent = '跳轉到 Google 登入...';
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    await auth.signInWithRedirect(provider);
-  } catch(e) {
-    showError('無法啟動登入，請再試一次。');
+// 已登入直接進入
+auth.onAuthStateChanged(user => {
+  if (user) {
+    const name = user.email === 'kevin67222@gmail.com' ? '宏龍' : '盈慧';
+    localStorage.setItem('current_user', name);
+    localStorage.setItem('current_email', user.email);
+    window.location.replace('./add.html');
   }
+});
+
+function selectPerson(name, el) {
+  selPerson = name;
+  document.querySelectorAll('.person-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('pwd').value = '';
+  document.getElementById('pwd').focus();
+  document.getElementById('error-msg').classList.remove('show');
+}
+
+async function doLogin() {
+  const pwd = document.getElementById('pwd').value.trim();
+  if (!pwd) { showErr('請輸入密碼'); return; }
+  const email = USERS[selPerson];
+  document.getElementById('btn-login').disabled = true;
+  document.getElementById('loading').classList.add('show');
+  document.getElementById('error-msg').classList.remove('show');
+  try {
+    await auth.signInWithEmailAndPassword(email, pwd);
+    // onAuthStateChanged 會自動跳轉
+  } catch(e) {
+    document.getElementById('loading').classList.remove('show');
+    document.getElementById('btn-login').disabled = false;
+    if (e.code === 'auth/wrong-password' || e.code === 'auth/invalid-credential') {
+      showErr('密碼錯誤，請再試一次');
+    } else {
+      showErr('登入失敗：' + e.message);
+    }
+  }
+}
+
+function showErr(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg; el.classList.add('show');
+}
+
+function togglePwd() {
+  const inp = document.getElementById('pwd');
+  const btn = document.getElementById('eye-btn');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁️'; }
 }
 </script>
 </body>
