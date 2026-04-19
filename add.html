@@ -28,9 +28,20 @@
     </div>
   </div>
   <div id="s1">
-    <button class="voice-btn" id="voice-btn" onclick="toggleVoice()">
-      🎤 <span id="voice-txt">語音輸入</span>
-    </button>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button class="voice-btn" id="voice-btn" onclick="toggleVoice()" style="flex:1">
+        🎤 <span id="voice-txt">語音輸入</span>
+      </button>
+      <button onclick="showTextInput()" style="padding:13px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);color:var(--t2);font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">⌨️ 文字</button>
+    </div>
+    <!-- 文字輸入備用（語音不支援時使用） -->
+    <div id="text-input-area" style="display:none;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <input type="text" class="fc" id="text-voice-input" placeholder="例：今天早餐蛋餅100元" style="flex:1">
+        <button onclick="submitTextInput()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">AI解析</button>
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:5px">語音不支援時，用文字輸入讓 AI 自動填表</div>
+    </div>
     <div class="numpad">
       <button class="nk" onclick="nk(7)">7</button><button class="nk" onclick="nk(8)">8</button><button class="nk" onclick="nk(9)">9</button>
       <button class="nk" onclick="nk(4)">4</button><button class="nk" onclick="nk(5)">5</button><button class="nk" onclick="nk(6)">6</button>
@@ -125,6 +136,33 @@
 let astr='',selCat='',selCard='',selIcard='',pay='cash',person='宏龍';
 let voiceRec=null,isListening=false;
 
+function showTextInput(){
+  const area = document.getElementById('text-input-area');
+  area.style.display = area.style.display==='none' ? 'block' : 'none';
+  if(area.style.display==='block') document.getElementById('text-voice-input').focus();
+}
+
+async function submitTextInput(){
+  const text = document.getElementById('text-voice-input').value.trim();
+  if(!text){toast('請輸入內容','warn');return;}
+  const btn = document.querySelector('#text-input-area button:last-child');
+  btn.textContent='解析中...';btn.disabled=true;
+  toast(`解析：${text}`,'info');
+  try{
+    const result = await geminiParse(text);
+    applyGeminiResult(result);
+    if(result.amount>0&&document.getElementById('s1').style.display!=='none') goStep2();
+    toast('✅ AI 解析完成！請確認資料','info');
+    document.getElementById('text-voice-input').value='';
+    document.getElementById('text-input-area').style.display='none';
+  }catch(err){
+    console.warn('[Gemini]',err);
+    toast('AI 解析失敗，請手動輸入','warn');
+  }finally{
+    btn.textContent='AI解析';btn.disabled=false;
+  }
+}
+
 function init(){
   applyTheme();
   const now=new Date();
@@ -214,13 +252,14 @@ function pickHint(v){document.getElementById('tx-detail').value=v;hideHints();}
 const GEMINI_KEY = 'AIzaSyCF2V8sjzzuyVK4wqk9UCV0A3tf9VMXb8U';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_KEY}`;
 
-const CAT_LIST = getCats().map(c=>`${c.id}:${c.name}`).join(', ');
+// CAT_LIST 動態取得（在 db.js 載入後）
 
 async function geminiParse(text) {
   const today = new Date();
   const todayStr = `${today.getFullYear()}/${today.getMonth()+1}/${today.getDate()}`;
   const yesterdayStr = new Date(today-864e5).toLocaleDateString('zh-TW');
 
+  const CAT_LIST = getCats().map(c=>`${c.id}:${c.name}`).join(', ');
   const prompt = `你是一個記帳助理，請從以下語音辨識文字中提取記帳資訊，並以 JSON 格式回傳。
 
 今天日期：${todayStr}
@@ -294,7 +333,12 @@ function applyGeminiResult(result) {
 
 function initVoice(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { document.getElementById('voice-btn').style.display='none'; return; }
+  if (!SR) {
+    document.getElementById('voice-txt').textContent='語音不支援';
+    document.getElementById('voice-btn').onclick=showTextInput;
+    document.getElementById('text-input-area').style.display='block';
+    return;
+  }
   voiceRec = new SR();
   voiceRec.lang = 'zh-TW';
   voiceRec.continuous = false;
