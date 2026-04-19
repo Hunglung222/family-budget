@@ -13,16 +13,15 @@
 </head>
 <body>
 <header class="hdr">
-  <div><h1>👛 錢包</h1><div class="hdr-sub">現金 & 信用卡管理</div></div>
+  <div><h1>👛 錢包</h1><div class="hdr-sub">現金・信用卡・悠遊卡</div></div>
 </header>
-
 <div class="w">
+  <!-- 現金餘額 -->
   <div class="wallet-hero">
-    <div class="wlbl">現金餘額</div>
+    <div class="wlbl">💵 現金餘額</div>
     <div class="wamt"><span class="cur">$</span><span id="bal">0</span></div>
     <div class="wupd" id="wupd"></div>
   </div>
-
   <div class="qadd">
     <div class="sec-t" style="margin-top:0">➕ 提領現金</div>
     <div class="qgrid">
@@ -36,55 +35,87 @@
       <button class="btn-add" onclick="addCustom()">＋ 新增</button>
     </div>
   </div>
-
   <div class="sg2">
     <div class="sc g"><div class="sc-lbl">本月現金支出</div><div class="sc-val"><span class="u">$</span><span id="m-out">0</span></div></div>
     <div class="sc b"><div class="sc-lbl">本月現金收入</div><div class="sc-val"><span class="u">$</span><span id="m-in">0</span></div></div>
+  </div>
+
+  <!-- 悠遊卡管理 -->
+  <div class="card-box">
+    <div class="card-hdr">
+      <span class="card-hdr-t">🎫 悠遊卡管理</span>
+      <button class="btn-nc" onclick="showModal('add-icard-modal')">＋ 新增</button>
+    </div>
+    <div id="icard-list"></div>
   </div>
 
   <!-- 信用卡管理 -->
   <div class="card-box">
     <div class="card-hdr">
       <span class="card-hdr-t">💳 信用卡管理</span>
-      <button class="btn-nc" onclick="showAddCard()">＋ 新增卡片</button>
+      <button class="btn-nc" onclick="showModal('add-card-modal')">＋ 新增</button>
     </div>
-    <div id="card-list">
-      <div style="color:var(--t3);font-size:.85rem;text-align:center;padding:16px 0">
-        尚未新增信用卡，點上方「＋ 新增卡片」
-      </div>
-    </div>
+    <div id="card-list"></div>
   </div>
 
   <div class="sec-t">📋 現金記錄</div>
   <div class="hist-box"><div id="hist"></div></div>
 </div>
 
-<!-- 新增卡片 Modal -->
-<div class="ov" id="card-modal">
+<!-- 新增悠遊卡 -->
+<div class="ov" id="add-icard-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">🎫 新增悠遊卡</div>
+    <div class="fg"><span class="flbl">卡片名稱</span><input type="text" class="fc" id="ic-name" placeholder="例：宏龍的悠遊卡" maxlength="20"></div>
+    <div class="fg"><span class="flbl">初始餘額（可填 0）</span><input type="number" class="fc" id="ic-bal" placeholder="0"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('add-icard-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitIcard()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 悠遊卡加值 -->
+<div class="ov" id="topup-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">🎫 悠遊卡加值</div>
+    <div style="font-size:.88rem;color:var(--t2);margin-bottom:14px" id="topup-card-name"></div>
+    <div class="fg"><span class="flbl">加值金額</span><input type="number" class="fc" id="topup-amt" placeholder="例：500"></div>
+    <div class="fg">
+      <span class="flbl">加值方式</span>
+      <div class="tg">
+        <button class="tb on" id="topup-cash" onclick="setTopupPay('cash',this)">💵 現金加值</button>
+        <button class="tb" id="topup-card" onclick="setTopupPay('card',this)">💳 信用卡加值</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('topup-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitTopup()">確認加值</button>
+    </div>
+  </div>
+</div>
+
+<!-- 新增信用卡 -->
+<div class="ov" id="add-card-modal">
   <div class="sheet">
     <div class="sh"></div>
     <div class="st">💳 新增信用卡</div>
-    <div class="fg">
-      <span class="flbl">銀行 / 卡名</span>
-      <input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡" maxlength="20">
-    </div>
-    <div class="fg">
-      <span class="flbl">末四碼</span>
-      <input type="text" class="fc" id="nc-last4" placeholder="1234" maxlength="4" pattern="\d{4}" inputmode="numeric">
-    </div>
+    <div class="fg"><span class="flbl">銀行 / 卡名</span><input type="text" class="fc" id="nc-name" placeholder="例：台新玫瑰卡" maxlength="20"></div>
+    <div class="fg"><span class="flbl">末四碼</span><input type="text" class="fc" id="nc-last4" placeholder="1234" maxlength="4" inputmode="numeric"></div>
     <div class="fg">
       <span class="flbl">卡片顏色</span>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;padding:6px 0" id="color-picker">
+      <div style="display:flex;gap:10px;padding:6px 0" id="color-picker">
         <div class="cdot-pick on" data-color="#1d4ed8" onclick="pickColor('#1d4ed8',this)" style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;cursor:pointer;border:3px solid white;box-shadow:0 0 0 2px #1d4ed8"></div>
         <div class="cdot-pick" data-color="#be185d" onclick="pickColor('#be185d',this)" style="width:32px;height:32px;border-radius:50%;background:#be185d;cursor:pointer;border:3px solid transparent"></div>
         <div class="cdot-pick" data-color="#374151" onclick="pickColor('#374151',this)" style="width:32px;height:32px;border-radius:50%;background:#374151;cursor:pointer;border:3px solid transparent"></div>
         <div class="cdot-pick" data-color="#0d9488" onclick="pickColor('#0d9488',this)" style="width:32px;height:32px;border-radius:50%;background:#0d9488;cursor:pointer;border:3px solid transparent"></div>
         <div class="cdot-pick" data-color="#7c3aed" onclick="pickColor('#7c3aed',this)" style="width:32px;height:32px;border-radius:50%;background:#7c3aed;cursor:pointer;border:3px solid transparent"></div>
-        <div class="cdot-pick" data-color="#b45309" onclick="pickColor('#b45309',this)" style="width:32px;height:32px;border-radius:50%;background:#b45309;cursor:pointer;border:3px solid transparent"></div>
       </div>
     </div>
     <div class="btn-row">
-      <button class="btn btn-s" onclick="closeModal('card-modal')">取消</button>
+      <button class="btn btn-s" onclick="closeModal('add-card-modal')">取消</button>
       <button class="btn btn-p" onclick="submitCard()">新增</button>
     </div>
   </div>
@@ -115,124 +146,116 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){
-      window.location.replace('./login.html');
-    } else {
-      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
-      localStorage.setItem('current_user',name);
-      localStorage.setItem('current_email',user.email);
-    }
-  });
-})();
+(function(){const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};if(!firebase.apps.length)firebase.initializeApp(FB_CFG);firebase.auth().onAuthStateChanged(user=>{if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);}});})();
 </script>
-
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script>
-let pickedColor = '#1d4ed8';
+let pickedColor='#1d4ed8',topupCardId='',topupPayMethod='cash';
 
-function init() {
-  applyTheme();
-  renderWallet(); renderCards(); renderStats();
+function init(){applyTheme();renderWallet();renderIcards();renderCards();renderStats();}
+
+function renderWallet(){
+  const w=getWal();
+  document.getElementById('bal').textContent=fmt(w.balance);
+  if(w.history.length) document.getElementById('wupd').textContent='更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
+  const h=document.getElementById('hist');
+  if(!w.history.length){h.innerHTML='<div style="color:var(--t3);font-size:.88rem;text-align:center;padding:16px">尚無記錄</div>';return;}
+  h.innerHTML=w.history.slice(0,30).map(e=>`
+    <div class="hitem"><div class="hico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
+    <div class="hinfo"><div class="hnote">${e.note||'現金'}</div><div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
+    <div class="hamt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div></div>`).join('');
 }
 
-function renderWallet() {
-  const w = getWal();
-  document.getElementById('bal').textContent = fmt(w.balance);
-  if (w.history.length)
-    document.getElementById('wupd').textContent = '更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
-  const h = document.getElementById('hist');
-  if (!w.history.length) { h.innerHTML='<div style="color:var(--t3);font-size:.88rem;text-align:center;padding:16px">尚無記錄</div>'; return; }
-  h.innerHTML = w.history.slice(0,30).map(e=>`
-    <div class="hitem">
-      <div class="hico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
-      <div class="hinfo"><div class="hnote">${e.note||'現金'}</div><div class="htime">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
-      <div class="hamt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div>
+function renderIcards(){
+  const cs=getIcards();const el=document.getElementById('icard-list');
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:14px">尚未新增悠遊卡</div>';return;}
+  el.innerHTML=cs.map(c=>`
+    <div class="citem">
+      <div style="width:34px;height:34px;border-radius:8px;background:var(--pdim);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">🎫</div>
+      <div class="cinfo"><div class="cname">${c.name}</div><div class="clast">餘額：<b style="color:var(--p)">$${fmt(c.balance||0)}</b></div></div>
+      <button onclick="showTopup('${c.id}','${c.name}')" style="background:var(--pdim);color:var(--p);border:none;border-radius:8px;padding:7px 12px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;margin-right:6px">加值</button>
+      <button class="btn-del-c" onclick="confirmDelIcard('${c.id}','${c.name}')">🗑️</button>
     </div>`).join('');
 }
 
-function renderCards() {
-  const cs = getCards();
-  const el = document.getElementById('card-list');
-  if (!cs.length) {
-    el.innerHTML = '<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:16px 0">尚未新增信用卡，點上方「＋ 新增卡片」</div>';
-    return;
-  }
-  el.innerHTML = cs.map(c=>`
+function renderCards(){
+  const cs=getCards();const el=document.getElementById('card-list');
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:14px">尚未新增信用卡</div>';return;}
+  el.innerHTML=cs.map(c=>`
     <div class="citem">
       <div class="cdot" style="background:${c.color||'#4f8ef7'}"></div>
-      <div class="cinfo">
-        <div class="cname">${c.name}</div>
-        <div class="clast">···· ···· ···· ${c.last4}</div>
-      </div>
+      <div class="cinfo"><div class="cname">${c.name}</div><div class="clast">···· ···· ···· ${c.last4}</div></div>
       <button class="btn-del-c" onclick="confirmDelCard('${c.id}','${c.name}')">🗑️</button>
     </div>`).join('');
 }
 
-function renderStats() {
-  const now = new Date();
-  const txs = txByMonth(now.getFullYear(), now.getMonth()+1);
-  const out = txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
-  const w = getWal();
-  const inn = w.history.filter(h=>{
-    const d=new Date(h.time);
-    return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
-  }).reduce((s,h)=>s+h.amount,0);
+function renderStats(){
+  const now=new Date(),txs=txByMonth(now.getFullYear(),now.getMonth()+1);
+  const out=txs.filter(t=>t.pay==='cash').reduce((s,t)=>s+t.amount,0);
+  const w=getWal();
+  const inn=w.history.filter(h=>{const d=new Date(h.time);return h.type==='in'&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();}).reduce((s,h)=>s+h.amount,0);
   document.getElementById('m-out').textContent=fmt(out);
   document.getElementById('m-in').textContent=fmt(inn);
 }
 
-function qadd(n) { walIn(n,'提領現金'); fbSyncWal(); toast(`已新增 $${fmt(n)}`); renderWallet(); renderStats(); }
-function addCustom() {
-  const n=parseInt(document.getElementById('custom-amt').value)||0;
-  if(!n){toast('請輸入金額','warn');return;}
-  walIn(n,'手動新增'); fbSyncWal();
-  document.getElementById('custom-amt').value='';
-  toast(`已新增 $${fmt(n)}`); renderWallet(); renderStats();
+function qadd(n){walIn(n,'提領現金');fbSyncWal();toast(`已新增 $${fmt(n)}`);renderWallet();renderStats();}
+function addCustom(){const n=parseInt(document.getElementById('custom-amt').value)||0;if(!n){toast('請輸入金額','warn');return;}walIn(n,'手動新增');fbSyncWal();document.getElementById('custom-amt').value='';toast(`已新增 $${fmt(n)}`);renderWallet();renderStats();}
+
+// 悠遊卡
+function submitIcard(){
+  const name=document.getElementById('ic-name').value.trim();
+  const bal=parseInt(document.getElementById('ic-bal').value)||0;
+  if(!name){toast('請輸入卡片名稱','warn');return;}
+  addIcard({name,balance:bal});fbSyncIcards();
+  closeModal('add-icard-modal');renderIcards();toast(`已新增 ${name}`);
+  document.getElementById('ic-name').value='';document.getElementById('ic-bal').value='';
+}
+function showTopup(id,name){
+  topupCardId=id;topupPayMethod='cash';
+  document.getElementById('topup-card-name').textContent=`🎫 ${name}`;
+  document.getElementById('topup-amt').value='';
+  document.getElementById('topup-cash').classList.add('on');
+  document.getElementById('topup-card').classList.remove('on');
+  showModal('topup-modal');
+}
+function setTopupPay(p,el){topupPayMethod=p;document.querySelectorAll('#topup-cash,#topup-card').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function submitTopup(){
+  const amt=parseInt(document.getElementById('topup-amt').value)||0;
+  if(!amt){toast('請輸入加值金額','warn');return;}
+  const c=icardFind(topupCardId);if(!c)return;
+  icardTopup(topupCardId,amt,topupPayMethod,c.name+' 加值');
+  fbSyncIcards();if(topupPayMethod==='cash')fbSyncWal();
+  closeModal('topup-modal');renderIcards();renderWallet();renderStats();
+  toast(`已加值 $${fmt(amt)}`);
+}
+function confirmDelIcard(id,name){
+  document.getElementById('cm-title').textContent='刪除悠遊卡';
+  document.getElementById('cm-msg').textContent=`確定刪除「${name}」？`;
+  showModal('confirm-modal');
+  document.getElementById('cm-ok').onclick=()=>{delIcard(id);fbSyncIcards();closeModal('confirm-modal');renderIcards();toast('已刪除','err');};
 }
 
-function showAddCard() { document.getElementById('card-modal').classList.add('show'); }
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-
-function pickColor(color, el) {
-  pickedColor = color;
-  document.querySelectorAll('.cdot-pick').forEach(d => {
-    d.style.border = '3px solid transparent';
-    d.style.boxShadow = 'none';
-  });
-  el.style.border = '3px solid white';
-  el.style.boxShadow = `0 0 0 2px ${color}`;
+// 信用卡
+function submitCard(){
+  const name=document.getElementById('nc-name').value.trim();
+  const last4=document.getElementById('nc-last4').value.trim();
+  if(!name||!/^\d{4}$/.test(last4)){toast('請填寫完整','warn');return;}
+  addCard({name,last4,color:pickedColor});fbSyncCards();
+  closeModal('add-card-modal');renderCards();toast(`已新增 ${name}`);
+  document.getElementById('nc-name').value='';document.getElementById('nc-last4').value='';
 }
-
-function submitCard() {
-  const name  = document.getElementById('nc-name').value.trim();
-  const last4 = document.getElementById('nc-last4').value.trim();
-  if (!name)           { toast('請輸入卡名','warn');   return; }
-  if (!/^\d{4}$/.test(last4)) { toast('末四碼請輸入4位數字','warn'); return; }
-  addCard({ name, last4, color: pickedColor });
-  fbSyncCards();
-  closeModal('card-modal');
-  renderCards();
-  toast(`已新增 ${name}`);
-  document.getElementById('nc-name').value='';
-  document.getElementById('nc-last4').value='';
-}
-
-function confirmDelCard(id, name) {
+function confirmDelCard(id,name){
   document.getElementById('cm-title').textContent='刪除信用卡';
-  document.getElementById('cm-msg').textContent=`確定刪除「${name}」嗎？相關記帳記錄不會被刪除。`;
-  document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick=()=>{
-    delCard(id); fbSyncCards();
-    closeModal('confirm-modal'); renderCards(); toast('已刪除','err');
-  };
+  document.getElementById('cm-msg').textContent=`確定刪除「${name}」？`;
+  showModal('confirm-modal');
+  document.getElementById('cm-ok').onclick=()=>{delCard(id);fbSyncCards();closeModal('confirm-modal');renderCards();toast('已刪除','err');};
 }
+function pickColor(color,el){pickedColor=color;document.querySelectorAll('.cdot-pick').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
+
+function showModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}

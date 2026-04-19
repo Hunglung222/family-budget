@@ -10,25 +10,148 @@
 <title>設定</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
+<style>
+.toggle-switch{position:relative;width:46px;height:26px;flex-shrink:0}
+.toggle-switch input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--border);border-radius:13px;cursor:pointer;transition:.2s}
+.toggle-slider::before{content:'';position:absolute;width:20px;height:20px;left:3px;bottom:3px;background:#fff;border-radius:50%;transition:.2s}
+.toggle-switch input:checked+.toggle-slider{background:var(--p)}
+.toggle-switch input:checked+.toggle-slider::before{transform:translateX(20px)}
+.notify-row{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--border)}
+.notify-row:last-child{border-bottom:none}
+.notify-info{flex:1}
+.notify-name{font-size:.9rem;font-weight:600}
+.notify-desc{font-size:.72rem;color:var(--t2);margin-top:2px}
+.budget-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px}
+.budget-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.budget-cat{font-size:.92rem;font-weight:700}
+.budget-input-wrap{display:flex;align-items:center;gap:6px}
+.budget-prefix{font-size:.85rem;color:var(--t2)}
+.binput{background:var(--card2);border:1.5px solid var(--border);border-radius:var(--rs);padding:8px 12px;color:var(--t);font-size:.92rem;width:100px;text-align:right;-moz-appearance:textfield;font-family:inherit}
+.binput:focus{border-color:var(--p);outline:none}
+.binput::-webkit-inner-spin-button{-webkit-appearance:none}
+.bbar{height:10px;background:var(--bg2);border-radius:5px;overflow:hidden;margin:8px 0 4px}
+.bfill{height:100%;border-radius:5px;transition:width .6s ease}
+.bfill.ok{background:var(--p)}.bfill.warn{background:var(--warn)}.bfill.danger{background:var(--danger)}
+.bamts{display:flex;justify-content:space-between;font-size:.72rem;color:var(--t2)}
+.bwarn{font-size:.72rem;font-weight:700;margin-top:4px}
+.bwarn.warn{color:var(--warn)}.bwarn.danger{color:var(--danger)}
+.period-badge{display:inline-flex;align-items:center;gap:6px;background:var(--pdim);color:var(--p);border-radius:8px;padding:6px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
+</style>
 </head>
 <body>
-
 <header class="hdr">
-  <div><h1>⚙️ 設定</h1><div class="hdr-sub">主題 / 分類 / 備份</div></div>
+  <div><h1>⚙️ 設定</h1><div class="hdr-sub">主題 / 預算 / 通知</div></div>
   <a href="./index.html" class="hdr-btn">📋</a>
 </header>
-
 <div class="w">
+
+  <!-- 登入帳號 -->
+  <div class="sec-t">👤 目前登入帳號</div>
+  <div class="data-card" style="padding:14px 16px">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <div style="font-size:1rem;font-weight:700" id="login-name"></div>
+        <div style="font-size:.78rem;color:var(--t2);margin-top:3px" id="login-email"></div>
+      </div>
+      <button onclick="doLogout()" style="background:rgba(244,63,94,.14);color:var(--danger);border:1.5px solid rgba(244,63,94,.28);border-radius:var(--rs);padding:9px 16px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">登出</button>
+    </div>
+  </div>
+
   <!-- 外觀主題 -->
   <div class="sec-t">🎨 外觀主題</div>
   <div class="data-card" style="padding:14px 16px">
-    <div style="font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px">亮色 / 暗色</div>
+    <div class="flbl" style="margin-bottom:8px">亮色 / 暗色</div>
     <div class="mode-row">
-      <button class="mode-btn" id="mode-dark"  onclick="setMode('dark')">🌙 暗色</button>
+      <button class="mode-btn" id="mode-dark" onclick="setMode('dark')">🌙 暗色</button>
       <button class="mode-btn" id="mode-light" onclick="setMode('light')">☀️ 亮色</button>
     </div>
-    <div style="font-size:.75rem;font-weight:700;color:var(--t2);letter-spacing:.08em;text-transform:uppercase;margin:12px 0 8px">主題色</div>
+    <div class="flbl" style="margin:12px 0 8px">主題色</div>
     <div class="theme-row" id="accent-picker"></div>
+  </div>
+
+  <!-- 預算週期設定 -->
+  <div class="sec-t">🎯 預算設定</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div class="flbl" style="margin-bottom:8px">📅 每月週期起始日</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:.88rem;color:var(--t2)">每月</span>
+      <input type="number" class="binput" id="start-day" min="1" max="28" style="width:70px;text-align:center" onchange="saveStartDay()">
+      <span style="font-size:.88rem;color:var(--t2)">日 開始</span>
+    </div>
+    <div class="period-badge" id="period-display">📅 載入中...</div>
+    <div style="font-size:.72rem;color:var(--t3)">例如設定 10，則每月 10 日～次月 9 日為一個週期</div>
+  </div>
+
+  <!-- 各分類預算上限 -->
+  <div id="budget-list"></div>
+
+  <!-- Discord 通知設定 -->
+  <div class="sec-t">📣 Discord 通知設定</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div class="flbl" style="margin-bottom:10px">Webhook URL</div>
+    <input type="text" class="fc" id="discord-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
+    <div style="display:flex;gap:8px">
+      <button onclick="saveDiscordUrl()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+      <button onclick="testDiscordBtn()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+    </div>
+  </div>
+
+  <!-- 各項通知開關 -->
+  <div class="data-card" style="padding:4px 16px;margin-bottom:8px">
+    <div class="notify-row">
+      <div class="notify-info">
+        <div class="notify-name">💰 每筆記帳通知</div>
+        <div class="notify-desc">記一筆帳立即發送到 Discord</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="sw-add" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="notify-row">
+      <div class="notify-info">
+        <div class="notify-name">📊 每日結算通知</div>
+        <div class="notify-desc">每天發送當日支出摘要</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="sw-daily" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
+      <div class="notify-info">
+        <div class="notify-name">🕐 每日通知時間</div>
+        <div class="notify-desc">幾點發送當日結算</div>
+      </div>
+      <select class="fc" id="daily-hour" onchange="saveNotify()" style="width:100px;padding:8px 10px;font-size:.88rem">
+        <option value="20">20:00</option>
+        <option value="21">21:00</option>
+        <option value="22">22:00</option>
+        <option value="23">23:00</option>
+      </select>
+    </div>
+    <div class="notify-row">
+      <div class="notify-info">
+        <div class="notify-name">⚠️ 預算警示通知</div>
+        <div class="notify-desc">達到預算上限百分比時通知</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="sw-budget" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
+      <div class="notify-info">
+        <div class="notify-name">📏 警示門檻</div>
+        <div class="notify-desc">達到幾 % 時發通知</div>
+      </div>
+      <select class="fc" id="budget-pct" onchange="saveNotify()" style="width:90px;padding:8px 10px;font-size:.88rem">
+        <option value="50">50%</option>
+        <option value="70">70%</option>
+        <option value="80">80%</option>
+        <option value="90">90%</option>
+        <option value="100">100%</option>
+      </select>
+    </div>
+    <div class="notify-row">
+      <div class="notify-info">
+        <div class="notify-name">📈 每週摘要通知</div>
+        <div class="notify-desc">每週日發送本週支出摘要</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
   </div>
 
   <!-- 資料統計 -->
@@ -45,34 +168,32 @@
     </div>
   </div>
 
-  <!-- Discord 設定 -->
-  <div class="sec-t">📣 Discord 每日結算通知</div>
-  <div class="data-card" style="padding:14px 16px">
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
-      每天晚上 9 點自動發送當日支出結算到 Discord 頻道。<br>
-      <a href="https://discord.com/developers/applications" target="_blank" style="color:var(--p)">點此建立 Webhook URL</a>
-    </div>
-    <div class="fg">
-      <span class="flbl">Webhook URL</span>
-      <input type="text" class="fc" id="discord-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem">
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="saveDiscord()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
-      <button onclick="testDiscord()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試發送</button>
-    </div>
-  </div>
-
-  <!-- 資料管理 -->
-  <div class="sec-t">🛠️ 資料管理</div>
+  <!-- 匯出報表 -->
+  <div class="sec-t">📊 匯出報表</div>
   <div class="set-card">
-    <div class="srow" onclick="exportData()">
-      <div class="sico" style="background:rgba(34,197,94,.15)">📤</div>
-      <div class="sinfo"><div class="sname">匯出備份（JSON）</div><div class="sdesc">下載所有記帳資料</div></div>
+    <div class="srow" onclick="exportXlsx('period')">
+      <div class="sico" style="background:rgba(34,197,94,.15)">📅</div>
+      <div class="sinfo"><div class="sname">匯出本期報表（Excel）</div><div class="sdesc" id="export-period-desc">當前預算週期</div></div>
+      <span class="sarr">›</span>
+    </div>
+    <div class="srow" onclick="exportXlsx('month')">
+      <div class="sico" style="background:rgba(34,197,94,.15)">📋</div>
+      <div class="sinfo"><div class="sname">匯出本月報表（Excel）</div><div class="sdesc">本自然月份</div></div>
+      <span class="sarr">›</span>
+    </div>
+    <div class="srow" onclick="exportXlsx('all')">
+      <div class="sico" style="background:rgba(34,197,94,.15)">📚</div>
+      <div class="sinfo"><div class="sname">匯出全部記帳（Excel）</div><div class="sdesc">所有時間完整記錄</div></div>
+      <span class="sarr">›</span>
+    </div>
+    <div class="srow" onclick="exportJson()">
+      <div class="sico" style="background:var(--bdim)">💾</div>
+      <div class="sinfo"><div class="sname">匯出備份（JSON）</div><div class="sdesc">完整備份，可匯入還原</div></div>
       <span class="sarr">›</span>
     </div>
     <div class="srow" onclick="document.getElementById('imp').click()">
       <div class="sico" style="background:var(--bdim)">📥</div>
-      <div class="sinfo"><div class="sname">匯入備份（JSON）</div><div class="sdesc">從備份檔案還原</div></div>
+      <div class="sinfo"><div class="sname">匯入備份（JSON）</div><div class="sdesc">從備份還原資料</div></div>
       <span class="sarr">›</span>
     </div>
   </div>
@@ -90,16 +211,10 @@
 </div>
 
 <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
-
 <div class="ov" id="confirm-modal">
-  <div class="sheet">
-    <div class="sh"></div>
-    <div class="st" id="cm-title"></div>
+  <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
     <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
-    <div class="btn-row">
-      <button class="btn btn-s" onclick="closeModal()">取消</button>
-      <button class="btn btn-d" id="cm-ok">確認</button>
-    </div>
+    <div class="btn-row"><button class="btn btn-s" onclick="closeModal()">取消</button><button class="btn btn-d" id="cm-ok">確認</button></div>
   </div>
 </div>
 
@@ -112,165 +227,206 @@
 </nav>
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){
-      window.location.replace('./login.html');
-    } else {
-      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
-      localStorage.setItem('current_user',name);
-      localStorage.setItem('current_email',user.email);
-    }
-  });
-})();
+const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
+const FB_AUTH={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
+if(!firebase.apps.length)firebase.initializeApp(FB_AUTH);
+const auth=firebase.auth();
+auth.onAuthStateChanged(user=>{if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);}});
 </script>
-
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script>
-const ACCENT_DEFS = [
-  {key:'teal',   color:'#00e5b4', label:'翠綠'},
-  {key:'blue',   color:'#4f8ef7', label:'藍色'},
-  {key:'pink',   color:'#f472b6', label:'粉色'},
-  {key:'purple', color:'#a78bfa', label:'紫色'},
-  {key:'yellow', color:'#fbbf24', label:'黃色'},
-  {key:'green',  color:'#4ade80', label:'綠色'},
-];
+const ACCENT_DEFS=[{key:'teal',color:'#00e5b4',label:'翠綠'},{key:'blue',color:'#4f8ef7',label:'藍色'},{key:'pink',color:'#f472b6',label:'粉色'},{key:'purple',color:'#a78bfa',label:'紫色'},{key:'yellow',color:'#fbbf24',label:'黃色'},{key:'green',color:'#4ade80',label:'綠色'}];
 
-function init() {
+function init(){
   applyTheme();
+  renderLoginInfo();
   renderThemePicker();
+  renderPeriodInfo();
+  renderBudgets();
+  renderNotifySettings();
   renderStat();
   renderCats();
-  // 載入 Discord URL
-  const url = localStorage.getItem('discord_webhook') || '';
-  document.getElementById('discord-url').value = url;
 }
 
-function renderThemePicker() {
-  const p = getPrefs();
-  // 亮暗模式按鈕
-  document.getElementById('mode-dark').classList.toggle('on',  p.theme==='dark');
-  document.getElementById('mode-light').classList.toggle('on', p.theme==='light');
-  // 主題色
-  document.getElementById('accent-picker').innerHTML = ACCENT_DEFS.map(a=>`
-    <div class="theme-item">
-      <div class="theme-dot${p.accent===a.key?' on':''}" style="background:${a.color}" onclick="setAccent('${a.key}')"></div>
-      <div class="theme-label">${a.label}</div>
-    </div>`).join('');
+function renderLoginInfo(){
+  const name=localStorage.getItem('current_user')||'';
+  const email=localStorage.getItem('current_email')||'';
+  document.getElementById('login-name').textContent=(name==='宏龍'?'🙋 ':'🙋‍♀️ ')+name;
+  document.getElementById('login-email').textContent=email;
 }
 
-function setMode(mode) {
-  setPrefs({theme: mode});
-  renderThemePicker();
+function doLogout(){auth.signOut().then(()=>{localStorage.removeItem('current_user');localStorage.removeItem('current_email');window.location.replace('./login.html');});}
+
+function renderThemePicker(){
+  const p=getPrefs();
+  document.getElementById('mode-dark').classList.toggle('on',p.theme==='dark');
+  document.getElementById('mode-light').classList.toggle('on',p.theme==='light');
+  document.getElementById('accent-picker').innerHTML=ACCENT_DEFS.map(a=>`<div class="theme-item"><div class="theme-dot${p.accent===a.key?' on':''}" style="background:${a.color}" onclick="setAccent('${a.key}')"></div><div class="theme-label">${a.label}</div></div>`).join('');
 }
-function setAccent(key) {
-  setPrefs({accent: key});
-  renderThemePicker();
-  applyTheme();
+function setMode(mode){setPrefs({theme:mode});renderThemePicker();}
+function setAccent(key){setPrefs({accent:key});renderThemePicker();applyTheme();}
+
+// 預算週期
+function renderPeriodInfo(){
+  const day=getBudgetStartDay();
+  document.getElementById('start-day').value=day;
+  document.getElementById('period-display').textContent='📅 本期：'+fmtPeriod();
+  document.getElementById('export-period-desc').textContent='本期：'+fmtPeriod();
+}
+function saveStartDay(){
+  const day=parseInt(document.getElementById('start-day').value)||1;
+  const clamped=Math.min(28,Math.max(1,day));
+  setBudgetStartDay(clamped);fbSyncBudgets();
+  renderPeriodInfo();renderBudgets();toast('週期起始日已儲存');
 }
 
-function renderStat() {
-  const tx=getTx(), w=getWal(), now=new Date();
-  const m=txByMonth(now.getFullYear(),now.getMonth()+1);
+// 預算設定
+function renderBudgets(){
+  const periodTxs=txByPeriod();const s=calcStats(periodTxs);
+  const cats=getCats();
+  const html=cats.map(c=>{
+    const limit=getBudget(c.id);const spent=s.byCat[c.id]||0;
+    const pct=limit>0?Math.min(spent/limit*100,100):0;
+    const over=limit>0&&spent>limit;const near=limit>0&&!over&&pct>=((getDiscord().budgetPct)||80);
+    const fillClass=over?'danger':near?'warn':'ok';
+    return `<div class="budget-item">
+      <div class="budget-hdr">
+        <span class="budget-cat">${c.name}</span>
+        <div class="budget-input-wrap">
+          <span class="budget-prefix">上限 $</span>
+          <input type="number" class="binput" value="${limit||''}" placeholder="未設定"
+            onchange="saveBudgetLimit('${c.id}',this.value)" onfocus="this.select()">
+        </div>
+      </div>
+      ${limit>0?`
+        <div class="bamts"><span>已用 $${fmt(spent)}</span><span>上限 $${fmt(limit)}</span></div>
+        <div class="bbar"><div class="bfill ${fillClass}" style="width:${pct}%"></div></div>
+        ${over?`<div class="bwarn danger">🚨 已超支 $${fmt(spent-limit)}</div>`:near?`<div class="bwarn warn">⚠️ 已用 ${Math.round(pct)}%，接近上限</div>`:''}
+      `:`<div style="font-size:.72rem;color:var(--t3);margin-top:4px">本期：$${fmt(spent)}（未設上限）</div>`}
+    </div>`;
+  }).join('');
+  document.getElementById('budget-list').innerHTML=html;
+}
+
+function saveBudgetLimit(catId,val){
+  const n=parseInt(val)||0;
+  setBudget(catId,n);fbSyncBudgets();
+  renderBudgets();toast('預算已儲存');
+}
+
+// Discord 通知設定
+function renderNotifySettings(){
+  const cfg=getDiscord();
+  document.getElementById('discord-url').value=cfg.webhook||localStorage.getItem('discord_webhook')||'';
+  document.getElementById('sw-add').checked=cfg.onAdd!==false;
+  document.getElementById('sw-daily').checked=cfg.onDaily!==false;
+  document.getElementById('sw-budget').checked=cfg.onBudget!==false;
+  document.getElementById('sw-weekly').checked=cfg.onWeekly===true;
+  document.getElementById('daily-hour').value=cfg.dailyHour||21;
+  document.getElementById('budget-pct').value=cfg.budgetPct||80;
+}
+function saveDiscordUrl(){
+  const url=document.getElementById('discord-url').value.trim();
+  saveDiscord({webhook:url});localStorage.setItem('discord_webhook',url);
+  toast(url?'Discord Webhook 已儲存':'已清除 Webhook');
+}
+function saveNotify(){
+  saveDiscord({
+    onAdd:    document.getElementById('sw-add').checked,
+    onDaily:  document.getElementById('sw-daily').checked,
+    onBudget: document.getElementById('sw-budget').checked,
+    onWeekly: document.getElementById('sw-weekly').checked,
+    dailyHour:parseInt(document.getElementById('daily-hour').value)||21,
+    budgetPct:parseInt(document.getElementById('budget-pct').value)||80,
+  });
+  toast('通知設定已儲存');
+}
+async function testDiscordBtn(){
+  const url=document.getElementById('discord-url').value.trim();
+  if(!url){toast('請先填入 Webhook URL','warn');return;}
+  try{
+    await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({content:`🧪 **家庭記帳測試通知**\n${new Date().toLocaleString('zh-TW')}\n✅ Discord 通知設定成功！`})});
+    toast('測試通知已發送！請查看 Discord');
+  }catch(e){toast('發送失敗，請確認 URL','err');}
+}
+
+function renderStat(){
+  const tx=getTx(),w=getWal(),now=new Date(),m=txByMonth(now.getFullYear(),now.getMonth()+1);
   document.getElementById('data-stat').innerHTML=`
     <div class="drow"><span>📋 總記帳筆數</span><span class="v">${tx.length}</span></div>
     <div class="drow"><span>📅 本月筆數</span><span class="v">${m.length}</span></div>
     <div class="drow"><span>💰 本月支出</span><span class="v">$${fmt(m.reduce((s,t)=>s+t.amount,0))}</span></div>
     <div class="drow"><span>👛 錢包餘額</span><span class="v">$${fmt(w.balance)}</span></div>
-    <div class="drow"><span>🏷️ 分類數</span><span class="v">${getCats().length}</span></div>
+    <div class="drow"><span>🎫 悠遊卡數</span><span class="v">${getIcards().length}</span></div>
     <div class="drow"><span>💳 信用卡數</span><span class="v">${getCards().length}</span></div>`;
 }
 
-function renderCats() {
-  document.getElementById('cat-list').innerHTML = getCats().map(c=>`
+function renderCats(){
+  document.getElementById('cat-list').innerHTML=getCats().map(c=>`
     <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
       <div style="width:10px;height:10px;border-radius:50%;background:${c.color};flex-shrink:0"></div>
       <span style="flex:1;font-size:.88rem;font-weight:500">${c.name}</span>
       <span style="font-size:.7rem;color:var(--t3)">${c.sub.length} 子分類</span>
-      <button onclick="removeCat('${c.id}')" style="background:none;border:none;color:var(--t3);font-size:.9rem;cursor:pointer;padding:2px 6px;border-radius:4px" title="刪除">✕</button>
+      <button onclick="removeCat('${c.id}')" style="background:none;border:none;color:var(--t3);font-size:.9rem;cursor:pointer;padding:2px 6px">✕</button>
     </div>`).join('');
 }
+function addNewCat(){const name=document.getElementById('new-cat').value.trim();if(!name){toast('請輸入分類名稱','warn');return;}const cols=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6'];addCat({name,color:cols[Math.floor(Math.random()*cols.length)],sub:[]});document.getElementById('new-cat').value='';renderCats();toast(`已新增 ${name}`);}
+function removeCat(id){delCat(id);renderCats();renderBudgets();toast('已刪除分類','err');}
 
-function addNewCat() {
-  const name = document.getElementById('new-cat').value.trim();
-  if (!name) { toast('請輸入分類名稱','warn'); return; }
-  const cols = ['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4'];
-  addCat({ name, color: cols[Math.floor(Math.random()*cols.length)], sub:[] });
-  document.getElementById('new-cat').value='';
-  renderCats(); toast(`已新增 ${name}`);
+// Excel 匯出
+function exportXlsx(range){
+  const now=new Date();
+  let txs,fname;
+  if(range==='period'){txs=txByPeriod();fname=`家庭記帳_本期(${fmtPeriod().replace(/\//g,'-').replace('～','-')}).xlsx`;}
+  else if(range==='month'){txs=txByMonth(now.getFullYear(),now.getMonth()+1);fname=`家庭記帳_${now.getFullYear()}${now.getMonth()+1}月.xlsx`;}
+  else{txs=getTx();fname=`家庭記帳_全部.xlsx`;}
+  txs=[...txs].sort((a,b)=>new Date(a.at)-new Date(b.at));
+  if(!txs.length){toast('沒有資料可匯出','warn');return;}
+  const rows=txs.map(t=>{
+    const pay=t.pay==='cash'?'現金':t.pay==='icard'?`悠遊卡(${icardFind(t.icardId)?.name||''})`:(`信用卡(${cardFind(t.cardId)?.name||''})`);
+    return{'日期':fmtD(t.at),'時間':fmtT(t.at),'分類':catName(t.cat),'子分類':t.subCat||'','明細':t.detail||'','金額':t.amount,'記帳人':t.person,'付款方式':pay};
+  });
+  const s=calcStats(txs);
+  const catRows=Object.entries(s.byCat).sort((a,b)=>b[1]-a[1]).map(([id,amt])=>({
+    '分類':catName(id),'支出金額':amt,'佔比':s.total>0?Math.round(amt/s.total*100)+'%':'0%',
+    '預算上限':getBudget(id)||'未設定','使用率':getBudget(id)?Math.round(amt/getBudget(id)*100)+'%':'－',
+  }));
+  const summary=[
+    {'項目':'總支出','金額':s.total},{'項目':'現金支出','金額':s.cash},
+    {'項目':'信用卡支出','金額':s.card},{'項目':'悠遊卡支出','金額':s.icard},
+    {'項目':'宏龍支出','金額':s.byPerson['宏龍']||0},{'項目':'盈慧支出','金額':s.byPerson['盈慧']||0},
+  ];
+  const wb=XLSX.utils.book_new();
+  const ws1=XLSX.utils.json_to_sheet(rows);ws1['!cols']=[{wch:12},{wch:8},{wch:10},{wch:10},{wch:16},{wch:8},{wch:8},{wch:16}];
+  XLSX.utils.book_append_sheet(wb,ws1,'記帳明細');
+  const ws2=XLSX.utils.json_to_sheet(catRows);ws2['!cols']=[{wch:12},{wch:10},{wch:8},{wch:10},{wch:8}];
+  XLSX.utils.book_append_sheet(wb,ws2,'分類統計');
+  const ws3=XLSX.utils.json_to_sheet(summary);ws3['!cols']=[{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws3,'摘要');
+  XLSX.writeFile(wb,fname);toast(`已匯出 ${fname}`);
 }
 
-function removeCat(id) {
-  delCat(id); renderCats(); toast('已刪除分類','err');
-}
-
-// Discord
-function saveDiscord() {
-  const url = document.getElementById('discord-url').value.trim();
-  localStorage.setItem('discord_webhook', url);
-  // 更新 firebase.js 的 DISCORD_WEBHOOK（動態修改全域變數）
-  window._discordWebhook = url;
-  toast(url ? 'Discord Webhook 已儲存' : '已清除 Discord 設定');
-}
-
-async function testDiscord() {
-  const url = document.getElementById('discord-url').value.trim();
-  if (!url) { toast('請先填入 Webhook URL','warn'); return; }
-  try {
-    const now = new Date();
-    await fetch(url, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ content:`🧪 **家庭記帳測試通知**\n${now.toLocaleString('zh-TW')}\n連線成功！✅` }),
-    });
-    toast('測試通知已發送！請查看 Discord');
-  } catch(e) { toast('發送失敗，請確認 URL 正確','err'); }
-}
-
-function exportData() {
-  const d={transactions:getTx(),wallet:getWal(),categories:getCats(),cards:getCards(),budgets:getBud(),at:new Date().toISOString()};
+function exportJson(){
+  const d={transactions:getTx(),wallet:getWal(),categories:getCats(),cards:getCards(),icards:getIcards(),budgets:getBudgetConfig(),at:new Date().toISOString()};
   const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(b);
-  a.download=`家庭記帳_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
-  a.click(); toast('備份已下載');
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`家庭記帳備份_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;a.click();toast('備份已下載');
 }
+function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.transactions)DB.set('tx',d.transactions);if(d.wallet)DB.set('wal',d.wallet);if(d.categories)DB.set('cats',d.categories);if(d.cards)DB.set('cards',d.cards);if(d.icards)DB.set('icards',d.icards);if(d.budgets)DB.set('budgets',d.budgets);toast('匯入成功！');renderStat();renderCats();renderBudgets();}catch{toast('格式錯誤','err');}};r.readAsText(f);inp.value='';}
 
-function importData(inp) {
-  const f=inp.files[0]; if(!f) return;
-  const r=new FileReader();
-  r.onload=e=>{
-    try {
-      const d=JSON.parse(e.target.result);
-      if(d.transactions) DB.set('tx',d.transactions);
-      if(d.wallet)       DB.set('wal',d.wallet);
-      if(d.categories)   DB.set('cats',d.categories);
-      if(d.cards)        DB.set('cards',d.cards);
-      if(d.budgets)      DB.set('bud',d.budgets);
-      toast('匯入成功！'); renderStat(); renderCats();
-    } catch { toast('格式錯誤','err'); }
-  };
-  r.readAsText(f); inp.value='';
-}
-
-function confirmReset() {
+function confirmReset(){
   document.getElementById('cm-title').textContent='⚠️ 清除所有資料';
   document.getElementById('cm-msg').textContent='將刪除所有記帳、錢包、設定。無法復原，請先匯出備份！';
   document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick=()=>{
-    clearAll(); fbClearAll();
-    toast('已清除','err'); closeModal();
-    setTimeout(()=>location.reload(), 1500);
-  };
+  document.getElementById('cm-ok').onclick=()=>{clearAll();fbClearAll();toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);};
 }
-function closeModal() { document.getElementById('confirm-modal').classList.remove('show'); }
+function closeModal(){document.getElementById('confirm-modal').classList.remove('show');}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
