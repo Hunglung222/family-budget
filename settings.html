@@ -86,6 +86,23 @@
   <!-- 各分類預算上限 -->
   <div id="budget-list"></div>
 
+  <!-- Gemini AI 設定 -->
+  <div class="sec-t">🤖 Gemini AI 設定</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
+      用於 AI 記帳辨識功能。API Key 儲存在本機，不會上傳。<br>
+      <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--p)">點此取得 API Key</a>
+    </div>
+    <div class="fg">
+      <span class="flbl">Gemini API Key</span>
+      <input type="text" class="fc" id="gemini-key" placeholder="AIzaSy..." style="font-size:.78rem">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveGeminiKey()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+      <button onclick="testGemini()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+    </div>
+  </div>
+
   <!-- Discord 通知設定 -->
   <div class="sec-t">📣 Discord 通知設定</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
@@ -247,6 +264,9 @@ function init(){
   applyTheme();
   renderLoginInfo();
   renderThemePicker();
+  // 載入 Gemini Key
+  const gk=localStorage.getItem('gemini_api_key')||'';
+  document.getElementById('gemini-key').value=gk;
   renderPeriodInfo();
   renderBudgets();
   renderNotifySettings();
@@ -331,6 +351,26 @@ function renderNotifySettings(){
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
 }
+function saveGeminiKey(){
+  const key=document.getElementById('gemini-key').value.trim();
+  localStorage.setItem('gemini_api_key',key);
+  toast(key?'Gemini API Key 已儲存':'已清除 API Key');
+}
+
+async function testGemini(){
+  const key=document.getElementById('gemini-key').value.trim();
+  if(!key){toast('請先填入 API Key','warn');return;}
+  try{
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{parts:[{text:'早餐50元，只回傳JSON:{"amount":50}'}]}],generationConfig:{maxOutputTokens:50}})});
+    if(!res.ok)throw new Error(`HTTP ${res.status}`);
+    const data=await res.json();
+    const text=data.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    toast('✅ Gemini 測試成功！回應：'+text.slice(0,30));
+  }catch(e){toast('測試失敗：'+e.message,'err');}
+}
+
 function saveDiscordUrl(){
   const url=document.getElementById('discord-url').value.trim();
   saveDiscord({webhook:url});localStorage.setItem('discord_webhook',url);

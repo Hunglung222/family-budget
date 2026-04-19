@@ -152,7 +152,10 @@
 <!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
 // Gemini API（透過 CORS Proxy 呼叫）
-const GEMINI_KEY = 'AIzaSyCF2V8sjzzuyVK4wqk9UCV0A3tf9VMXb8U';
+// Gemini API Key（從 localStorage 讀取，可在設定頁修改）
+function getGeminiKey() {
+  return localStorage.getItem('gemini_api_key') || '';
+}
 
 async function callGemini(text) {
   const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
@@ -166,7 +169,9 @@ async function callGemini(text) {
 文字:「${text}」
 回傳格式:{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細","date":"${todayStr}格式","pay":"cash或card"}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_KEY}`;
+  const key = getGeminiKey();
+  if (!key) throw new Error('請先在設定頁填入 Gemini API Key');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: {'Content-Type':'application/json'},
