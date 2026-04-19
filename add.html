@@ -186,8 +186,20 @@ body: JSON.stringify({
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-  const clean = raw.replace(/```json|```|\n/g,'').trim();
-  return JSON.parse(clean);
+  
+let clean = raw.trim();
+
+// 如果 AI 還是加上了 markdown 標記，我們安全地把中間的 JSON 切出來
+if (clean.includes('```json')) {
+    clean = clean.split('```json')[1].split('```')[0];
+} else if (clean.includes('```')) {
+    clean = clean.split('```')[1].split('```')[0];
+}
+
+clean = clean.trim();
+return JSON.parse(clean);
+
+  
 }
 
 async function submitAI() {
