@@ -361,7 +361,7 @@ async function testGemini(){
   const key=document.getElementById('gemini-key').value.trim();
   if(!key){toast('請先填入 API Key','warn');return;}
   try{
-    const url=`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${key}`;
+    const url=`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
     const res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({contents:[{parts:[{text:'請從句子中解析金額，只回傳JSON，例如：{"amount":50}。句子：早餐50元'}]}],generationConfig:{maxOutputTokens:50}})});
     if(!res.ok)throw new Error(`HTTP ${res.status}`);
