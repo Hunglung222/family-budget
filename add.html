@@ -33,7 +33,8 @@
     <!-- AI 文字輸入（直接顯示，不需要多按一鍵） -->
     <div style="margin-bottom:10px">
       <div style="display:flex;gap:8px">
-        <input type="text" class="fc" id="ai-input" placeholder="🤖 說一句話讓 AI 填表，例：今天早餐蛋餅豆漿100元" style="flex:1;font-size:.85rem">
+        <button id="voice-btn" onclick="startVoiceInput()" style="padding:12px 14px;background:var(--card);border:1.5px solid var(--border);color:var(--t2);border-radius:var(--rs);font-size:1.1rem;cursor:pointer;flex-shrink:0;transition:.18s">🎤</button>
+        <input type="text" class="fc" id="ai-input" placeholder="說話或輸入，例：今天早餐蛋餅100元" style="flex:1;font-size:.85rem">
         <button id="ai-btn" onclick="submitAI()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;min-width:80px">AI 記帳</button>
       </div>
       <div style="font-size:.7rem;color:var(--t3);margin-top:4px">輸入自然語言，AI 自動辨識分類・金額・日期</div>
@@ -200,6 +201,63 @@ clean = clean.trim();
 return JSON.parse(clean);
 
   
+}
+
+// ── 語音輸入 ─────────────────────────────────────────
+let voiceRec = null;
+
+function startVoiceInput() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    toast('此裝置不支援語音，請直接輸入文字', 'warn');
+    document.getElementById('ai-input').focus();
+    return;
+  }
+
+  // 如果正在錄音，點一下停止
+  if (voiceRec) {
+    try { voiceRec.stop(); } catch {}
+    return;
+  }
+
+  const recognition = new SR();
+  recognition.lang = 'zh-TW';
+  recognition.interimResults = false;
+  recognition.continuous = false;
+
+  const btn = document.getElementById('voice-btn');
+
+  recognition.onstart = () => {
+    voiceRec = recognition;
+    btn.textContent = '🔴';
+    btn.style.background = 'rgba(244,63,94,.15)';
+    btn.style.borderColor = 'var(--danger)';
+    toast('聆聽中…說完會自動送出', 'info');
+  };
+
+  recognition.onresult = (e) => {
+    const text = e.results[0][0].transcript;
+    document.getElementById('ai-input').value = text;
+    // 自動觸發 AI 解析
+    submitAI();
+  };
+
+  recognition.onerror = (e) => {
+    if (e.error !== 'aborted') toast('語音辨識失敗，請再試', 'err');
+  };
+
+  recognition.onend = () => {
+    voiceRec = null;
+    btn.textContent = '🎤';
+    btn.style.background = 'var(--card)';
+    btn.style.borderColor = 'var(--border)';
+  };
+
+  try {
+    recognition.start();
+  } catch(e) {
+    toast('請允許麥克風權限', 'warn');
+  }
 }
 
 async function submitAI() {
