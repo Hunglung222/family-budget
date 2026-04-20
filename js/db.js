@@ -282,7 +282,7 @@ function getDiscord() {
 function saveDiscord(cfg) { DB.set('discord', {...getDiscord(),...cfg}); }
 
 // ── 偏好設定 ─────────────────────────────────────────
-function getPrefs()  { return DB.get('prefs') || {theme:'dark',accent:'teal',lastCat:'',lastPay:'cash'}; }
+function getPrefs()  { return DB.get('prefs') || {theme:'dark',accent:'teal',lastCat:'',lastPay:'cash',fontSize:1}; }
 function setPrefs(p) { DB.set('prefs', {...getPrefs(),...p}); applyTheme(); }
 
 // ── 智慧輸入記憶 ─────────────────────────────────────
@@ -363,6 +363,7 @@ function applyTheme() {
   const p=getPrefs(),th=THEMES[p.theme]||THEMES.dark,ac=ACCENTS[p.accent]||ACCENTS.teal,r=document.documentElement;
   Object.entries(th).forEach(([k,v])=>r.style.setProperty('--'+k,v));
   r.style.setProperty('--p',ac.p); r.style.setProperty('--p2',ac.p2); r.style.setProperty('--pdim',ac.pdim);
+  r.style.setProperty('--fs', p.fontSize||1);
 }
 function currentUser() { return localStorage.getItem('current_user')||'宏龍'; }
 

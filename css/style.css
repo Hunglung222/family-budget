@@ -10,8 +10,9 @@
   --warn:#f59e0b;--danger:#f43f5e;--ok:#22c55e;
   --t:#e8edf8;--t2:#8896b3;--t3:#4a5670;
   --r:16px;--rs:10px;--nav:68px;--ease:.18s cubic-bezier(.4,0,.2,1);
+  --fs:1;  /* 字體縮放倍數，1=標準 1.15=大 1.3=特大 */
 }
-html{font-size:16px;-webkit-text-size-adjust:100%}
+html{font-size:calc(16px * var(--fs,1));-webkit-text-size-adjust:100%}
 body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--t);min-height:100dvh;max-width:480px;margin:0 auto;padding-bottom:calc(var(--nav)+env(safe-area-inset-bottom,0px));overflow-x:hidden;transition:background .3s,color .3s}
 a{color:inherit;text-decoration:none}
 button{cursor:pointer;border:none;outline:none;font-family:inherit;-webkit-tap-highlight-color:transparent}

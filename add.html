@@ -33,7 +33,6 @@
     <!-- AI 文字輸入（直接顯示，不需要多按一鍵） -->
     <div style="margin-bottom:10px">
       <div style="display:flex;gap:8px">
-        <button id="voice-btn" onclick="startVoiceInput()" style="padding:12px 14px;background:var(--card);border:1.5px solid var(--border);color:var(--t2);border-radius:var(--rs);font-size:1.1rem;cursor:pointer;flex-shrink:0;transition:.18s">🎤</button>
         <input type="text" class="fc" id="ai-input" placeholder="說話或輸入，例：今天早餐蛋餅100元" style="flex:1;font-size:.85rem">
         <button id="ai-btn" onclick="submitAI()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;min-width:80px">AI 記帳</button>
       </div>
@@ -58,6 +57,10 @@
       <button class="nk del" onclick="nkd()">⌫</button>
       <button class="nk z" onclick="nk(0)">0</button>
       <button class="nk go" onclick="goStep2()">確認<br>金額</button>
+      <button class="nk" id="voice-btn" onclick="startVoiceInput()"
+        style="grid-column:span 3;padding:18px;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--card2);border:1.5px solid var(--border)">
+        🎤 <span id="voice-txt" style="font-size:.95rem;font-weight:700;color:var(--t2)">語音 AI 記帳</span>
+      </button>
     </div>
   </div>
 
