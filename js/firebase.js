@@ -74,7 +74,23 @@ async function fbPullSharedAccts(){
 // ── 初始拉取全部資料 ─────────────────────────────────
 async function fbPullAll(){
   try{
-    const db=getDb();
+    const db=// 同步 App 共用設定（宏龍設定後，盈慧自動同步）
+async function fbSyncAppConfig(){
+  try{
+    const webhook = localStorage.getItem('discord_webhook')||'';
+    const geminiKey = localStorage.getItem('gemini_api_key')||'';
+    if(webhook||geminiKey){
+      await getDb().collection('shared').doc('app_config').set({
+        discordWebhook: webhook,
+        geminiKey: geminiKey,
+        updatedAt: Date.now(),
+        updatedBy: localStorage.getItem('current_user')||'',
+      });
+    }
+  }catch(e){console.warn('[FB]appConfig',e);}
+}
+
+getDb();
     // 共用記帳
     const ts=await db.collection('transactions').orderBy('at','desc').get();
     const tl=[];ts.forEach(d=>tl.push(d.data()));if(tl.length)DB.set('tx',tl);
@@ -87,6 +103,18 @@ async function fbPullAll(){
     if(cd.exists&&cd.data().list)DB.set('cats',cd.data().list);
     const bd=await db.collection('shared').doc('budgets').get();
     if(bd.exists)DB.set('budgets',bd.data());
+    // App 共用設定（webhook、gemini key）—— 不覆蓋本機已有的值
+    const appCfg=await db.collection('shared').doc('app_config').get();
+    if(appCfg.exists){
+      const cfg=appCfg.data();
+      if(cfg.discordWebhook && !localStorage.getItem('discord_webhook')){
+        localStorage.setItem('discord_webhook', cfg.discordWebhook);
+        saveDiscord({webhook: cfg.discordWebhook});
+      }
+      if(cfg.geminiKey && !localStorage.getItem('gemini_api_key')){
+        localStorage.setItem('gemini_api_key', cfg.geminiKey);
+      }
+    }
     return true;
   }catch(e){console.warn('[FB]pullAll',e);return false;}
 }
@@ -176,6 +204,22 @@ function scheduleNotifications(){
     await discordBillReminder();
     setInterval(async()=>{await discordDailySummary();await discordBillReminder();},864e5);
   },target-now);
+}
+
+// 同步 App 共用設定（宏龍設定後，盈慧自動同步）
+async function fbSyncAppConfig(){
+  try{
+    const webhook = localStorage.getItem('discord_webhook')||'';
+    const geminiKey = localStorage.getItem('gemini_api_key')||'';
+    if(webhook||geminiKey){
+      await getDb().collection('shared').doc('app_config').set({
+        discordWebhook: webhook,
+        geminiKey: geminiKey,
+        updatedAt: Date.now(),
+        updatedBy: localStorage.getItem('current_user')||'',
+      });
+    }
+  }catch(e){console.warn('[FB]appConfig',e);}
 }
 
 getDb();

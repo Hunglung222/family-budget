@@ -90,7 +90,7 @@
   <div class="sec-t">🤖 Gemini AI 設定</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
     <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
-      用於 AI 記帳辨識功能。API Key 儲存在本機，不會上傳。<br>
+      用於 AI 記帳辨識功能。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
       <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--p)">點此取得 API Key</a>
     </div>
     <div class="fg">
@@ -126,7 +126,7 @@
     <div class="notify-row">
       <div class="notify-info">
         <div class="notify-name">📊 每日結算通知</div>
-        <div class="notify-desc">每天發送當日支出摘要</div>
+        <div class="notify-desc">每天發送當日支出摘要（宏龍設定即可，自動同步）</div>
       </div>
       <label class="toggle-switch"><input type="checkbox" id="sw-daily" onchange="saveNotify()"><span class="toggle-slider"></span></label>
     </div>
@@ -240,7 +240,7 @@
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
-  <a class="ni on" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -343,7 +343,8 @@ function saveBudgetLimit(catId,val){
 // Discord 通知設定
 function renderNotifySettings(){
   const cfg=getDiscord();
-  document.getElementById('discord-url').value=cfg.webhook||localStorage.getItem('discord_webhook')||'';
+  // 優先讀 localStorage（最新值），其次讀 discord 設定
+  document.getElementById('discord-url').value=localStorage.getItem('discord_webhook')||cfg.webhook||'';
   document.getElementById('sw-add').checked=cfg.onAdd!==false;
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
   document.getElementById('sw-budget').checked=cfg.onBudget!==false;
@@ -354,7 +355,8 @@ function renderNotifySettings(){
 function saveGeminiKey(){
   const key=document.getElementById('gemini-key').value.trim();
   localStorage.setItem('gemini_api_key',key);
-  toast(key?'Gemini API Key 已儲存':'已清除 API Key');
+  fbSyncAppConfig(); // 同步給盈慧
+  toast(key?'✅ 已儲存並同步給盈慧':'已清除 API Key');
 }
 
 async function testGemini(){
@@ -373,8 +375,10 @@ async function testGemini(){
 
 function saveDiscordUrl(){
   const url=document.getElementById('discord-url').value.trim();
-  saveDiscord({webhook:url});localStorage.setItem('discord_webhook',url);
-  toast(url?'Discord Webhook 已儲存':'已清除 Webhook');
+  localStorage.setItem('discord_webhook', url);
+  saveDiscord({webhook:url});
+  fbSyncAppConfig(); // 同步給盈慧
+  toast(url?'✅ 已儲存並同步給盈慧':'已清除 Webhook');
 }
 function saveNotify(){
   saveDiscord({
