@@ -1,8 +1,8 @@
-const V = 'fb-v8';  // ← 版本號更新，PWA 會自動清除舊快取
+const V = 'fb-v9';  // ← 版本號更新，PWA 會自動清除舊快取
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./css/style.css',
-  './js/db.js','./js/firebase.js','./icons/icon.svg',
+  './js/db.js','./js/firebase.js','./icons/icon.svg','./shopping.html',
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();

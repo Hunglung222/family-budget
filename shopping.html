@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<title>網購管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.status-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:50px;font-size:.68rem;font-weight:700;white-space:nowrap}
+.s-pending  {background:rgba(251,191,36,.14);color:var(--warn)}
+.s-paid     {background:rgba(79,142,247,.14);color:var(--blue)}
+.s-shipping {background:rgba(6,182,212,.14);color:#06b6d4}
+.s-arrive   {background:rgba(244,63,94,.14);color:var(--danger);animation:pulse 1.2s infinite}
+.s-done     {background:rgba(34,197,94,.14);color:var(--ok)}
+.s-cancel   {background:var(--card2);color:var(--t3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+.order-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;transition:.18s}
+.order-card:active{background:var(--card2)}
+.order-hdr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px}
+.order-title{font-size:.95rem;font-weight:700;flex:1}
+.order-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.order-tag{background:var(--bg2);color:var(--t2);font-size:.67rem;padding:2px 8px;border-radius:5px}
+.order-footer{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.order-amt{font-size:1rem;font-weight:900;color:#ff6b82}
+.order-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.oa-btn{padding:7px 13px;border-radius:50px;font-size:.75rem;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:.18s}
+
+.step-bar{display:flex;align-items:center;margin:10px 0}
+.step{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1}
+.step-dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;border:2px solid var(--border);background:var(--bg2)}
+.step-dot.done{background:var(--p);border-color:var(--p);color:#000}
+.step-dot.active{background:var(--warn);border-color:var(--warn);color:#000;box-shadow:0 0 0 3px rgba(251,191,36,.25)}
+.step-line{flex:1;height:2px;background:var(--border)}
+.step-line.done{background:var(--p)}
+.step-lbl{font-size:.58rem;color:var(--t3);text-align:center;line-height:1.3}
+
+.platform-chip{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:50px;background:var(--card);border:1.5px solid var(--border);color:var(--t2);font-size:.8rem;font-weight:600;cursor:pointer;transition:.18s;font-family:inherit}
+.platform-chip.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.platform-chip:active{transform:scale(.95)}
+
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
+.stat-box .v{font-size:1.3rem;font-weight:900}
+.stat-box .l{font-size:.62rem;color:var(--t2);margin-top:2px}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div><h1>🛒 網購管理</h1><div class="hdr-sub" id="order-count">載入中...</div></div>
+  <a href="./settings.html" class="hdr-btn">⚙️</a>
+</header>
+
+<div class="w">
+  <!-- 統計 -->
+  <div class="stats-row">
+    <div class="stat-box"><div class="v" id="st-active">0</div><div class="l">進行中</div></div>
+    <div class="stat-box"><div class="v" id="st-arrive" style="color:var(--danger)">0</div><div class="l">⚠️ 待取貨</div></div>
+    <div class="stat-box"><div class="v" id="st-month">$0</div><div class="l">本月消費</div></div>
+  </div>
+
+  <!-- 篩選平台 -->
+  <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px" id="platform-filter">
+    <button class="platform-chip on" onclick="filterPlatform('',this)">全部</button>
+  </div>
+
+  <!-- 篩選狀態 -->
+  <div class="pills" style="margin-bottom:12px">
+    <button class="pill on" onclick="filterStatus('',this)">全部</button>
+    <button class="pill" onclick="filterStatus('pending',this)">待付款</button>
+    <button class="pill" onclick="filterStatus('paid',this)">已付款</button>
+    <button class="pill" onclick="filterStatus('shipping',this)">運送中</button>
+    <button class="pill" onclick="filterStatus('arrive',this)">待取貨</button>
+    <button class="pill" onclick="filterStatus('done',this)">已完成</button>
+  </div>
+
+  <div id="order-list"></div>
+  <div style="height:10px"></div>
+</div>
+
+<!-- 新增/編輯訂單 Modal -->
+<div class="ov" id="order-modal">
+  <div class="sheet" style="max-height:90dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st" id="om-title">📦 新增網購訂單</div>
+
+    <div class="fg">
+      <span class="flbl">商品名稱 *</span>
+      <input type="text" class="fc" id="om-name" placeholder="例：白色短袖上衣 3件" maxlength="50">
+    </div>
+    <div class="fg">
+      <span class="flbl">購物平台 *</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="om-platforms">
+        <button class="platform-chip" onclick="selPlatform('蝦皮',this)">蝦皮</button>
+        <button class="platform-chip" onclick="selPlatform('momo',this)">momo</button>
+        <button class="platform-chip" onclick="selPlatform('LINE群組',this)">LINE群組</button>
+        <button class="platform-chip" onclick="selPlatform('臉書',this)">臉書</button>
+        <button class="platform-chip" onclick="selPlatform('酷朋',this)">酷朋</button>
+        <button class="platform-chip" onclick="selPlatform('Yahoo',this)">Yahoo</button>
+        <button class="platform-chip" onclick="selPlatform('團購',this)">團購</button>
+        <button class="platform-chip" onclick="selPlatform('其他',this)">其他</button>
+      </div>
+      <input type="text" class="fc" id="om-platform-custom" placeholder="或輸入自訂平台名稱" style="font-size:.85rem">
+    </div>
+    <div class="fg">
+      <span class="flbl">賣家 / 團主（可略）</span>
+      <input type="text" class="fc" id="om-seller" placeholder="例：媽媽群-阿花團購" maxlength="30">
+    </div>
+    <div class="fg">
+      <span class="flbl">金額（可略）</span>
+      <input type="number" class="fc" id="om-amt" placeholder="0" inputmode="numeric">
+    </div>
+    <div class="fg">
+      <span class="flbl">訂單編號（可略）</span>
+      <input type="text" class="fc" id="om-no" placeholder="例：231019-XXX" maxlength="40">
+    </div>
+    <div class="fg">
+      <span class="flbl">取貨方式</span>
+      <select class="fc" id="om-delivery">
+        <option value="pickup">超商取貨</option>
+        <option value="home">宅配到府</option>
+        <option value="group">團購自取</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div class="fg">
+      <span class="flbl">⏰ 取貨期限（可略）</span>
+      <input type="date" class="fc" id="om-due" style="color-scheme:dark">
+    </div>
+    <div class="fg">
+      <span class="flbl">備註（可略）</span>
+      <input type="text" class="fc" id="om-note" placeholder="例：尺寸M，記得取貨" maxlength="60">
+    </div>
+    <div class="fg">
+      <span class="flbl">狀態</span>
+      <select class="fc" id="om-status">
+        <option value="pending">待付款</option>
+        <option value="paid">已付款</option>
+        <option value="shipping">運送中</option>
+        <option value="arrive">待取貨</option>
+        <option value="done">已完成</option>
+        <option value="cancel">已取消</option>
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('order-modal')">取消</button>
+      <button class="btn btn-p" id="om-ok" onclick="submitOrder()">新增訂單</button>
+    </div>
+  </div>
+</div>
+
+<!-- 確認 Modal -->
+<div class="ov" id="confirm-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st" id="cm-title"></div>
+    <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('confirm-modal')">取消</button>
+      <button class="btn btn-d" id="cm-ok">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- 一鍵記帳 Modal -->
+<div class="ov" id="bill-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st">💰 記帳這筆消費</div>
+    <div style="font-size:.88rem;color:var(--t2);margin-bottom:12px" id="bm-info"></div>
+    <div class="fg"><span class="flbl">實際金額</span>
+      <input type="number" class="fc" id="bm-amt" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">付款方式</span>
+      <div class="tg">
+        <button class="tb on" id="bm-cash" onclick="setBmPay('cash',this)">💵 現金</button>
+        <button class="tb" id="bm-card" onclick="setBmPay('card',this)">💳 信用卡</button>
+      </div>
+    </div>
+    <div class="fg" id="bm-card-fg" style="display:none"><span class="flbl">選擇卡片</span>
+      <select class="fc" id="bm-card-sel"></select></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('bill-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitBill()">確認記帳</button>
+    </div>
+  </div>
+</div>
+
+<!-- FAB 新增按鈕 -->
+<button onclick="showAddOrder()" style="position:fixed;bottom:calc(var(--nav)+16px);right:18px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:1.5rem;border:none;cursor:pointer;z-index:100;box-shadow:0 4px 18px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center">＋</button>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni on" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script>
+(function(){
+  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
+  const CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
+  if(!firebase.apps.length)firebase.initializeApp(CFG);
+  firebase.auth().onAuthStateChanged(user=>{
+    if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
+    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);}
+  });
+})();
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script>
+// ── 網購資料層 ────────────────────────────────────────
+function getOrders()    { return DB.get('orders') || []; }
+function saveOrders(l)  { DB.set('orders', l); }
+
+const STATUS_MAP = {
+  pending:  { label:'待付款', cls:'s-pending',  icon:'🕐' },
+  paid:     { label:'已付款', cls:'s-paid',     icon:'💳' },
+  shipping: { label:'運送中', cls:'s-shipping', icon:'🚚' },
+  arrive:   { label:'待取貨', cls:'s-arrive',   icon:'📦' },
+  done:     { label:'已完成', cls:'s-done',     icon:'✅' },
+  cancel:   { label:'已取消', cls:'s-cancel',   icon:'❌' },
+};
+const STEPS = ['pending','paid','shipping','arrive','done'];
+const DELIVERY_MAP = {pickup:'超商取貨', home:'宅配到府', group:'團購自取', other:'其他'};
+
+let filterPlat='', filterStat='', editOrderId='', selPlatformName='';
+let bmPay='cash', bmOrderId='';
+
+function init() {
+  applyTheme();
+  render();
+  checkDueReminders();
+}
+
+function render() {
+  let list = getOrders();
+  // 統計
+  const active  = list.filter(o=>!['done','cancel'].includes(o.status)).length;
+  const arrives = list.filter(o=>o.status==='arrive').length;
+  const now = new Date();
+  const monthAmt = list.filter(o=>{
+    if(o.status==='cancel')return false;
+    const d=new Date(o.createdAt||0);
+    return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+  }).reduce((s,o)=>s+(o.amount||0),0);
+  document.getElementById('st-active').textContent = active;
+  document.getElementById('st-arrive').textContent = arrives;
+  document.getElementById('st-month').textContent  = '$'+fmt(monthAmt);
+  document.getElementById('order-count').textContent = `共 ${list.length} 筆`;
+
+  // 平台篩選按鈕
+  const platforms = [...new Set(list.map(o=>o.platform).filter(Boolean))];
+  const pfEl = document.getElementById('platform-filter');
+  pfEl.innerHTML = `<button class="platform-chip${filterPlat===''?' on':''}" onclick="filterPlatform('',this)">全部</button>` +
+    platforms.map(p=>`<button class="platform-chip${filterPlat===p?' on':''}" onclick="filterPlatform('${p}',this)">${p}</button>`).join('');
+
+  // 篩選
+  if (filterPlat) list = list.filter(o=>o.platform===filterPlat);
+  if (filterStat) list = list.filter(o=>o.status===filterStat);
+  list = [...list].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
+
+  const el = document.getElementById('order-list');
+  if (!list.length) {
+    el.innerHTML='<div class="empty"><div class="ei">🛒</div><p>尚無訂單<br>點右下角 ＋ 新增</p></div>';
+    return;
+  }
+  el.innerHTML = list.map(o=>orderHTML(o)).join('');
+}
+
+function orderHTML(o) {
+  const st = STATUS_MAP[o.status] || STATUS_MAP.pending;
+  const now = new Date();
+  const due = o.dueDate ? new Date(o.dueDate) : null;
+  const overdue = due && due < now && o.status==='arrive';
+  const dueStr = due ? `取貨期限：${fmtD(o.dueDate)}${overdue?'（<b style="color:var(--danger)">已超期！</b>）':diff(due,now)<=3?`（<b style="color:var(--warn)">剩${diff(due,now)}天</b>）`:''}` : '';
+
+  // 進度條
+  const curStep = STEPS.indexOf(o.status);
+  const stepHTML = o.status!=='cancel' ? `
+    <div class="step-bar">${STEPS.map((s,i)=>`
+      ${i>0?`<div class="step-line${i<=curStep?' done':''}"></div>`:''}
+      <div class="step">
+        <div class="step-dot${i<curStep?' done':i===curStep?' active':''}">${i<curStep?'✓':i+1}</div>
+        <div class="step-lbl">${STATUS_MAP[s].label}</div>
+      </div>`).join('')}
+    </div>` : '';
+
+  return `<div class="order-card">
+    <div class="order-hdr">
+      <div class="order-title">${o.name}</div>
+      <span class="status-badge ${st.cls}">${st.icon} ${st.label}</span>
+    </div>
+    <div class="order-meta">
+      <span class="order-tag">🏪 ${o.platform||'未知平台'}</span>
+      ${o.seller?`<span class="order-tag">👤 ${o.seller}</span>`:''}
+      <span class="order-tag">${DELIVERY_MAP[o.delivery]||'其他'}</span>
+      ${o.orderNo?`<span class="order-tag">📋 ${o.orderNo}</span>`:''}
+    </div>
+    ${stepHTML}
+    ${dueStr?`<div style="font-size:.75rem;color:var(--t2);margin:4px 0">${dueStr}</div>`:''}
+    ${o.note?`<div style="font-size:.78rem;color:var(--t3);margin-top:4px">📝 ${o.note}</div>`:''}
+    <div class="order-footer">
+      <span class="order-amt">${o.amount?'$'+fmt(o.amount):'金額未填'}</span>
+      <span style="font-size:.68rem;color:var(--t3)">${o.createdAt?fmtD(o.createdAt):''}</span>
+    </div>
+    <div class="order-actions">
+      ${nextStatusBtn(o)}
+      <button class="oa-btn" style="background:var(--pdim);color:var(--p)" onclick="editOrder('${o.id}')">✏️ 編輯</button>
+      ${o.status==='done'&&!o.billed?`<button class="oa-btn" style="background:rgba(34,197,94,.15);color:var(--ok)" onclick="showBillOrder('${o.id}')">💰 記帳</button>`:''}
+      ${o.billed?`<span style="font-size:.72rem;color:var(--ok)">✅ 已記帳</span>`:''}
+      <button class="oa-btn" style="background:rgba(244,63,94,.1);color:var(--danger)" onclick="confirmDel('${o.id}')">🗑️</button>
+    </div>
+  </div>`;
+}
+
+function nextStatusBtn(o) {
+  const map = {pending:'已付款',paid:'運送中',shipping:'待取貨',arrive:'已完成'};
+  const next = {pending:'paid',paid:'shipping',shipping:'arrive',arrive:'done'};
+  if (!next[o.status]) return '';
+  return `<button class="oa-btn" style="background:var(--pdim);color:var(--p);font-weight:900" onclick="advanceStatus('${o.id}')">→ ${map[o.status]}</button>`;
+}
+
+function diff(a, b) { return Math.ceil((a-b)/864e5); }
+
+// ── 新增/編輯 ─────────────────────────────────────────
+function showAddOrder() {
+  editOrderId=''; selPlatformName='';
+  document.getElementById('om-title').textContent='📦 新增網購訂單';
+  document.getElementById('om-ok').textContent='新增訂單';
+  ['om-name','om-platform-custom','om-seller','om-no','om-note'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('om-amt').value='';
+  document.getElementById('om-due').value='';
+  document.getElementById('om-status').value='pending';
+  document.getElementById('om-delivery').value='pickup';
+  document.querySelectorAll('#om-platforms .platform-chip').forEach(b=>b.classList.remove('on'));
+  showModal('order-modal');
+}
+
+function editOrder(id) {
+  editOrderId=id;
+  const o=getOrders().find(x=>x.id===id); if(!o)return;
+  document.getElementById('om-title').textContent='✏️ 編輯訂單';
+  document.getElementById('om-ok').textContent='儲存';
+  document.getElementById('om-name').value=o.name||'';
+  document.getElementById('om-platform-custom').value=o.platform||'';
+  document.getElementById('om-seller').value=o.seller||'';
+  document.getElementById('om-amt').value=o.amount||'';
+  document.getElementById('om-no').value=o.orderNo||'';
+  document.getElementById('om-note').value=o.note||'';
+  document.getElementById('om-due').value=o.dueDate||'';
+  document.getElementById('om-status').value=o.status||'pending';
+  document.getElementById('om-delivery').value=o.delivery||'pickup';
+  selPlatformName=o.platform||'';
+  document.querySelectorAll('#om-platforms .platform-chip').forEach(b=>{
+    b.classList.toggle('on', b.textContent===o.platform);
+  });
+  showModal('order-modal');
+}
+
+function selPlatform(name, el) {
+  selPlatformName=name;
+  document.querySelectorAll('#om-platforms .platform-chip').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('om-platform-custom').value=name;
+}
+
+function submitOrder() {
+  const name=document.getElementById('om-name').value.trim();
+  if(!name){toast('請輸入商品名稱','warn');return;}
+  const platform=document.getElementById('om-platform-custom').value.trim()||selPlatformName||'其他';
+  const order = {
+    id:       editOrderId || Date.now().toString(36)+Math.random().toString(36).slice(2,4),
+    name, platform,
+    seller:   document.getElementById('om-seller').value.trim(),
+    amount:   parseInt(document.getElementById('om-amt').value)||0,
+    orderNo:  document.getElementById('om-no').value.trim(),
+    delivery: document.getElementById('om-delivery').value,
+    dueDate:  document.getElementById('om-due').value,
+    note:     document.getElementById('om-note').value.trim(),
+    status:   document.getElementById('om-status').value,
+    user:     currentUser(),
+    createdAt: editOrderId ? (getOrders().find(x=>x.id===editOrderId)?.createdAt||new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    billed:   editOrderId ? (getOrders().find(x=>x.id===editOrderId)?.billed||false) : false,
+  };
+  const list=getOrders();
+  if(editOrderId){const idx=list.findIndex(x=>x.id===editOrderId);if(idx>=0)list[idx]=order;else list.unshift(order);}
+  else list.unshift(order);
+  saveOrders(list);
+  fbSyncOrders();
+  closeModal('order-modal');render();
+  toast(editOrderId?'已儲存修改':'訂單已新增！');
+}
+
+function advanceStatus(id) {
+  const next={pending:'paid',paid:'shipping',shipping:'arrive',arrive:'done'};
+  const list=getOrders(),idx=list.findIndex(x=>x.id===id);if(idx<0)return;
+  list[idx].status=next[list[idx].status]||list[idx].status;
+  list[idx].updatedAt=new Date().toISOString();
+  saveOrders(list);fbSyncOrders();render();
+  toast('狀態已更新：'+STATUS_MAP[list[idx].status].label);
+}
+
+function confirmDel(id) {
+  const o=getOrders().find(x=>x.id===id);
+  document.getElementById('cm-title').textContent='刪除訂單';
+  document.getElementById('cm-msg').textContent=`確定刪除「${o?.name||''}」？`;
+  showModal('confirm-modal');
+  document.getElementById('cm-ok').onclick=()=>{
+    saveOrders(getOrders().filter(x=>x.id!==id));
+    fbSyncOrders();closeModal('confirm-modal');render();toast('已刪除','err');
+  };
+}
+
+// ── 一鍵記帳 ─────────────────────────────────────────
+function showBillOrder(id) {
+  bmOrderId=id; bmPay='cash';
+  const o=getOrders().find(x=>x.id===id);if(!o)return;
+  document.getElementById('bm-info').innerHTML=`<b>${o.name}</b><br>平台：${o.platform}`;
+  document.getElementById('bm-amt').value=o.amount||'';
+  document.getElementById('bm-cash').classList.add('on');
+  document.getElementById('bm-card').classList.remove('on');
+  document.getElementById('bm-card-fg').style.display='none';
+  const cs=getCards();
+  document.getElementById('bm-card-sel').innerHTML=cs.map(c=>`<option value="${c.id}">${c.name} ···${c.last4}</option>`).join('')||'<option>尚無信用卡</option>';
+  showModal('bill-modal');
+}
+function setBmPay(p,el){
+  bmPay=p;
+  document.querySelectorAll('#bm-cash,#bm-card').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('bm-card-fg').style.display=p==='card'?'block':'none';
+}
+function submitBill(){
+  const amt=parseInt(document.getElementById('bm-amt').value)||0;
+  if(!amt){toast('請輸入金額','warn');return;}
+  const o=getOrders().find(x=>x.id===bmOrderId);if(!o)return;
+  const cardId=bmPay==='card'?document.getElementById('bm-card-sel').value:null;
+  const tx={
+    amount:amt, cat:'shopping', subCat:'網購',
+    detail:o.name, person:currentUser(),
+    pay:bmPay, cardId, icardId:null,
+  };
+  addTx(tx); fbAddTx(tx);
+  // 標記已記帳
+  const list=getOrders(),idx=list.findIndex(x=>x.id===bmOrderId);
+  if(idx>=0){list[idx].billed=true;saveOrders(list);fbSyncOrders();}
+  closeModal('bill-modal');render();toast(`已記帳 $${fmt(amt)}`);
+}
+
+// ── 到期提醒 ─────────────────────────────────────────
+function checkDueReminders(){
+  const now=new Date();
+  const warning=getOrders().filter(o=>{
+    if(o.status!=='arrive'||!o.dueDate)return false;
+    const due=new Date(o.dueDate);
+    return diff(due,now)<=2;
+  });
+  if(warning.length){
+    setTimeout(()=>toast(`⚠️ ${warning.length} 筆訂單取貨期限快到！`,'warn'),1000);
+  }
+}
+
+// ── 篩選 ─────────────────────────────────────────────
+function filterPlatform(p,el){
+  filterPlat=p;
+  document.querySelectorAll('#platform-filter .platform-chip').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');render();
+}
+function filterStatus(s,el){
+  filterStat=s;
+  document.querySelectorAll('.pills .pill').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');render();
+}
+
+// ── Firebase 同步 ─────────────────────────────────────
+async function fbSyncOrders(){
+  try{await getDb().collection('orders').doc(uid()).set({list:getOrders(),updatedAt:Date.now()});}
+  catch(e){console.warn('[FB]orders',e);}
+}
+async function fbPullOrders(){
+  try{
+    const d=await getDb().collection('orders').doc(uid()).get();
+    if(d.exists&&d.data().list)DB.set('orders',d.data().list);
+  }catch(e){}
+}
+
+function showModal(id){document.getElementById(id).classList.add('show');}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+let _tt;
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2800);}
+
+window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
+  init();fbPullOrders().then(()=>render());
+},150));
+</script>
+</body>
+</html>

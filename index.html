@@ -54,9 +54,48 @@
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
-  <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
 <div class="toast" id="toast"></div>
+<!-- 編輯記帳 Modal -->
+<div class="ov" id="edit-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">✏️ 編輯記帳</div>
+    <div class="fg">
+      <span class="flbl">💰 金額</span>
+      <input type="number" class="fc" id="e-amt" inputmode="numeric">
+    </div>
+    <div class="fg">
+      <span class="flbl">📅 日期時間</span>
+      <input type="datetime-local" class="fc" id="e-dt">
+    </div>
+    <div class="fg">
+      <span class="flbl">🏷️ 分類</span>
+      <select class="fc" id="e-cat"></select>
+    </div>
+    <div class="fg">
+      <span class="flbl">📂 子分類（可略）</span>
+      <input type="text" class="fc" id="e-subcat" placeholder="例：早餐">
+    </div>
+    <div class="fg">
+      <span class="flbl">📝 明細（可略）</span>
+      <input type="text" class="fc" id="e-detail" placeholder="例：家樂福採購" maxlength="30">
+    </div>
+    <div class="fg">
+      <span class="flbl">👤 記帳人</span>
+      <div class="tg">
+        <button class="tb" id="e-p-hl" onclick="setEP('宏龍',this)">🙋 宏龍</button>
+        <button class="tb" id="e-p-yh" onclick="setEP('盈慧',this)">🙋‍♀️ 盈慧</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeEdit()">取消</button>
+      <button class="btn btn-p" onclick="submitEdit()">💾 儲存</button>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="modal">
   <div class="sheet">
     <div class="sh"></div>
@@ -125,7 +164,10 @@ function txHTML(t) {
     <div class="tx-body">
       <div class="tx-name">${t.detail||catName(t.cat)}</div>
       <div class="tx-meta"><span class="tag">${catName(t.cat)}</span><span class="tag">${t.person}</span><span class="tag">${pay}</span></div>
-      <button class="tx-del" onclick="askDel('${t.id}',event)">刪除</button>
+      <div style="display:flex;gap:6px;margin-top:5px">
+        <button class="tx-del" style="background:var(--pdim);color:var(--p)" onclick="askEdit('${t.id}',event)">編輯</button>
+        <button class="tx-del" onclick="askDel('${t.id}',event)">刪除</button>
+      </div>
     </div>
     <div class="tx-r"><div class="tx-amt">-$${fmt(t.amount)}</div><div class="tx-time">${fmtT(t.at)}</div></div>
   </div>`;
@@ -134,6 +176,89 @@ function txHTML(t) {
 function setF(f,el){filt=f;document.querySelectorAll('.pill').forEach(p=>p.classList.remove('on'));el.classList.add('on');render();}
 function prevM(){cm--;if(cm<1){cm=12;cy--}render();}
 function nextM(){cm++;if(cm>12){cm=1;cy++}render();}
+
+let editId = '';
+let editPerson = '宏龍';
+
+function askEdit(id, e) {
+  e.stopPropagation();
+  editId = id;
+  const tx = getTx().find(t => t.id === id);
+  if (!tx) return;
+
+  // 填入現有資料
+  document.getElementById('e-amt').value = tx.amount;
+  // 日期
+  const d = new Date(tx.at);
+  document.getElementById('e-dt').value =
+    new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  // 分類
+  const catSel = document.getElementById('e-cat');
+  catSel.innerHTML = getCats().map(c =>
+    `<option value="${c.id}" ${c.id===tx.cat?'selected':''}>${c.name}</option>`
+  ).join('');
+  // 子分類、明細
+  document.getElementById('e-subcat').value = tx.subCat || '';
+  document.getElementById('e-detail').value = tx.detail || '';
+  // 記帳人
+  editPerson = tx.person || '宏龍';
+  document.getElementById('e-p-hl').classList.toggle('on', editPerson==='宏龍');
+  document.getElementById('e-p-yh').classList.toggle('on', editPerson==='盈慧');
+
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function setEP(p, el) {
+  editPerson = p;
+  document.querySelectorAll('#e-p-hl,#e-p-yh').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function closeEdit() {
+  document.getElementById('edit-modal').classList.remove('show');
+}
+
+async function submitEdit() {
+  const amt = parseInt(document.getElementById('e-amt').value) || 0;
+  if (!amt) { toast('金額不可為 0', 'warn'); return; }
+
+  const list = getTx();
+  const idx  = list.findIndex(t => t.id === editId);
+  if (idx < 0) return;
+
+  const old = list[idx];
+  const dtv = document.getElementById('e-dt').value;
+
+  // 還原舊扣款
+  if (old.pay === 'cash') walIn(old.amount, '編輯還原');
+  if (old.pay === 'icard' && old.icardId) icardIn(old.icardId, old.amount, '編輯還原');
+
+  // 更新資料
+  list[idx] = {
+    ...old,
+    amount:  amt,
+    cat:     document.getElementById('e-cat').value,
+    subCat:  document.getElementById('e-subcat').value.trim(),
+    detail:  document.getElementById('e-detail').value.trim(),
+    person:  editPerson,
+    at:      dtv ? new Date(dtv).toISOString() : old.at,
+    editedAt: new Date().toISOString(),
+  };
+  DB.set('tx', list);
+
+  // 重新扣款
+  const updated = list[idx];
+  if (updated.pay === 'cash') walOut(updated.amount, updated.detail || catName(updated.cat));
+  if (updated.pay === 'icard' && updated.icardId) icardOut(updated.icardId, updated.amount, updated.detail || catName(updated.cat));
+
+  // 同步 Firebase
+  await fbAddTx(updated);
+  fbSyncPersonal();
+
+  closeEdit();
+  render();
+  toast('已儲存修改');
+}
 
 function askDel(id,e){
   e.stopPropagation();
