@@ -56,10 +56,10 @@
       <button class="nk" onclick="nk(1)">1</button><button class="nk" onclick="nk(2)">2</button><button class="nk" onclick="nk(3)">3</button>
       <button class="nk del" onclick="nkd()">⌫</button>
       <button class="nk z" onclick="nk(0)">0</button>
-      <button class="nk go" onclick="goStep2()">確認<br>金額</button>
+      <button class="nk go" onclick="goStep2()" style="grid-row:span 2">確認<br>金額</button>
       <button class="nk" id="voice-btn" onclick="startVoiceInput()"
-        style="grid-column:span 3;padding:18px;font-size:1.6rem;display:flex;align-items:center;justify-content:center;gap:10px;background:var(--card2);border:1.5px solid var(--border)">
-        🎤 <span id="voice-txt" style="font-size:.95rem;font-weight:700;color:var(--t2)">語音 AI 記帳</span>
+        style="grid-column:span 2;padding:16px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border:1.5px solid var(--border)">
+        🎤 <span id="voice-txt" style="font-size:.88rem;font-weight:700;color:var(--t2)">語音記帳</span>
       </button>
     </div>
   </div>
@@ -81,9 +81,8 @@
     <div class="fg">
       <span class="flbl">📝 明細（可略）</span>
       <div style="position:relative">
-        <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30"
-          oninput="showHints()" onfocus="showHints()" onblur="setTimeout(hideHints,200)" autocomplete="off">
-        <div id="hint-list" style="display:none;position:absolute;top:100%;left:0;right:0;background:var(--card2);border:1.5px solid var(--p);border-radius:var(--rs);z-index:100;max-height:160px;overflow-y:auto"></div>
+        <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30" autocomplete="off">
+        <div id="hint-list" style="display:none"></div>
       </div>
     </div>
     <div class="fg">
