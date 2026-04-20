@@ -1,8 +1,9 @@
-const V = 'fb-v9';  // ← 版本號更新，PWA 會自動清除舊快取
+const V = 'fb-v10';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
-  './wallet.html','./settings.html','./css/style.css',
-  './js/db.js','./js/firebase.js','./icons/icon.svg','./shopping.html',
+  './wallet.html','./settings.html','./shopping.html',
+  './css/style.css','./js/db.js','./js/firebase.js',
+  './icons/icon-192.png','./icons/icon-512.png',
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -16,7 +17,6 @@ self.addEventListener('activate', e => {
   );
 });
 self.addEventListener('fetch', e => {
-  // HTML 永遠取最新版
   if (e.request.destination === 'document') {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;

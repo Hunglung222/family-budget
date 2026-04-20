@@ -142,6 +142,7 @@
       const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
       localStorage.setItem('current_user',name);
       localStorage.setItem('current_email',user.email);
+      localStorage.setItem('current_uid',user.uid); // Firebase Auth uid
     }
   });
 })();
@@ -219,7 +220,13 @@ if (clean.includes('```json')) {
 }
 
 clean = clean.trim();
-return JSON.parse(clean);
+  // 防禦性解析：AI 回傳格式不正確時不崩潰
+  try {
+    return JSON.parse(clean);
+  } catch(parseErr) {
+    console.warn('[Gemini] JSON parse failed:', clean);
+    throw new Error('AI 回傳格式錯誤，請再試一次');
+  }
 
   
 }

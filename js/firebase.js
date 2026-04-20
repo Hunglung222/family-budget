@@ -74,7 +74,29 @@ async function fbPullSharedAccts(){
 // ── 初始拉取全部資料 ─────────────────────────────────
 async function fbPullAll(){
   try{
-    const db=// 同步 App 共用設定（宏龍設定後，盈慧自動同步）
+    const db=// 啟動時拉取 App 共用設定（多裝置一致）
+async function fbPullAppConfig(){
+  try{
+    const appCfg = await getDb().collection('shared').doc('app_config').get();
+    if(!appCfg.exists) return;
+    const cfg = appCfg.data();
+    const localUpdated = parseInt(localStorage.getItem('app_config_updated')||'0');
+    // 只有雲端比本地新才覆蓋
+    if(cfg.updatedAt && cfg.updatedAt > localUpdated){
+      if(cfg.discordWebhook){
+        localStorage.setItem('discord_webhook', cfg.discordWebhook);
+        saveDiscord({webhook: cfg.discordWebhook});
+      }
+      if(cfg.geminiKey){
+        localStorage.setItem('gemini_api_key', cfg.geminiKey);
+      }
+      localStorage.setItem('app_config_updated', String(cfg.updatedAt));
+      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy);
+    }
+  }catch(e){console.warn('[FB]pullAppConfig',e);}
+}
+
+// 同步 App 共用設定（宏龍設定後，盈慧自動同步）
 async function fbSyncAppConfig(){
   try{
     const webhook = localStorage.getItem('discord_webhook')||'';
@@ -115,6 +137,8 @@ getDb();
         localStorage.setItem('gemini_api_key', cfg.geminiKey);
       }
     }
+    // App 共用設定（webhook、gemini key）
+    await fbPullAppConfig();
     return true;
   }catch(e){console.warn('[FB]pullAll',e);return false;}
 }
@@ -204,6 +228,28 @@ function scheduleNotifications(){
     await discordBillReminder();
     setInterval(async()=>{await discordDailySummary();await discordBillReminder();},864e5);
   },target-now);
+}
+
+// 啟動時拉取 App 共用設定（多裝置一致）
+async function fbPullAppConfig(){
+  try{
+    const appCfg = await getDb().collection('shared').doc('app_config').get();
+    if(!appCfg.exists) return;
+    const cfg = appCfg.data();
+    const localUpdated = parseInt(localStorage.getItem('app_config_updated')||'0');
+    // 只有雲端比本地新才覆蓋
+    if(cfg.updatedAt && cfg.updatedAt > localUpdated){
+      if(cfg.discordWebhook){
+        localStorage.setItem('discord_webhook', cfg.discordWebhook);
+        saveDiscord({webhook: cfg.discordWebhook});
+      }
+      if(cfg.geminiKey){
+        localStorage.setItem('gemini_api_key', cfg.geminiKey);
+      }
+      localStorage.setItem('app_config_updated', String(cfg.updatedAt));
+      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy);
+    }
+  }catch(e){console.warn('[FB]pullAppConfig',e);}
 }
 
 // 同步 App 共用設定（宏龍設定後，盈慧自動同步）

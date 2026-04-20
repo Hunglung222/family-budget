@@ -122,6 +122,7 @@
       const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
       localStorage.setItem('current_user',name);
       localStorage.setItem('current_email',user.email);
+      localStorage.setItem('current_uid',user.uid); // Firebase Auth uid
     }
   });
 })();

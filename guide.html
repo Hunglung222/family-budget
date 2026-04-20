@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>家庭記帳 使用說明書</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fdf6ee;--bg2:#fff9f3;--card:#ffffff;
+  --ink:#1a1208;--ink2:#5a4a35;--ink3:#9a8a75;
+  --red:#e85d3a;--gold:#c9922a;--green:#3a7a5a;--blue:#2a5a8a;
+  --border:#e8ddd0;
+  --r:16px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;scroll-behavior:smooth}
+body{
+  font-family:'Noto Sans TC',sans-serif;
+  background:var(--bg);color:var(--ink);
+  max-width:680px;margin:0 auto;
+  padding:0 0 80px;
+  line-height:1.7;
+}
+
+/* 封面 */
+.cover{
+  background:linear-gradient(160deg,#1a1208 0%,#2d1f0e 50%,#1a1208 100%);
+  color:#fff;padding:56px 32px 48px;
+  position:relative;overflow:hidden;
+}
+.cover::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 80% 20%,rgba(201,146,42,.25),transparent),
+             radial-gradient(ellipse 60% 80% at 20% 80%,rgba(58,122,90,.2),transparent);
+}
+.cover-tag{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(201,146,42,.2);border:1px solid rgba(201,146,42,.4);
+  color:var(--gold);padding:5px 14px;border-radius:50px;
+  font-size:.72rem;font-weight:700;letter-spacing:.15em;
+  margin-bottom:24px;position:relative;
+}
+.cover h1{
+  font-family:'Noto Serif TC',serif;
+  font-size:2.6rem;font-weight:900;line-height:1.2;
+  position:relative;margin-bottom:12px;
+}
+.cover h1 span{color:var(--gold);}
+.cover-sub{
+  font-size:.9rem;color:rgba(255,255,255,.6);
+  position:relative;margin-bottom:32px;
+}
+.cover-lovers{
+  display:flex;align-items:center;gap:12px;
+  position:relative;
+}
+.lover{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:50px;padding:8px 16px;
+  font-size:.85rem;font-weight:500;
+}
+.lover .av{font-size:1.1rem}
+.heart{color:var(--red);font-size:1rem;animation:hb .8s infinite}
+@keyframes hb{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+
+/* 目錄 */
+.toc{
+  background:var(--card);border-bottom:2px solid var(--border);
+  padding:24px 28px;position:sticky;top:0;z-index:100;
+  display:flex;gap:6px;flex-wrap:wrap;
+}
+.toc-btn{
+  padding:6px 14px;border-radius:50px;font-size:.75rem;font-weight:700;
+  background:var(--bg);border:1.5px solid var(--border);color:var(--ink2);
+  cursor:pointer;text-decoration:none;transition:.18s;
+  font-family:'Noto Sans TC',sans-serif;
+}
+.toc-btn:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* 內文區塊 */
+.w{padding:0 24px}
+
+.section{margin-top:48px}
+.sec-header{
+  display:flex;align-items:center;gap:14px;
+  margin-bottom:20px;padding-bottom:14px;
+  border-bottom:2px solid var(--border);
+}
+.sec-num{
+  width:38px;height:38px;border-radius:10px;
+  background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1rem;font-weight:900;flex-shrink:0;
+  font-family:'Noto Serif TC',serif;
+}
+.sec-title{font-family:'Noto Serif TC',serif;font-size:1.35rem;font-weight:900}
+
+/* 特色卡片 */
+.feature-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}
+.feature-card{
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:var(--r);padding:16px;
+  position:relative;overflow:hidden;
+  transition:.18s;
+}
+.feature-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+}
+.fc-red::before{background:var(--red)}
+.fc-gold::before{background:var(--gold)}
+.fc-green::before{background:var(--green)}
+.fc-blue::before{background:var(--blue)}
+.feature-card .ic{font-size:1.6rem;margin-bottom:8px;display:block}
+.feature-card .ft{font-size:.82rem;font-weight:700;color:var(--ink);margin-bottom:4px}
+.feature-card .fd{font-size:.74rem;color:var(--ink3);line-height:1.5}
+
+/* 步驟 */
+.steps-list{display:flex;flex-direction:column;gap:0}
+.step-item{display:flex;gap:16px;position:relative}
+.step-item::before{
+  content:'';position:absolute;left:19px;top:38px;bottom:-1px;
+  width:2px;background:var(--border);
+}
+.step-item:last-child::before{display:none}
+.step-num{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  background:var(--ink);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;font-weight:900;margin-top:2px;
+}
+.step-body{padding-bottom:24px;flex:1}
+.step-title{font-weight:700;font-size:.92rem;margin-bottom:4px}
+.step-desc{font-size:.82rem;color:var(--ink2);line-height:1.6}
+
+/* 導覽說明 */
+.nav-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}
+.nav-item{
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:12px;padding:12px 6px;text-align:center;
+}
+.nav-item .ni{font-size:1.4rem;display:block;margin-bottom:4px}
+.nav-item .nl{font-size:.68rem;font-weight:700;color:var(--ink2)}
+.nav-item.hot{background:var(--ink);border-color:var(--ink)}
+.nav-item.hot .nl{color:rgba(255,255,255,.7)}
+
+/* 提示框 */
+.tip{
+  background:linear-gradient(135deg,rgba(201,146,42,.08),rgba(201,146,42,.04));
+  border:1.5px solid rgba(201,146,42,.25);
+  border-radius:var(--r);padding:14px 16px;margin:12px 0;
+  font-size:.82rem;color:var(--ink2);line-height:1.6;
+}
+.tip strong{color:var(--gold)}
+.warn{
+  background:rgba(232,93,58,.06);border:1.5px solid rgba(232,93,58,.2);
+  border-radius:var(--r);padding:14px 16px;margin:12px 0;
+  font-size:.82rem;color:var(--ink2);line-height:1.6;
+}
+.warn strong{color:var(--red)}
+
+/* 操作流程 */
+.flow{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:12px 0;
+}
+.flow-step{
+  background:var(--card);border:1.5px solid var(--border);
+  border-radius:8px;padding:7px 12px;font-size:.78rem;font-weight:600;
+}
+.flow-arrow{color:var(--ink3);font-size:.9rem}
+
+/* 狀態 badge */
+.badge-row{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.badge{
+  padding:4px 12px;border-radius:50px;font-size:.72rem;font-weight:700;
+}
+.b-pending{background:rgba(201,146,42,.15);color:var(--gold)}
+.b-paid{background:rgba(42,90,138,.12);color:var(--blue)}
+.b-ship{background:rgba(6,182,212,.12);color:#0891b2}
+.b-arrive{background:rgba(232,93,58,.12);color:var(--red)}
+.b-done{background:rgba(58,122,90,.12);color:var(--green)}
+
+/* 表格 */
+.simple-table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.82rem}
+.simple-table th{background:var(--ink);color:#fff;padding:10px 12px;text-align:left;font-weight:700}
+.simple-table td{padding:10px 12px;border-bottom:1px solid var(--border)}
+.simple-table tr:last-child td{border-bottom:none}
+.simple-table tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+
+/* Q&A */
+.qa{border:1.5px solid var(--border);border-radius:var(--r);overflow:hidden;margin:8px 0}
+.q{
+  background:var(--card);padding:14px 16px;
+  font-weight:700;font-size:.88rem;cursor:pointer;
+  display:flex;justify-content:space-between;align-items:center;
+  user-select:none;
+}
+.q::after{content:'▾';color:var(--ink3);transition:.18s}
+.qa.open .q::after{transform:rotate(180deg)}
+.a{
+  display:none;padding:14px 16px;
+  font-size:.82rem;color:var(--ink2);line-height:1.7;
+  border-top:1px solid var(--border);background:var(--bg2);
+}
+.qa.open .a{display:block}
+
+/* Footer */
+.footer{
+  background:var(--ink);color:rgba(255,255,255,.5);
+  text-align:center;padding:32px 24px;margin-top:56px;
+  font-size:.78rem;line-height:2;
+}
+.footer strong{color:var(--gold)}
+
+/* 分隔線 */
+.divider{height:1px;background:var(--border);margin:32px 0}
+
+/* highlight */
+.hl{background:rgba(201,146,42,.15);color:var(--gold);padding:1px 6px;border-radius:4px;font-weight:700;font-size:.9em}
+</style>
+</head>
+<body>
+
+<!-- 封面 -->
+<div class="cover">
+  <div class="cover-tag">📖 使用說明書 v1.0</div>
+  <h1>家庭<span>記帳</span><br>使用說明</h1>
+  <div class="cover-sub">宏龍 & 盈慧 專屬家庭財務管理系統</div>
+  <div class="cover-lovers">
+    <div class="lover"><span class="av">🙋</span> 宏龍</div>
+    <span class="heart">♥</span>
+    <div class="lover"><span class="av">🙋‍♀️</span> 盈慧</div>
+  </div>
+</div>
+
+<!-- 目錄 -->
+<div class="toc">
+  <a class="toc-btn" href="#s1">🚀 快速開始</a>
+  <a class="toc-btn" href="#s2">📱 頁面導覽</a>
+  <a class="toc-btn" href="#s3">➕ 如何記帳</a>
+  <a class="toc-btn" href="#s4">💼 財務管理</a>
+  <a class="toc-btn" href="#s5">🛒 網購管理</a>
+  <a class="toc-btn" href="#s6">📊 報表預算</a>
+  <a class="toc-btn" href="#s7">❓ 常見問題</a>
+</div>
+
+<div class="w">
+
+<!-- 特色簡介 -->
+<div class="section">
+  <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:20px;margin-top:32px">
+    <div style="font-size:.72rem;font-weight:700;color:var(--ink3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px">✨ 這個 App 能幫你做什麼</div>
+    <div class="feature-grid">
+      <div class="feature-card fc-red">
+        <span class="ic">🤖</span>
+        <div class="ft">AI 智慧記帳</div>
+        <div class="fd">說一句話「今天早餐蛋餅100元」，AI 自動填好所有欄位</div>
+      </div>
+      <div class="feature-card fc-gold">
+        <span class="ic">🔄</span>
+        <div class="ft">雙人即時同步</div>
+        <div class="fd">宏龍記一筆，盈慧手機馬上看得到，完全自動</div>
+      </div>
+      <div class="feature-card fc-green">
+        <span class="ic">💼</span>
+        <div class="ft">完整財務管理</div>
+        <div class="fd">銀行帳戶、現金錢包、悠遊卡、信用卡帳單全包</div>
+      </div>
+      <div class="feature-card fc-blue">
+        <span class="ic">🛒</span>
+        <div class="ft">網購訂單追蹤</div>
+        <div class="fd">蝦皮、momo、LINE團購統統記錄，不再忘記訂了什麼</div>
+      </div>
+    </div>
+    <div class="feature-grid" style="margin-top:10px">
+      <div class="feature-card fc-gold">
+        <span class="ic">📣</span>
+        <div class="ft">Discord 自動通知</div>
+        <div class="fd">每筆記帳、每日結算、預算警示自動推送</div>
+      </div>
+      <div class="feature-card fc-red">
+        <span class="ic">🎯</span>
+        <div class="ft">預算控管</div>
+        <div class="fd">各分類設定上限，快超支時自動提醒</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 快速開始 -->
+<div class="section" id="s1">
+  <div class="sec-header">
+    <div class="sec-num">1</div>
+    <div class="sec-title">快速開始</div>
+  </div>
+
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">打開 App</div>
+        <div class="step-desc">在手機桌面找到「家庭記帳 🏡」圖示，點擊開啟。或用瀏覽器打開網址：<span class="hl">hunglung222.github.io/family-budget</span></div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">選擇你是誰，輸入密碼</div>
+        <div class="step-desc">
+          點選 <span class="hl">🙋 宏龍</span> 或 <span class="hl">🙋‍♀️ 盈慧</span>，再輸入密碼登入。<br>
+          <span style="color:var(--ink3);font-size:.78rem">登入後下次開啟不需要重新登入。</span>
+        </div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">開始記帳！</div>
+        <div class="step-desc">登入後直接進入記帳頁面，點底部中間的大 <span class="hl">➕ 按鈕</span> 隨時新增。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tip">
+    <strong>💡 建議安裝到手機桌面</strong><br>
+    Android：Chrome 右上角選單 → 「新增至主畫面」<br>
+    iPhone：Safari 下方分享按鈕 → 「加入主畫面」<br>
+    安裝後像 App 一樣全螢幕使用，體驗更好！
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 頁面導覽 -->
+<div class="section" id="s2">
+  <div class="sec-header">
+    <div class="sec-num">2</div>
+    <div class="sec-title">頁面導覽</div>
+  </div>
+
+  <p style="font-size:.85rem;color:var(--ink2);margin-bottom:14px">底部有五個按鈕，每個都有不同功能：</p>
+
+  <div class="nav-grid">
+    <div class="nav-item">
+      <span class="ni">📋</span>
+      <div class="nl">列表</div>
+    </div>
+    <div class="nav-item">
+      <span class="ni">📊</span>
+      <div class="nl">報表</div>
+    </div>
+    <div class="nav-item hot">
+      <span class="ni">➕</span>
+      <div class="nl">記帳</div>
+    </div>
+    <div class="nav-item">
+      <span class="ni">👛</span>
+      <div class="nl">錢包</div>
+    </div>
+    <div class="nav-item">
+      <span class="ni">🛒</span>
+      <div class="nl">網購</div>
+    </div>
+  </div>
+
+  <table class="simple-table">
+    <tr><th>按鈕</th><th>功能說明</th></tr>
+    <tr><td>📋 列表</td><td>查看所有記帳記錄，可篩選、編輯、刪除</td></tr>
+    <tr><td>📊 報表</td><td>圓餅圖、月趨勢、預算進度，了解錢花去哪</td></tr>
+    <tr><td>➕ 記帳</td><td>新增一筆記帳（最常用，直接按這裡）</td></tr>
+    <tr><td>👛 錢包</td><td>管理現金、銀行帳戶、信用卡、悠遊卡</td></tr>
+    <tr><td>🛒 網購</td><td>追蹤網購訂單狀態，不再忘記取貨</td></tr>
+  </table>
+
+  <div class="tip">
+    <strong>💡 設定在哪？</strong><br>
+    點右上角 ⚙️ 齒輪圖示，或進入「列表」頁右上角也有齒輪。
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 如何記帳 -->
+<div class="section" id="s3">
+  <div class="sec-header">
+    <div class="sec-num">3</div>
+    <div class="sec-title">如何記帳</div>
+  </div>
+
+  <p style="font-size:.88rem;color:var(--ink2);margin-bottom:20px">有三種方式，從最快到最完整：</p>
+
+  <!-- 方式一 -->
+  <div style="background:linear-gradient(135deg,rgba(232,93,58,.06),rgba(232,93,58,.02));border:1.5px solid rgba(232,93,58,.2);border-radius:var(--r);padding:18px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:var(--red);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;flex-shrink:0">最快</span>
+      <div style="font-weight:700;font-size:.95rem">🤖 AI 一句話記帳（強烈推薦）</div>
+    </div>
+    <div style="font-size:.82rem;color:var(--ink2);line-height:1.7;margin-bottom:10px">
+      在上方輸入框直接打字，例如：<br>
+      <span class="hl">「今天早餐吃蛋餅豆漿花了85元」</span><br>
+      <span class="hl">「昨天在蝦皮買了包包580元刷信用卡」</span><br>
+      <span class="hl">「午餐便當80塊現金」</span><br>
+      按「AI 記帳」按鈕，自動填好分類、金額、日期！
+    </div>
+    <div class="flow">
+      <div class="flow-step">輸入一句話</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">按 AI 記帳</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">確認資料</div>
+      <span class="flow-arrow">→</span>
+      <div class="flow-step">✅ 完成！</div>
+    </div>
+    <div class="warn" style="margin-top:8px;margin-bottom:0">
+      <strong>⏳ 如果出現「請等 XX 秒」</strong><br>
+      這是正常的！AI 每 32 秒只能用一次，倒數結束後自動送出，不需要重新輸入。
+    </div>
+  </div>
+
+  <!-- 方式二 -->
+  <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:18px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:var(--gold);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;flex-shrink:0">🎤</span>
+      <div style="font-weight:700;font-size:.95rem">語音輸入</div>
+    </div>
+    <div style="font-size:.82rem;color:var(--ink2);line-height:1.7">
+      按左側麥克風🎤按鈕，對著手機說話。<br>
+      說完自動辨識成文字並送 AI 解析，效果和打字一樣。<br>
+      <span style="color:var(--ink3)">需要允許麥克風權限（第一次會詢問）。</span>
+    </div>
+  </div>
+
+  <!-- 方式三 -->
+  <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:18px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="background:var(--blue);color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;flex-shrink:0">手動</span>
+      <div style="font-weight:700;font-size:.95rem">手動輸入金額</div>
+    </div>
+    <div style="font-size:.82rem;color:var(--ink2);line-height:1.7;margin-bottom:10px">
+      用數字鍵盤輸入金額 → 按「確認金額」→ 再選分類、填明細。
+    </div>
+    <div style="font-size:.8rem;color:var(--ink3)">
+      💡 輸完金額後如果打錯，可以點上方的金額卡片返回重新輸入。
+    </div>
+  </div>
+
+  <div style="margin-top:20px;font-weight:700;font-size:.88rem;margin-bottom:10px">📝 記帳時可以填的資料</div>
+  <table class="simple-table">
+    <tr><th>欄位</th><th>說明</th><th>必填</th></tr>
+    <tr><td>💰 金額</td><td>消費金額</td><td>✅ 必填</td></tr>
+    <tr><td>🏷️ 分類</td><td>餐飲/交通/購物/居家等</td><td>✅ 必填</td></tr>
+    <tr><td>📂 子分類</td><td>早餐/午餐/晚餐等</td><td>可略</td></tr>
+    <tr><td>📝 明細</td><td>蛋餅豆漿、家樂福採購等</td><td>可略</td></tr>
+    <tr><td>👤 記帳人</td><td>宏龍或盈慧，自動預設登入者</td><td>自動</td></tr>
+    <tr><td>💳 付款</td><td>現金 / 信用卡 / 悠遊卡</td><td>請選擇</td></tr>
+    <tr><td>📅 日期</td><td>預設現在，可修改</td><td>自動</td></tr>
+  </table>
+
+  <div class="tip">
+    <strong>💡 智慧記憶功能</strong><br>
+    在「明細」欄位輸入時，App 會自動提示你之前輸入過的內容，點一下即可快速填入。
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 財務管理 -->
+<div class="section" id="s4">
+  <div class="sec-header">
+    <div class="sec-num">4</div>
+    <div class="sec-title">財務管理（👛 錢包頁）</div>
+  </div>
+
+  <p style="font-size:.85rem;color:var(--ink2);margin-bottom:16px">錢包頁有五個頁籤，各自管理不同的財務：</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px">
+      <div style="font-size:1.1rem;margin-bottom:6px">📊 總覽</div>
+      <div style="font-size:.78rem;color:var(--ink2)">個人淨資產一覽，待繳信用卡帳單警示</div>
+    </div>
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px">
+      <div style="font-size:1.1rem;margin-bottom:6px">👛 錢包</div>
+      <div style="font-size:.78rem;color:var(--ink2)">現金餘額，從帳戶提領到錢包</div>
+    </div>
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px">
+      <div style="font-size:1.1rem;margin-bottom:6px">🏦 帳戶</div>
+      <div style="font-size:.78rem;color:var(--ink2)">個人銀行帳戶 + 家用共用帳戶</div>
+    </div>
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px">
+      <div style="font-size:1.1rem;margin-bottom:6px">💳 信用卡</div>
+      <div style="font-size:.78rem;color:var(--ink2)">帳單追蹤、繳費提醒、一鍵繳費</div>
+    </div>
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;grid-column:span 2">
+      <div style="font-size:1.1rem;margin-bottom:6px">🎫 悠遊卡</div>
+      <div style="font-size:.78rem;color:var(--ink2)">餘額管理，支援現金加值或信用卡加值</div>
+    </div>
+  </div>
+
+  <div style="font-weight:700;font-size:.88rem;margin-bottom:10px">💵 金流運作方式</div>
+  <div style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:16px;font-size:.82rem;color:var(--ink2);line-height:1.9">
+    <div class="flow" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div>🏦 <strong>薪資入帳</strong> → 在「帳戶」頁按「＋ 入帳」記錄</div>
+      <div style="padding-left:16px;color:var(--ink3)">↓ 去 ATM 領錢</div>
+      <div>👛 <strong>提領到錢包</strong> → 在「錢包」頁按「從帳戶提領」，選是哪個帳戶</div>
+      <div style="padding-left:16px;color:var(--ink3)">↓ 用現金消費</div>
+      <div>📋 <strong>現金記帳</strong> → 付款方式選「現金」，自動從錢包扣款</div>
+    </div>
+  </div>
+
+  <div class="tip" style="margin-top:12px">
+    <strong>💡 宏龍和盈慧的帳戶是各自獨立的</strong><br>
+    各自管理自己的銀行帳戶、錢包、悠遊卡和信用卡。<br>
+    「家用帳戶」是共用的，兩個人都看得到。<br>
+    <strong>記帳記錄</strong>是共用的，可以看到對方花了什麼。
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 網購管理 -->
+<div class="section" id="s5">
+  <div class="sec-header">
+    <div class="sec-num">5</div>
+    <div class="sec-title">網購管理（🛒 網購頁）</div>
+  </div>
+
+  <p style="font-size:.85rem;color:var(--ink2);margin-bottom:16px">專門為喜歡網購的你設計！訂了東西不再忘記。</p>
+
+  <div style="font-weight:700;font-size:.88rem;margin-bottom:10px">📦 訂單狀態流程</div>
+  <div class="badge-row">
+    <span class="badge b-pending">🕐 待付款</span>
+    <span style="color:var(--ink3)">→</span>
+    <span class="badge b-paid">💳 已付款</span>
+    <span style="color:var(--ink3)">→</span>
+    <span class="badge b-ship">🚚 運送中</span>
+    <span style="color:var(--ink3)">→</span>
+    <span class="badge b-arrive">📦 待取貨</span>
+    <span style="color:var(--ink3)">→</span>
+    <span class="badge b-done">✅ 已完成</span>
+  </div>
+  <div style="font-size:.8rem;color:var(--ink3);margin-top:6px;margin-bottom:16px">每個狀態都有一個「→ 下一步」按鈕，一鍵推進，超方便！</div>
+
+  <div style="font-weight:700;font-size:.88rem;margin-bottom:10px">✨ 特色功能</div>
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num" style="background:var(--red)">!</div>
+      <div class="step-body">
+        <div class="step-title">⚠️ 取貨期限提醒</div>
+        <div class="step-desc">設定取貨期限後，快到期時 App 自動跳出警示。再也不會讓包裹在超商等到被退回！</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:var(--green)">$</div>
+      <div class="step-body">
+        <div class="step-title">💰 一鍵轉記帳</div>
+        <div class="step-desc">訂單完成後，按「💰 記帳」按鈕，直接把這筆消費轉成記帳記錄，不需要重複輸入。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num" style="background:var(--gold)">🏪</div>
+      <div class="step-body">
+        <div class="step-title">支援各大平台</div>
+        <div class="step-desc">蝦皮、momo、LINE群組、臉書、酷朋、團購，可以快速選擇，也可以自訂。還可以記錄是哪個媽媽群的團購！</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-weight:700;font-size:.88rem;margin:16px 0 10px">📝 新增訂單時可以記什麼</div>
+  <table class="simple-table">
+    <tr><th>欄位</th><th>說明</th></tr>
+    <tr><td>商品名稱</td><td>例：白色短袖上衣 3件</td></tr>
+    <tr><td>購物平台</td><td>蝦皮、momo、LINE群組等</td></tr>
+    <tr><td>賣家/團主</td><td>例：媽媽群-阿花團購</td></tr>
+    <tr><td>金額</td><td>消費金額</td></tr>
+    <tr><td>訂單編號</td><td>方便查詢追蹤</td></tr>
+    <tr><td>取貨方式</td><td>超商取貨 / 宅配到府 / 團購自取</td></tr>
+    <tr><td>取貨期限</td><td>設定後快到期會提醒</td></tr>
+    <tr><td>備註</td><td>例：尺寸M，記得取貨</td></tr>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<!-- 報表預算 -->
+<div class="section" id="s6">
+  <div class="sec-header">
+    <div class="sec-num">6</div>
+    <div class="sec-title">報表與預算（📊 報表頁）</div>
+  </div>
+
+  <div style="font-weight:700;font-size:.88rem;margin-bottom:10px">📈 報表功能</div>
+  <table class="simple-table">
+    <tr><th>頁籤</th><th>內容</th></tr>
+    <tr><td>📈 總覽</td><td>支出總計、信用卡/現金比例、宏龍vs盈慧消費</td></tr>
+    <tr><td>🏷️ 分類</td><td>圓餅圖，哪個分類花最多</td></tr>
+    <tr><td>📅 月份</td><td>每月支出趨勢長條圖</td></tr>
+    <tr><td>🎯 預算</td><td>各分類預算進度條，可直接在這裡設定上限</td></tr>
+  </table>
+
+  <div style="font-weight:700;font-size:.88rem;margin:16px 0 10px">🎯 如何設定預算</div>
+  <div class="steps-list">
+    <div class="step-item">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">進入設定頁 → 預算設定</div>
+        <div class="step-desc">先設定「每月週期起始日」，例如設定 10，代表每月 10 日到次月 9 日為一個週期（適合薪水族）。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">幫各分類設定上限金額</div>
+        <div class="step-desc">例如餐飲設 8000 元，購物設 3000 元。超過 80% 會警示，超過 100% 會紅色警告。</div>
+      </div>
+    </div>
+    <div class="step-item">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">看進度條掌握消費狀況</div>
+        <div class="step-desc">綠色=正常，橘色=快超支，紅色=已超支。一眼就知道哪裡要節制。</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="font-weight:700;font-size:.88rem;margin:16px 0 10px">📤 匯出報表</div>
+  <p style="font-size:.82rem;color:var(--ink2)">設定頁 → 匯出報表，可以選：</p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">
+    <div class="flow-step">本期報表（依預算週期）</div>
+    <div class="flow-step">本月報表</div>
+    <div class="flow-step">全部記帳</div>
+  </div>
+  <p style="font-size:.78rem;color:var(--ink3)">匯出 Excel 檔，包含明細、分類統計、摘要三個工作表。</p>
+</div>
+
+<div class="divider"></div>
+
+<!-- 常見問題 -->
+<div class="section" id="s7">
+  <div class="sec-header">
+    <div class="sec-num">7</div>
+    <div class="sec-title">常見問題</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">為什麼 AI 記帳顯示「請等 XX 秒」？</div>
+    <div class="a">AI 功能每 32 秒只能使用一次（免費版限制）。倒數結束後會自動送出，<strong>不需要重新輸入</strong>，等一下就好。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">我和宏龍的記帳記錄是共用的嗎？</div>
+    <div class="a">是的！記帳記錄是兩人共用、即時同步的。但<strong>錢包、銀行帳戶、信用卡、悠遊卡是各自獨立的</strong>，不會互相看到（家用帳戶除外）。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">記帳記錯了怎麼辦？</div>
+    <div class="a">進入「📋 列表」頁，找到那筆記帳，點「<strong>編輯</strong>」按鈕就可以修改金額、分類、明細、日期等資料。付款方式如果記錯，建議刪除重新記。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">現金錢包的餘額不對怎麼辦？</div>
+    <div class="a">進入「👛 錢包」頁 → 錢包頁籤 → 點「<strong>手動調整</strong>」，可以手動增加或減少餘額，讓系統和實際現金一致。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">悠遊卡要怎麼加值？</div>
+    <div class="a">進入「👛 錢包」→「🎫 悠遊卡」頁籤 → 找到你的悠遊卡 → 點「<strong>加值</strong>」，選擇用現金加值還是信用卡加值，輸入金額就完成。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">信用卡帳單怎麼看？</div>
+    <div class="a">進入「👛 錢包」→「💳 信用卡」頁籤，下方有帳單記錄。帳單快到期前 Discord 會發通知提醒。確認繳費後點「<strong>繳費</strong>」按鈕標記已繳清。</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">網購訂單如何新增？</div>
+    <div class="a">進入「🛒 網購」頁，點右下角的大「<strong>＋</strong>」按鈕，填入商品名稱、平台、賣家、金額等資料。記得設定取貨期限，快到期時會提醒你！</div>
+  </div>
+
+  <div class="qa" onclick="this.classList.toggle('open')">
+    <div class="q">App 更新後功能沒有變化？</div>
+    <div class="a">完全關閉 App（從後台清除），重新開啟就會載入最新版本。如果還是沒更新，在設定頁底部找「清除快取」，或重新安裝 PWA。</div>
+  </div>
+</div>
+
+</div><!-- end .w -->
+
+<div class="footer">
+  <div style="font-size:1.5rem;margin-bottom:8px">🏡</div>
+  <strong>家庭記帳 PWA</strong><br>
+  宏龍 & 盈慧 專屬家庭財務管理系統<br>
+  <span style="font-size:.72rem">有問題問宏龍，他負責維護這個 App 😄</span>
+</div>
+
+<script>
+// Q&A 收合
+document.querySelectorAll('.qa').forEach(qa=>{
+  qa.querySelector('.q').addEventListener('click',()=>qa.classList.toggle('open'));
+});
+</script>
+</body>
+</html>

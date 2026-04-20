@@ -209,7 +209,7 @@
   if(!firebase.apps.length)firebase.initializeApp(CFG);
   firebase.auth().onAuthStateChanged(user=>{
     if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
-    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);}
+    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);localStorage.setItem('current_uid',user.uid);}
   });
 })();
 </script>

@@ -11,8 +11,13 @@ const DB = {
   del(k)    { localStorage.removeItem(k); },
 };
 
-// 取得目前登入者 uid（用 email 前綴當 key）
+// 取得目前登入者 uid
+// 優先使用 Firebase Auth uid（唯一且安全），fallback 用 email 前綴
 function uid() {
+  // Firebase Auth uid 在登入後存入 localStorage
+  const authUid = localStorage.getItem('current_uid');
+  if (authUid) return authUid;
+  // Fallback：email 前綴（相容舊資料）
   const e = localStorage.getItem('current_email') || '';
   return e.split('@')[0].replace(/[^a-z0-9]/gi,'_') || 'user';
 }
