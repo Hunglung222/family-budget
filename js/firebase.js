@@ -81,8 +81,12 @@ async function fbPullAppConfig(){
     if(!appCfg.exists) return;
     const cfg = appCfg.data();
     const localUpdated = parseInt(localStorage.getItem('app_config_updated')||'0');
-    // 只有雲端比本地新才覆蓋
-    if(cfg.updatedAt && cfg.updatedAt > localUpdated){
+    const cloudUpdated = cfg.updatedAt || 0;
+    // 兩種情況同步：1.本地是空的 2.雲端比本地新
+    const localWebhook = localStorage.getItem('discord_webhook')||'';
+    const localGemini  = localStorage.getItem('gemini_api_key')||'';
+    const needSync = cloudUpdated > localUpdated || !localWebhook || !localGemini;
+    if(needSync){
       if(cfg.discordWebhook){
         localStorage.setItem('discord_webhook', cfg.discordWebhook);
         saveDiscord({webhook: cfg.discordWebhook});
@@ -90,8 +94,8 @@ async function fbPullAppConfig(){
       if(cfg.geminiKey){
         localStorage.setItem('gemini_api_key', cfg.geminiKey);
       }
-      localStorage.setItem('app_config_updated', String(cfg.updatedAt));
-      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy);
+      localStorage.setItem('app_config_updated', String(cloudUpdated));
+      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy||'');
     }
   }catch(e){console.warn('[FB]pullAppConfig',e);}
 }
@@ -125,19 +129,7 @@ getDb();
     if(cd.exists&&cd.data().list)DB.set('cats',cd.data().list);
     const bd=await db.collection('shared').doc('budgets').get();
     if(bd.exists)DB.set('budgets',bd.data());
-    // App 共用設定（webhook、gemini key）—— 不覆蓋本機已有的值
-    const appCfg=await db.collection('shared').doc('app_config').get();
-    if(appCfg.exists){
-      const cfg=appCfg.data();
-      if(cfg.discordWebhook && !localStorage.getItem('discord_webhook')){
-        localStorage.setItem('discord_webhook', cfg.discordWebhook);
-        saveDiscord({webhook: cfg.discordWebhook});
-      }
-      if(cfg.geminiKey && !localStorage.getItem('gemini_api_key')){
-        localStorage.setItem('gemini_api_key', cfg.geminiKey);
-      }
-    }
-    // App 共用設定（webhook、gemini key）
+    // App 共用設定（webhook、gemini key）統一由 fbPullAppConfig 處理
     await fbPullAppConfig();
     return true;
   }catch(e){console.warn('[FB]pullAll',e);return false;}
@@ -237,8 +229,12 @@ async function fbPullAppConfig(){
     if(!appCfg.exists) return;
     const cfg = appCfg.data();
     const localUpdated = parseInt(localStorage.getItem('app_config_updated')||'0');
-    // 只有雲端比本地新才覆蓋
-    if(cfg.updatedAt && cfg.updatedAt > localUpdated){
+    const cloudUpdated = cfg.updatedAt || 0;
+    // 兩種情況同步：1.本地是空的 2.雲端比本地新
+    const localWebhook = localStorage.getItem('discord_webhook')||'';
+    const localGemini  = localStorage.getItem('gemini_api_key')||'';
+    const needSync = cloudUpdated > localUpdated || !localWebhook || !localGemini;
+    if(needSync){
       if(cfg.discordWebhook){
         localStorage.setItem('discord_webhook', cfg.discordWebhook);
         saveDiscord({webhook: cfg.discordWebhook});
@@ -246,8 +242,8 @@ async function fbPullAppConfig(){
       if(cfg.geminiKey){
         localStorage.setItem('gemini_api_key', cfg.geminiKey);
       }
-      localStorage.setItem('app_config_updated', String(cfg.updatedAt));
-      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy);
+      localStorage.setItem('app_config_updated', String(cloudUpdated));
+      console.log('[FB] App config 已同步，更新者：', cfg.updatedBy||'');
     }
   }catch(e){console.warn('[FB]pullAppConfig',e);}
 }
