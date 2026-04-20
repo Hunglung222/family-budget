@@ -158,7 +158,28 @@ function getGeminiKey() {
   return localStorage.getItem('gemini_api_key') || '';
 }
 
+// 冷卻機制：Free tier 每分鐘限 2 次
+let lastGeminiCall = 0;
+const GEMINI_COOLDOWN = 32000; // 32 秒冷卻（保守設定）
+
+async function waitGeminiCooldown() {
+  const now = Date.now();
+  const elapsed = now - lastGeminiCall;
+  if (lastGeminiCall > 0 && elapsed < GEMINI_COOLDOWN) {
+    const wait = GEMINI_COOLDOWN - elapsed;
+    const secs = Math.ceil(wait / 1000);
+    // 顯示倒數
+    const btn = document.getElementById('ai-btn');
+    for (let i = secs; i > 0; i--) {
+      btn.textContent = `⏳ 請等 ${i} 秒`;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+  }
+  lastGeminiCall = Date.now();
+}
+
 async function callGemini(text) {
+  await waitGeminiCooldown();
   const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
   const today = new Date();
   const todayStr = fmtD(today.toISOString());
