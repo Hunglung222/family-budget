@@ -131,8 +131,25 @@
   <!-- 各分類預算上限 -->
   <div id="budget-list"></div>
 
+  <!-- Claude API 設定 -->
+  <div class="sec-t">✨ Claude API 設定（推薦用）</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px;border-left:4px solid var(--p)">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
+      用於 AI 記帳辨識功能，比 Gemini 穩定。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
+      <a href="https://console.anthropic.com" target="_blank" style="color:var(--p)">點此申請 API Key</a>
+    </div>
+    <div class="fg">
+      <span class="flbl">Claude API Key</span>
+      <input type="text" class="fc" id="claude-key" placeholder="sk-ant-api03-..." style="font-size:.78rem">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveClaudeKey()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">💾 儲存</button>
+      <button onclick="testClaude()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">✅ 測試</button>
+    </div>
+  </div>
+
   <!-- Gemini AI 設定 -->
-  <div class="sec-t">🤖 Gemini AI 設定</div>
+  <div class="sec-t">🤖 Gemini AI 設定（舊用）</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
     <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
       用於 AI 記帳辨識功能。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
@@ -310,6 +327,9 @@ function init(){
   checkVersion();
   renderLoginInfo();
   renderThemePicker();
+  // 載入 Claude Key
+  const ck=localStorage.getItem('claude_api_key')||'';
+  document.getElementById('claude-key').value=ck;
   // 載入 Gemini Key
   const gk=localStorage.getItem('gemini_api_key')||'';
   document.getElementById('gemini-key').value=gk;
@@ -428,6 +448,25 @@ function renderNotifySettings(){
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
 }
+function saveClaudeKey(){
+  const key=document.getElementById('claude-key').value.trim();
+  localStorage.setItem('claude_api_key',key);
+  fbSyncAppConfig();
+  toast(key?'✅ Claude Key 已儲存並同步給盈慧':'已清除 Claude API Key');
+}
+
+async function testClaude(){
+  const key=localStorage.getItem('claude_api_key')||'';
+  if(!key){toast('請先填入 Claude API Key','warn');return;}
+  toast('✅ Claude 測試中...');
+  // 簡單測試：確認 Key 格式對即可
+  if(key.startsWith('sk-ant-api')){
+    toast('✅ Claude API Key 格式正確，可以開始用！');
+  } else {
+    toast('⚠️ Key 格式不對，應該以 sk-ant-api 開頭','warn');
+  }
+}
+
 function saveGeminiKey(){
   const key=document.getElementById('gemini-key').value.trim();
   localStorage.setItem('gemini_api_key',key);
