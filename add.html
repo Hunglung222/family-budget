@@ -152,6 +152,21 @@
 })();
 </script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+// 強制清除舊版 Service Worker 快取
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(reg => {
+      reg.update(); // 強制更新 SW
+    });
+  });
+  caches.keys().then(names => {
+    names.forEach(name => {
+      if (!name.includes('fb-v21')) caches.delete(name);
+    });
+  });
+}
+</script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 
