@@ -94,6 +94,9 @@ async function fbPullAppConfig(){
       if(cfg.geminiKey){
         localStorage.setItem('gemini_api_key', cfg.geminiKey);
       }
+      if(cfg.claudeKey){
+        localStorage.setItem('claude_api_key', cfg.claudeKey);
+      }
       localStorage.setItem('app_config_updated', String(cloudUpdated));
       console.log('[FB] App config 已同步，更新者：', cfg.updatedBy||'');
     }
@@ -241,6 +244,9 @@ async function fbPullAppConfig(){
       }
       if(cfg.geminiKey){
         localStorage.setItem('gemini_api_key', cfg.geminiKey);
+      }
+      if(cfg.claudeKey){
+        localStorage.setItem('claude_api_key', cfg.claudeKey);
       }
       localStorage.setItem('app_config_updated', String(cloudUpdated));
       console.log('[FB] App config 已同步，更新者：', cfg.updatedBy||'');
