@@ -163,6 +163,10 @@ function getGeminiKey() {
   return localStorage.getItem('gemini_api_key') || '';
 }
 
+function getClaudeKey() {
+  return localStorage.getItem('claude_api_key') || '';
+}
+
 // 冷卻機制：Free tier 每分鐘限 2 次
 let lastGeminiCall = 0;
 const GEMINI_COOLDOWN = 500; // 0.5 秒（Tier 1 付費版，RPM=1000）
