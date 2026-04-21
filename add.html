@@ -81,7 +81,10 @@
     <div class="fg">
       <span class="flbl">📝 明細（可略）</span>
       <div style="position:relative">
-        <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30" autocomplete="off">
+        <input type="text" class="fc" id="tx-detail" placeholder="例：家樂福採購" maxlength="30"
+          autocomplete="off" readonly
+          onfocus="this.removeAttribute('readonly')"
+          onblur="this.setAttribute('readonly','')">
         <div id="hint-list" style="display:none"></div>
       </div>
     </div>
@@ -311,8 +314,15 @@ async function submitAI() {
         if (ss.options[i].text === r.subCat) { ss.selectedIndex=i; break; }
       }
     }
-    // 填明細
-    if (r.detail) document.getElementById('tx-detail').value = r.detail;
+    // 填明細（直接設值，避免觸發任何選單）
+    if (r.detail) {
+      const detailEl = document.getElementById('tx-detail');
+      detailEl.setAttribute('readonly','');
+      detailEl.value = r.detail;
+      detailEl.blur();
+      // 短暫後恢復可輸入
+      setTimeout(()=>detailEl.removeAttribute('readonly'), 300);
+    }
     // 填日期
     if (r.date) {
       const d = new Date(r.date.replace(/\//g,'-'));
@@ -452,9 +462,8 @@ function selC(id, el) {
   document.querySelectorAll('#cat-chips .cchip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
   triggerCatSub(id);
-  showHints();
 }
-function onSubChange() { showHints(); }
+function onSubChange() { }
 function setPay(p, el) {
   pay = p;
   document.querySelectorAll('#pay-cash,#pay-card,#pay-icard').forEach(b=>b.classList.remove('on'));
@@ -471,18 +480,8 @@ function selCC(id, el) { selCard=id; document.querySelectorAll('#card-chips .cc'
 function selIC(id, el) { selIcard=id; document.querySelectorAll('#icard-chips .cc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); }
 
 // 智慧輸入提示
-function showHints() {
-  const inp = document.getElementById('tx-detail');
-  const val = inp.value;
-  const subCat = document.getElementById('sub-sel').value;
-  let hints = selCat ? getAllDetailHints(selCat) : [];
-  if (val) hints = hints.filter(h=>h.includes(val));
-  const box = document.getElementById('hint-list');
-  if (!hints.length) { box.style.display='none'; return; }
-  box.style.display = 'block';
-  box.innerHTML = hints.map(h=>`<div onclick="pickHint('${h.replace(/'/g,"\\'")}')"`+
-    ` style="padding:11px 14px;font-size:.88rem;border-bottom:1px solid var(--border);cursor:pointer">${h}</div>`).join('');
-}
+function showHints() { }  // 已關閉
+
 function hideHints() { document.getElementById('hint-list').style.display='none'; }
 function pickHint(v) { document.getElementById('tx-detail').value=v; hideHints(); }
 
