@@ -173,7 +173,7 @@ async function waitGeminiCooldown() {
   lastGeminiCall = Date.now();
 }
 
-async function callGemini(text) {
+async function callClaude(text) {
   await waitGeminiCooldown();
   const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
   const today = new Date();
@@ -198,7 +198,7 @@ async function callGemini(text) {
 5.子分類：盡量推測（早餐/午餐/晚餐/宵夜等）
 回傳純JSON:{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}`;
 
-  const key = getGeminiKey();
+  const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Gemini API Key');
   const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
   const res = await fetch(url, {
@@ -214,11 +214,11 @@ body: JSON.stringify({
     })  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
-  const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  const raw = data.content?.[0]?.text || '';
   
 let clean = raw.trim();
 
-// 如果 AI 還是加上了 markdown 標記，我們安全地把中間的 JSON 切出來
+// 如果 Claude 加上了 markdown 標記，安全地把中間的 JSON 切出來
 if (clean.includes('```json')) {
     clean = clean.split('```json')[1].split('```')[0];
 } else if (clean.includes('```')) {
@@ -300,7 +300,7 @@ async function submitAI() {
   const btn = document.getElementById('ai-btn');
   btn.textContent = '解析中...'; btn.disabled = true;
   try {
-    const r = await callGemini(text);
+    const r = await callClaude(text);
     // 填金額
     if (r.amount > 0) { astr = String(Math.round(r.amount)).slice(0,7); refreshAmt(); }
     // 填分類
@@ -365,7 +365,7 @@ async function submitAI() {
     if(msg.includes('429')){
       toast('⏳ AI 使用頻繁，請稍待 1 分鐘再試（HTTP 429）', 'warn');
     } else if(msg.includes('allowlist')||msg.includes('403')){
-      toast('API Key 需要設定，請見說明', 'err');
+      toast('Claude API Key 需要設定，請在設定頁填入', 'err');
       document.getElementById('api-hint').style.display='block';
     } else if(msg.includes('503')||msg.includes('overloaded')||msg.includes('Service Unavailable')){
       toast('⚠️ Gemini 伺服器忙碌中（503），請再試一次', 'warn');
