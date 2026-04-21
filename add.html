@@ -113,7 +113,7 @@
       <div class="card-chips" id="icard-chips"></div>
       <div id="no-icard-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定悠遊卡，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
     </div>
-    <div style="margin-top:18px">
+    <div style="margin-top:18px;padding-bottom:calc(var(--nav) + 24px)">
       <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
     </div>
   </div>
@@ -367,6 +367,10 @@ async function submitAI() {
     } else if(msg.includes('allowlist')||msg.includes('403')){
       toast('API Key 需要設定，請見說明', 'err');
       document.getElementById('api-hint').style.display='block';
+    } else if(msg.includes('503')||msg.includes('overloaded')||msg.includes('Service Unavailable')){
+      toast('⚠️ Gemini 伺服器忙碌中（503），請再試一次', 'warn');
+    } else if(msg.includes('500')){
+      toast('⚠️ Gemini 伺服器錯誤（500），請再試一次', 'warn');
     } else {
       toast('AI 解析失敗：'+msg, 'err');
     }
