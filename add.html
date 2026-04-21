@@ -221,20 +221,25 @@ async function callClaude(text) {
 回傳純JSON:{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}`;
 
   const key = getClaudeKey();
-  if (!key) throw new Error('請先在設定頁填入 Gemini API Key');
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
-  const res = await fetch(url, {
+  if (!key) throw new Error('請先在設定頁填入 Claude API Key');
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {'Content-Type':'application/json'},
-body: JSON.stringify({
-      contents:[{parts:[{text:prompt}]}],
-      generationConfig:{
-        temperature: 0.1,
-        maxOutputTokens: 800, // 調高上限，避免被截斷
-        responseMimeType: "application/json" // 秘密武器：強制 AI 只輸出純 JSON！
-      }
-    })  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) {
+    const errBody = await res.json().catch(()=>({}));
+    throw new Error(`HTTP ${res.status}: ${errBody?.error?.message||''}`);
+  }
   const data = await res.json();
   const raw = data.content?.[0]?.text || '';
   
