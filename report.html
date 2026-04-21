@@ -162,7 +162,18 @@ function renderOv(){
   if(!Object.keys(s.byCard).length){el.innerHTML='<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無信用卡消費</div>';}
   else{el.innerHTML=Object.entries(s.byCard).sort((a,b)=>b[1]-a[1]).map(([cid,amt])=>{
     const c=cardFind(cid);const pct=s.card>0?Math.round(amt/s.card*100):0;
-    return `<div class="cb-item"><div class="cb-hdr"><span>${c?c.name:cid}</span><span style="font-weight:700">$${fmt(amt)}</span></div><div class="cb-bar"><div class="cb-fill" style="width:${pct}%;background:${c?.color||'var(--blue)'}"></div></div></div>`;
+    return `<div class="cb-item" onclick="drillCard('${cid}')" style="cursor:pointer;transition:.15s;border-radius:var(--rs);padding:8px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
+      <div class="cb-hdr" style="justify-content:space-between;align-items:center">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-weight:700">${c?c.name:cid}</span>
+          <span style="font-size:.8rem;color:var(--t3)">···${c?.last4||'0000'}</span>
+        </div>
+        <span style="font-weight:900;color:var(--blue)">$${fmt(amt)}</span>
+        <span style="color:var(--t3);margin-left:4px;font-size:.8rem">›</span>
+      </div>
+      <div class="cb-bar" style="margin-top:6px"><div class="cb-fill" style="width:${pct}%;background:${c?.color||'var(--blue)'};height:6px;border-radius:3px"></div></div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:4px;text-align:right">${pct}%</div>
+    </div>`;
   }).join('');}
   if(personC)personC.destroy();
   const p1=s.byPerson['宏龍']||0,p2=s.byPerson['盈慧']||0;
@@ -230,10 +241,14 @@ function drillCat(catId) {
 }
 
 function drillCard(cardId) {
-  // 切換到分類頁籤，再用信用卡篩選顯示
-  // 直接彈出一個 overlay 列出所有刷卡記錄
   const card = cardFind(cardId)||{name:'信用卡',last4:'????'};
-  const txs = txData.filter(t=>t.pay==='card'&&t.cardId===cardId);
+  // 用當前日期範圍篩選交易（同 renderReport 的邏輯）
+  const allTxs = getTx();
+  const filtered = allTxs.filter(t=>{
+    const d = new Date(t.at);
+    return d >= d1 && d <= d2;
+  });
+  const txs = filtered.filter(t=>t.pay==='card'&&t.cardId===cardId);
   const total = txs.reduce((s,t)=>s+t.amount,0);
 
   // 複用 cat-drill 區塊，切換到分類頁
