@@ -71,7 +71,12 @@
   <div id="s2" style="display:none">
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
-      <input type="datetime-local" class="fc" id="tx-dt">
+      <input type="datetime-local" id="tx-dt-raw" style="position:absolute;opacity:0;pointer-events:none" onchange="refreshDtDisp()">
+      <div class="fc" id="tx-dt-disp" onclick="openDtPicker()"
+        style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
+        <span id="tx-dt-txt" style="font-size:.95rem">--</span>
+        <span style="color:var(--t3);font-size:.8rem">✏️ 修改</span>
+      </div>
     </div>
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
@@ -174,6 +179,29 @@ if ('serviceWorker' in navigator) {
 <script>
 // Gemini API（透過 CORS Proxy 呼叫）
 // Gemini API Key（從 localStorage 讀取，可在設定頁修改）
+// 日期時間選擇器
+function openDtPicker(){
+  const raw = document.getElementById('tx-dt-raw');
+  raw.focus();
+  raw.click();
+  raw.showPicker && raw.showPicker();
+}
+
+function refreshDtDisp(){
+  const raw = document.getElementById('tx-dt-raw');
+  const txt = document.getElementById('tx-dt-txt');
+  if(!raw||!txt) return;
+  const v = raw.value;
+  if(!v){ txt.textContent='--'; return; }
+  const d = new Date(v);
+  const yy = d.getFullYear();
+  const mo = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  txt.textContent = `${yy}/${mo}/${dd} ${hh}:${mm}`;
+}
+
 function getGeminiKey() {
   return localStorage.getItem('gemini_api_key') || '';
 }
@@ -356,8 +384,9 @@ async function submitAI() {
       const d = new Date(r.date.replace(/\//g,'-'));
       if (!isNaN(d)) {
         const now = new Date(); d.setHours(now.getHours(), now.getMinutes());
-        document.getElementById('tx-dt').value =
+        document.getElementById('tx-dt-raw').value =
           new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+        refreshDtDisp();
       }
     }
     // 填付款方式
@@ -418,8 +447,9 @@ function init() {
   applyTheme();
   // 設定時間
   const now = new Date();
-  document.getElementById('tx-dt').value =
+  document.getElementById('tx-dt-raw').value =
     new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  refreshDtDisp();
   // 依登入者預設記帳人
   person = currentUser();
   const pBtn = document.getElementById(person==='宏龍'?'p-hl':'p-yh');
@@ -545,7 +575,7 @@ function submit() {
   if (pay==='card'  && !selCard) { toast('請先至錢包頁新增信用卡','warn');    return; }
   if (pay==='icard' && !selIcard){ toast('請先至錢包頁新增悠遊卡','warn');    return; }
 
-  const dtv = document.getElementById('tx-dt').value;
+  const dtv = document.getElementById('tx-dt-raw').value;
   const tx = {
     amount: amt, cat: selCat,
     subCat: document.getElementById('sub-sel').value,
@@ -584,8 +614,9 @@ function resetForm() {
   document.getElementById('edit-hint').style.display = 'none';
   document.getElementById('amt-card').style.cursor = 'default';
   const now = new Date();
-  document.getElementById('tx-dt').value =
+  document.getElementById('tx-dt-raw').value =
     new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  refreshDtDisp();
   setStep(0);
   buildCatChips(); buildIcardChips();
 }
