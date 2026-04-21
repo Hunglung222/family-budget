@@ -538,7 +538,41 @@ function exportJson(){
   const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`家庭記帳備份_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;a.click();toast('備份已下載');
 }
-function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.transactions)DB.set('tx',d.transactions);if(d.wallet)DB.set('wal',d.wallet);if(d.categories)DB.set('cats',d.categories);if(d.cards)DB.set('cards',d.cards);if(d.icards)DB.set('icards',d.icards);if(d.budgets)DB.set('budgets',d.budgets);toast('匯入成功！');renderStat();renderCats();renderBudgets();}catch{toast('格式錯誤','err');}};r.readAsText(f);inp.value='';}
+function importData(inp){
+  const f=inp.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      // 判斷是否為記帳雞匯入格式（只有 transactions，不覆蓋其他資料）
+      if(d.importInfo){
+        // 記帳雞格式：合併到現有記帳，不覆蓋錢包/分類等
+        const existing=getTx();
+        const newTxs=d.transactions||[];
+        // 去重（避免重複匯入）
+        const existingIds=new Set(existing.map(t=>t.id));
+        const toAdd=newTxs.filter(t=>!existingIds.has(t.id));
+        const merged=[...toAdd,...existing].sort((a,b)=>new Date(b.at)-new Date(a.at));
+        DB.set('tx',merged);
+        // 同步到 Firebase
+        toAdd.forEach(tx=>fbAddTx(tx));
+        toast(`✅ 匯入 ${toAdd.length} 筆記帳（${d.importInfo.cardCount} 筆刷卡 + ${d.importInfo.cashCount} 筆現金）`);
+        renderStat();
+      } else {
+        // 完整備份格式：全部覆蓋
+        if(d.transactions)DB.set('tx',d.transactions);
+        if(d.wallet)DB.set('wal',d.wallet);
+        if(d.categories)DB.set('cats',d.categories);
+        if(d.cards)DB.set('cards',d.cards);
+        if(d.icards)DB.set('icards',d.icards);
+        if(d.budgets)DB.set('budgets',d.budgets);
+        toast('完整備份匯入成功！');
+        renderStat();renderCats();renderBudgets();
+      }
+    }catch(err){console.error(err);toast('格式錯誤，請確認檔案','err');}
+  };
+  r.readAsText(f);inp.value='';
+}
 
 function confirmReset(){
   document.getElementById('cm-title').textContent='⚠️ 清除所有資料';
