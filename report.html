@@ -68,6 +68,14 @@
       <div class="chart-wrap"><canvas id="pie-c"></canvas></div>
       <div class="legend" id="pie-leg"></div>
     </div>
+    <!-- 分類明細下鑽 -->
+    <div id="cat-drill" style="display:none">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <button onclick="closeDrill()" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:7px 14px;border-radius:50px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">← 返回</button>
+        <div id="drill-title" style="font-size:1rem;font-weight:700"></div>
+      </div>
+      <div id="drill-list"></div>
+    </div>
   </div>
 
   <div class="panel" id="p-mon">
@@ -173,8 +181,99 @@ function renderPie(){
     options:{cutout:'58%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(s.total||1)*100)}%)`}}}}});
   document.getElementById('pie-leg').innerHTML=ent.map(([id,amt],i)=>{
     const pct=s.total>0?Math.round(amt/s.total*100):0;
-    return `<div class="li"><div class="ldot" style="background:${cols[i]}"></div><span class="lname">${catName(id)}</span><span class="lpct">${pct}%</span><span class="lamt">$${fmt(amt)}</span></div>`;
+    return `<div class="li" onclick="drillCat('${id}')" style="cursor:pointer;transition:.15s" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
+      <div class="ldot" style="background:${cols[i]}"></div>
+      <span class="lname">${catName(id)}</span>
+      <span class="lpct">${pct}%</span>
+      <span class="lamt">$${fmt(amt)}</span>
+      <span style="color:var(--t3);margin-left:4px;font-size:.8rem">›</span>
+    </div>`;
   }).join('');
+}
+
+// ── 分類下鑽明細 ──────────────────────────────────────
+function drillCat(catId) {
+  const txs = txData.filter(t => t.cat === catId);
+  const total = txs.reduce((s,t)=>s+t.amount,0);
+  const cat = catFind(catId);
+
+  document.getElementById('cat-drill').style.display = 'block';
+  document.querySelector('#p-cat .chart-card').style.display = 'none';
+  document.getElementById('drill-title').innerHTML =
+    `${cat.name} <span style="color:var(--p);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
+
+  // 依日期分組
+  const groups = {};
+  [...txs].sort((a,b)=>new Date(b.at)-new Date(a.at)).forEach(t=>{
+    const d = fmtD(t.at); if(!groups[d]) groups[d]=[];
+    groups[d].push(t);
+  });
+
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
+  document.getElementById('drill-list').innerHTML = Object.entries(groups).map(([day,list])=>{
+    const dayTotal = list.reduce((s,t)=>s+t.amount,0);
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--t3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+        <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
+      </div>
+      ${list.map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(42,53,80,.3)">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
+            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${t.subCat||''} ${t.person} ${fmtT(t.at)}</div>
+          </div>
+          <div style="font-size:.92rem;font-weight:900;color:#ff6b82;flex-shrink:0">-$${fmt(t.amount)}</div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function drillCard(cardId) {
+  // 切換到分類頁籤，再用信用卡篩選顯示
+  // 直接彈出一個 overlay 列出所有刷卡記錄
+  const card = cardFind(cardId)||{name:'信用卡',last4:'????'};
+  const txs = txData.filter(t=>t.pay==='card'&&t.cardId===cardId);
+  const total = txs.reduce((s,t)=>s+t.amount,0);
+
+  // 複用 cat-drill 區塊，切換到分類頁
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p-cat').classList.add('on');
+  // 找分類頁籤按鈕並標記 on
+  document.querySelectorAll('.tab-btn').forEach(b=>{if(b.textContent.includes('分類'))b.classList.add('on');});
+
+  document.querySelector('#p-cat .chart-card').style.display='none';
+  document.getElementById('cat-drill').style.display='block';
+  document.getElementById('drill-title').innerHTML=
+    `💳 ${card.name}···${card.last4} <span style="color:var(--blue);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
+
+  const sorted=[...txs].sort((a,b)=>new Date(b.at)-new Date(a.at));
+  const groups={};
+  sorted.forEach(t=>{const d=fmtD(t.at);if(!groups[d])groups[d]=[];groups[d].push(t);});
+
+  document.getElementById('drill-list').innerHTML=Object.entries(groups).map(([day,list])=>{
+    const dayTotal=list.reduce((s,t)=>s+t.amount,0);
+    return `<div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--t3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+        <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
+      </div>
+      ${list.map(t=>`
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(42,53,80,.3)">
+          <div style="width:36px;height:36px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0">${catFind(t.cat).name.slice(0,2)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
+            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${catName(t.cat)} ${t.person} ${fmtT(t.at)}</div>
+          </div>
+          <div style="font-size:.92rem;font-weight:900;color:var(--blue);flex-shrink:0">-$${fmt(t.amount)}</div>
+        </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+function closeDrill() {
+  document.getElementById('cat-drill').style.display = 'none';
+  document.querySelector('#p-cat .chart-card').style.display = 'block';
 }
 
 function renderBar(){
