@@ -184,15 +184,17 @@ function refreshDtDisp(){
   const raw = document.getElementById('tx-dt-raw');
   const txt = document.getElementById('tx-dt-txt');
   if(!raw||!txt) return;
-  const v = raw.value;
+  const v = raw.value; // 格式: "YYYY-MM-DDTHH:MM"
   if(!v){ txt.textContent='--'; return; }
-  const d = new Date(v);
-  const yy = d.getFullYear();
-  const mo = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  const hh = String(d.getHours()).padStart(2,'0');
-  const mm = String(d.getMinutes()).padStart(2,'0');
-  txt.textContent = `${yy}/${mo}/${dd} ${hh}:${mm}`;
+  // iOS Safari 手動解析，不依賴 new Date()
+  try {
+    const [datePart, timePart='00:00'] = v.split('T');
+    const [yy, mo, dd] = datePart.split('-');
+    const [hh, mm] = timePart.split(':');
+    txt.textContent = `${yy}/${mo}/${dd} ${hh}:${mm}`;
+  } catch(e) {
+    txt.textContent = v; // fallback 直接顯示原值
+  }
 }
 
 function getGeminiKey() {
@@ -372,25 +374,26 @@ async function submitAI() {
       // 短暫後恢復可輸入
       setTimeout(()=>detailEl.removeAttribute('readonly'), 300);
     }
-    // 填日期（iOS Safari 需要 YYYY-MM-DDTHH:MM:SS 格式）
+    // 填日期（iOS Safari 相容版本）
     if (r.date) {
-      // 統一轉成 YYYY-MM-DD 格式再加時間，相容 iOS Safari
-      const dateStr = r.date.replace(/\//g,'-').replace(/\./g,'-').trim();
-      // 確保格式是 YYYY-MM-DD（iOS 不接受 YYYY-M-D）
-      const parts = dateStr.split('-');
-      if (parts.length === 3) {
-        const yyyy = parts[0].padStart(4,'0');
-        const mm   = parts[1].padStart(2,'0');
-        const dd   = parts[2].padStart(2,'0');
-        const now  = new Date();
-        const hh   = String(now.getHours()).padStart(2,'0');
-        const min  = String(now.getMinutes()).padStart(2,'0');
-        const isoStr = `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
-        const d = new Date(isoStr);
-        if (!isNaN(d)) {
-          document.getElementById('tx-dt-raw').value = isoStr.slice(0,16);
+      try {
+        // 統一轉成 YYYY-MM-DD，支援 / . - 各種分隔符
+        const dateStr = String(r.date).replace(/[\/\.]/g,'-').trim();
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const yyyy = parts[0].padStart(4,'0');
+          const mm   = parts[1].padStart(2,'0');
+          const dd   = parts[2].padStart(2,'0');
+          const now  = new Date();
+          const hh   = String(now.getHours()).padStart(2,'0');
+          const min  = String(now.getMinutes()).padStart(2,'0');
+          // iOS Safari 需要完整 YYYY-MM-DDTHH:MM 格式
+          document.getElementById('tx-dt-raw').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
           refreshDtDisp();
         }
+      } catch(dateErr) {
+        console.warn('[Date] 日期解析失敗:', r.date, dateErr);
+        // 日期解析失敗就用今天，不影響其他欄位
       }
     }
     // 填付款方式
@@ -449,10 +452,14 @@ let astr='', selCat='', selCard='', selIcard='', pay='cash', person='宏龍';
 
 function init() {
   applyTheme();
-  // 設定時間
+  // 設定時間（iOS Safari 相容寫法）
   const now = new Date();
-  document.getElementById('tx-dt-raw').value =
-    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const yyyy = now.getFullYear();
+  const mo   = String(now.getMonth()+1).padStart(2,'0');
+  const dd   = String(now.getDate()).padStart(2,'0');
+  const hh   = String(now.getHours()).padStart(2,'0');
+  const min  = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('tx-dt-raw').value = `${yyyy}-${mo}-${dd}T${hh}:${min}`;
   refreshDtDisp();
   // 依登入者預設記帳人
   person = currentUser();
@@ -624,8 +631,10 @@ function resetForm() {
   document.getElementById('edit-hint').style.display = 'none';
   document.getElementById('amt-card').style.cursor = 'default';
   const now = new Date();
-  document.getElementById('tx-dt-raw').value =
-    new Date(now.getTime()-now.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  const _y=now.getFullYear(),_m=String(now.getMonth()+1).padStart(2,'0'),
+        _d=String(now.getDate()).padStart(2,'0'),
+        _h=String(now.getHours()).padStart(2,'0'),_i=String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('tx-dt-raw').value = `${_y}-${_m}-${_d}T${_h}:${_i}`;
   refreshDtDisp();
   setStep(0);
   buildCatChips(); buildIcardChips();
