@@ -389,7 +389,16 @@ function calcNetWorth() {
 // ── 格式化 ────────────────────────────────────────────
 function fmt(n)  { return Number(n||0).toLocaleString('zh-TW'); }
 function fmtT(s) { const d=new Date(s); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
-function fmtD(s) { const d=new Date(s); return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`; }
+function fmtD(s) {
+  try {
+    // ISO string: "2026-04-22T16:42:00.000Z" 或 "2026-04-22T16:42:00"
+    const str = String(s);
+    // 取日期部分（T 之前）
+    const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
+    const [yyyy, mo, dd] = datePart.split('-');
+    return `${yyyy}/${parseInt(mo)}/${parseInt(dd)}`;
+  } catch(e) { return s; }
+}
 function groupDay(list) {
   const g={};
   [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).forEach(t=>{
