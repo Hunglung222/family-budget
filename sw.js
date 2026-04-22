@@ -1,4 +1,4 @@
-const V = 'fb-v32';
+const V = 'fb-v33';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
@@ -17,9 +17,13 @@ self.addEventListener('activate', e => {
   );
 });
 self.addEventListener('fetch', e => {
-  if (e.request.destination === 'document') {
+  const url = e.request.url;
+  // HTML 和 JS 檔案走網路優先（確保更新即時生效）
+  if (e.request.destination === 'document' ||
+      url.endsWith('.js') || url.includes('/js/')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
+  // CSS、圖片等靜態資源走快取優先
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });

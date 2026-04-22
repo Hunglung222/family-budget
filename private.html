@@ -30,10 +30,6 @@
       </select>
       <input type="date" id="p-date" class="fc" style="flex:1.2">
     </div>
-    <button id="voice-btn" onclick="startVoiceInput()"
-      style="width:100%;padding:11px;background:var(--card2);border:1.5px solid var(--border);color:var(--t2);border-radius:var(--rs);font-weight:700;font-size:.92rem;cursor:pointer;font-family:inherit;margin-bottom:8px;display:flex;align-items:center;justify-content:center;gap:6px">
-      🎤 語音記帳
-    </button>
     <button onclick="addPrivRecord()"
       style="width:100%;padding:13px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;border-radius:var(--rs);font-weight:900;font-size:1rem;cursor:pointer;font-family:inherit">
       🔒 記錄私密消費
@@ -46,7 +42,7 @@
 </div>
 
 <!-- 編輯 modal -->
-<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeEditModal()">
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeEditModal()">
   <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;padding-bottom:calc(20px + var(--nav))">
     <div style="font-weight:700;font-size:1rem;margin-bottom:14px">✏️ 編輯私密記帳</div>
     <input type="number" class="fc" id="e-amt" placeholder="金額" style="margin-bottom:8px">
@@ -67,111 +63,10 @@
   <a class="ni on" href="./private.html"><span class="ic">🔒</span><span>私密</span></a>
 </nav>
 
-<div class="toast" id="toast"></div>
-
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length)firebase.initializeApp(CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
-    else{
-      localStorage.setItem('current_user', user.email==='kevin67222@gmail.com'?'宏龍':'盈慧');
-      localStorage.setItem('current_email', user.email);
-      localStorage.setItem('current_uid', user.uid);
-    }
-  });
-})();
-</script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script>
-let _tt;
-function toast(msg, type='') {
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.className = 'toast show'+(type?' '+type:'');
-  clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2400);
-}
-
-// ── AI 語音辨識 ──────────────────────────────────────
-let voiceRec = null;
-function startVoiceInput() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast('此裝置不支援語音，請直接輸入','warn'); return; }
-  if (voiceRec) { try { voiceRec.stop(); } catch {} return; }
-  const rec = new SR();
-  rec.lang = 'zh-TW'; rec.interimResults = false; rec.continuous = false;
-  const btn = document.getElementById('voice-btn');
-  rec.onstart = () => {
-    voiceRec = rec;
-    btn.innerHTML = '🔴 <span style="font-size:.8rem">錄音中…</span>';
-    btn.style.borderColor = '#f43f5e';
-    toast('聆聽中…說完自動辨識', 'info');
-  };
-  rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    submitVoiceAI(text);
-  };
-  rec.onerror = (e) => {
-    if (e.error !== 'aborted') toast('語音辨識失敗，請再試', 'err');
-  };
-  rec.onend = () => {
-    voiceRec = null;
-    btn.innerHTML = '🎤 語音記帳';
-    btn.style.borderColor = 'var(--border)';
-  };
-  try { rec.start(); } catch(e) { toast('請允許麥克風權限','warn'); }
-}
-
-async function submitVoiceAI(text) {
-  if (!text) return;
-  const btn = document.getElementById('voice-btn');
-  btn.innerHTML = '⏳ AI 解析中…'; btn.disabled = true;
-  try {
-    const key = localStorage.getItem('claude_api_key')||'';
-    if (!key) { toast('請先在設定頁填入 Claude API Key','err'); return; }
-    const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
-    const today = new Date();
-    const todayStr = fmtD(today.toISOString());
-    const yestStr  = fmtD(new Date(today.getTime()-864e5).toISOString());
-    const prompt = `你是記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
-今天:${todayStr} 昨天:${yestStr}
-可用分類(id:名稱): ${cats}
-文字:「${text}」
-回傳純JSON:{"amount":數字,"cat":"分類id","detail":"說明","date":"YYYY-MM-DD","pay":"cash或card"}`;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({model:'claude-haiku-4-5',max_tokens:512,messages:[{role:'user',content:prompt}]})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    let clean = (data.content?.[0]?.text||'').trim();
-    if (clean.includes('```json')) clean = clean.split('```json')[1].split('```')[0];
-    else if (clean.includes('```')) clean = clean.split('```')[1].split('```')[0];
-    const r = JSON.parse(clean.trim());
-    // 填入欄位
-    if (r.amount > 0) document.getElementById('p-amt').value = r.amount;
-    if (r.cat) document.getElementById('p-cat').value = r.cat;
-    if (r.detail) document.getElementById('p-detail').value = r.detail;
-    if (r.pay) document.getElementById('p-pay').value = r.pay==='card'?'card':'cash';
-    if (r.date) {
-      const parts = r.date.replace(/[\/\.]/g,'-').split('-');
-      if (parts.length===3) document.getElementById('p-date').value = `${parts[0].padStart(4,'0')}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
-    }
-    toast('✅ AI 解析完成，請確認後按記錄', 'info');
-  } catch(e) {
-    toast('AI 解析失敗：'+e.message, 'err');
-  } finally {
-    btn.innerHTML = '🎤 語音記帳'; btn.disabled = false;
-  }
-}
-
-// ── 權限檢查 & 初始化 ───────────────────────────────
+// 權限檢查
 window.addEventListener('DOMContentLoaded', async ()=>{
   const email = localStorage.getItem('current_email')||'';
   if(email !== 'kevin67222@gmail.com'){
