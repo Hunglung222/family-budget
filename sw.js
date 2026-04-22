@@ -1,4 +1,4 @@
-const V = 'fb-v28';
+const V = 'fb-v29';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
