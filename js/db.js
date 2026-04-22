@@ -280,11 +280,17 @@ const KEVIN_EMAIL = 'kevin67222@gmail.com';
 function isKevin() { return (localStorage.getItem('current_email')||'')===KEVIN_EMAIL; }
 function pPrivKey(k) { return 'priv_'+uid()+'_'+k; }
 
-function getPrivTx()   { return DB.get(pPrivKey('tx')) || []; }
+function getPrivTx() {
+  const raw = DB.get(pPrivKey('tx')) || [];
+  const map = new Map(); raw.forEach(t=>{ if(!map.has(t.id)) map.set(t.id,t); });
+  return [...map.values()];
+}
 function addPrivTx(tx) {
   const list = getPrivTx();
   tx.id = 'priv_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
   tx.private = true;
+  // 防止重複寫入
+  if (list.find(t=>t.id===tx.id)) return tx;
   list.unshift(tx);
   DB.set(pPrivKey('tx'), list);
   return tx;
@@ -295,12 +301,32 @@ function editPrivTx(id, updates) {
   DB.set(pPrivKey('tx'), list);
 }
 
-// ── 備忘錄（只有 kevin 看得到）──────────────────────
-function getMemos()   { return DB.get(pPrivKey('memos')) || []; }
-function addMemo(m)   {
+// ── 一次性去重修復（在設定頁或 console 手動呼叫）──
+function fixDuplicates() {
+  const txRaw = DB.get(pPrivKey('tx')) || [];
+  const txMap = new Map(); txRaw.forEach(t=>{ if(!txMap.has(t.id)) txMap.set(t.id,t); });
+  DB.set(pPrivKey('tx'), [...txMap.values()]);
+
+  const memoRaw = DB.get(pPrivKey('memos')) || [];
+  const memoMap = new Map(); memoRaw.forEach(m=>{ if(!memoMap.has(m.id)) memoMap.set(m.id,m); });
+  DB.set(pPrivKey('memos'), [...memoMap.values()]);
+
+  console.log(`[fixDuplicates] 私密記帳: ${txRaw.length}→${txMap.size}, 備忘錄: ${memoRaw.length}→${memoMap.size}`);
+  return { txBefore: txRaw.length, txAfter: txMap.size, memoBefore: memoRaw.length, memoAfter: memoMap.size };
+}
+
+
+function getMemos() {
+  const raw = DB.get(pPrivKey('memos')) || [];
+  const map = new Map(); raw.forEach(m=>{ if(!map.has(m.id)) map.set(m.id,m); });
+  return [...map.values()];
+}
+function addMemo(m) {
   const list = getMemos();
-  m.id   = 'memo_'+Date.now().toString(36);
-  m.at   = new Date().toISOString();
+  m.id  = 'memo_'+Date.now().toString(36);
+  m.at  = new Date().toISOString();
+  // 防止重複寫入
+  if (list.find(x=>x.id===m.id)) return m;
   list.unshift(m);
   DB.set(pPrivKey('memos'), list);
   return m;
