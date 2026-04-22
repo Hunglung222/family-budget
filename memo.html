@@ -13,7 +13,6 @@
 </header>
 
 <div class="w" style="padding-bottom:calc(var(--nav) + 20px)">
-  <!-- 新增備忘錄 -->
   <div class="data-card" style="padding:14px 16px;margin-bottom:12px">
     <div class="sec-t" style="margin:0 0 10px">✏️ 新增備忘</div>
     <input type="text" class="fc" id="m-title" placeholder="標題（可略）" style="margin-bottom:8px" maxlength="30">
@@ -35,12 +34,9 @@
     </button>
   </div>
 
-  <!-- 搜尋 -->
   <div style="position:relative;margin-bottom:10px">
     <input type="text" class="fc" id="m-search" placeholder="🔍 搜尋備忘錄..." oninput="renderMemoList()" style="padding-left:14px">
   </div>
-
-  <!-- 備忘錄列表 -->
   <div id="memo-list"></div>
 </div>
 
@@ -65,7 +61,6 @@
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni on" href="./memo.html"><span class="ic">📝</span><span>備忘</span></a>
 </nav>
-
 <div class="toast" id="toast"></div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -96,6 +91,8 @@ function toast(msg, type='') {
   clearTimeout(_tt); _tt = setTimeout(()=>el.classList.remove('show'), 2400);
 }
 
+const TAG_COLOR = { '財務':'var(--p)','待辦':'var(--ok)','購物清單':'var(--warn)','重要':'#f43f5e','其他':'var(--t3)' };
+
 window.addEventListener('DOMContentLoaded', async ()=>{
   const email = localStorage.getItem('current_email')||'';
   if(email !== 'kevin67222@gmail.com'){
@@ -108,8 +105,6 @@ window.addEventListener('DOMContentLoaded', async ()=>{
   renderMemoList();
 });
 
-const TAG_COLOR = { '財務':'var(--p)','待辦':'var(--ok)','購物清單':'var(--warn)','重要':'#f43f5e','其他':'var(--t3)' };
-
 function addMemoRecord(){
   const title   = document.getElementById('m-title').value.trim();
   const content = document.getElementById('m-content').value.trim();
@@ -121,14 +116,16 @@ function addMemoRecord(){
   document.getElementById('m-content').value='';
   document.getElementById('m-tag').value='';
   renderMemoList();
-  toast('📝 備忘已儲存並備份');
+  toast('📝 備忘已儲存');
 }
 
 function renderMemoList(){
-  const kw   = (document.getElementById('m-search').value||'').toLowerCase();
-  let list   = getMemos();
+  const kw  = (document.getElementById('m-search').value||'').toLowerCase();
+  // 去重：以 id 為準
+  const seen = new Set();
+  let list = getMemos().filter(m=>{ if(seen.has(m.id)) return false; seen.add(m.id); return true; });
   if(kw) list = list.filter(m=>(m.title+m.content+m.tag).toLowerCase().includes(kw));
-  const el   = document.getElementById('memo-list');
+  const el = document.getElementById('memo-list');
   if(!list.length){
     el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--t3)"><div style="font-size:2.5rem;margin-bottom:12px">📝</div><div>'+(kw?'找不到符合的備忘':'尚無備忘錄')+'</div></div>';
     return;
@@ -173,7 +170,7 @@ function saveMemoEdit(){
   if(!content){ toast('請輸入內容','warn'); return; }
   editMemo(id,{title,content});
   fbEditMemo(id,{title,content});
-  closeMemoModal(); renderMemoList(); toast('✅ 已更新並備份');
+  closeMemoModal(); renderMemoList(); toast('✅ 已更新');
 }
 </script>
 </body>
