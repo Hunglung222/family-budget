@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>備忘錄</title>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<header class="hdr">
+  <div><h1>📝 備忘錄</h1><div class="hdr-sub">個人筆記</div></div>
+  <a href="./settings.html" class="hdr-btn">⚙️</a>
+</header>
+
+<div class="w">
+  <!-- 新增備忘錄 -->
+  <div class="data-card" style="padding:14px 16px;margin-bottom:12px">
+    <div class="sec-t" style="margin:0 0 10px">✏️ 新增備忘</div>
+    <input type="text" class="fc" id="m-title" placeholder="標題（可略）" style="margin-bottom:8px" maxlength="30">
+    <textarea class="fc" id="m-content" placeholder="內容..." rows="4"
+      style="resize:vertical;font-family:inherit;line-height:1.6;margin-bottom:8px"></textarea>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select class="fc" id="m-tag" style="flex:1">
+        <option value="">📌 無標籤</option>
+        <option value="財務">💰 財務</option>
+        <option value="待辦">✅ 待辦</option>
+        <option value="購物清單">🛒 購物清單</option>
+        <option value="重要">⭐ 重要</option>
+        <option value="其他">📦 其他</option>
+      </select>
+    </div>
+    <button onclick="addMemoRecord()"
+      style="width:100%;padding:13px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;font-size:1rem;cursor:pointer;font-family:inherit">
+      📝 儲存備忘
+    </button>
+  </div>
+
+  <!-- 搜尋 -->
+  <div style="position:relative;margin-bottom:10px">
+    <input type="text" class="fc" id="m-search" placeholder="🔍 搜尋備忘錄..." oninput="renderMemoList()" style="padding-left:14px">
+  </div>
+
+  <!-- 備忘錄列表 -->
+  <div id="memo-list"></div>
+</div>
+
+<!-- 編輯 modal -->
+<div id="memo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeMemoModal()">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:14px">✏️ 編輯備忘</div>
+    <input type="text" class="fc" id="em-title" placeholder="標題" style="margin-bottom:8px" maxlength="30">
+    <textarea class="fc" id="em-content" rows="5" style="resize:vertical;font-family:inherit;line-height:1.6;margin-bottom:8px"></textarea>
+    <input type="hidden" id="em-id">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeMemoModal()" style="flex:1;padding:12px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">取消</button>
+      <button onclick="saveMemoEdit()" style="flex:1;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni on" href="./memo.html"><span class="ic">📝</span><span>備忘</span></a>
+</nav>
+
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', ()=>{
+  const email = localStorage.getItem('current_email')||'';
+  if(email !== 'kevin67222@gmail.com'){
+    document.querySelector('.w').innerHTML =
+      '<div style="text-align:center;padding:60px 20px;color:var(--t3)"><div style="font-size:3rem;margin-bottom:16px">🔒</div><div style="font-size:1.1rem">此功能僅限宏龍使用</div></div>';
+    return;
+  }
+  applyTheme();
+  renderMemoList();
+});
+
+const TAG_COLOR = { '財務':'var(--p)','待辦':'var(--ok)','購物清單':'var(--warn)','重要':'#f43f5e','其他':'var(--t3)' };
+
+function addMemoRecord(){
+  const title   = document.getElementById('m-title').value.trim();
+  const content = document.getElementById('m-content').value.trim();
+  const tag     = document.getElementById('m-tag').value;
+  if(!content){ toast('請輸入內容','warn'); return; }
+  addMemo({title, content, tag});
+  document.getElementById('m-title').value='';
+  document.getElementById('m-content').value='';
+  document.getElementById('m-tag').value='';
+  renderMemoList();
+  toast('📝 備忘已儲存');
+}
+
+function renderMemoList(){
+  const kw   = (document.getElementById('m-search').value||'').toLowerCase();
+  let list   = getMemos();
+  if(kw) list = list.filter(m=>(m.title+m.content+m.tag).toLowerCase().includes(kw));
+  const el   = document.getElementById('memo-list');
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--t3)"><div style="font-size:2.5rem;margin-bottom:12px">📝</div><div>'+(kw?'找不到符合的備忘':'尚無備忘錄')+'</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(m=>`
+    <div class="data-card" style="padding:14px 16px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          ${m.title?`<div style="font-weight:700;font-size:.92rem;margin-bottom:3px">${m.title}</div>`:''}
+          ${m.tag?`<span style="font-size:.7rem;padding:2px 8px;border-radius:20px;background:rgba(0,229,180,.15);color:${TAG_COLOR[m.tag]||'var(--t3)'};margin-bottom:6px;display:inline-block">${m.tag}</span>`:''}
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="openMemoEdit('${m.id}')"
+            style="padding:5px 8px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">✏️</button>
+          <button onclick="delMemoRecord('${m.id}')"
+            style="padding:5px 8px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--danger);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">🗑</button>
+        </div>
+      </div>
+      <div style="font-size:.85rem;color:var(--t2);line-height:1.7;white-space:pre-wrap">${m.content}</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:8px">${fmtD(m.at)} ${fmtT(m.at)}${m.updatedAt?' · 已更新':''}</div>
+    </div>`).join('');
+}
+
+function delMemoRecord(id){
+  if(!confirm('確定刪除此備忘？')) return;
+  delMemo(id); renderMemoList(); toast('已刪除');
+}
+
+function openMemoEdit(id){
+  const m = getMemos().find(x=>x.id===id);
+  if(!m) return;
+  document.getElementById('em-id').value=id;
+  document.getElementById('em-title').value=m.title||'';
+  document.getElementById('em-content').value=m.content||'';
+  document.getElementById('memo-modal').style.display='flex';
+}
+function closeMemoModal(){ document.getElementById('memo-modal').style.display='none'; }
+function saveMemoEdit(){
+  const id      = document.getElementById('em-id').value;
+  const title   = document.getElementById('em-title').value.trim();
+  const content = document.getElementById('em-content').value.trim();
+  if(!content){ toast('請輸入內容','warn'); return; }
+  editMemo(id,{title,content});
+  closeMemoModal(); renderMemoList(); toast('✅ 已更新');
+}
+</script>
+</body>
+</html>

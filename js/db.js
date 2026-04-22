@@ -247,6 +247,68 @@ function acctOut(id, amount, note, shared=false) {
 // ── 分類（共用） ─────────────────────────────────────
 function getCats()   { return DB.get('cats') || DEF_CATS; }
 function catFind(id) { return getCats().find(c=>c.id===id) || {name:id,color:'#94a3b8',sub:[]}; }
+
+// ── 子分類維護 ────────────────────────────────────────
+function getSubCats(catId) {
+  const cat = catFind(catId);
+  return cat.sub || [];
+}
+function addSubCat(catId, subName) {
+  const cats = getCats();
+  const cat = cats.find(c=>c.id===catId);
+  if (!cat) return;
+  if (!cat.sub) cat.sub = [];
+  if (!cat.sub.includes(subName)) { cat.sub.push(subName); DB.set('cats', cats); }
+}
+function renameSubCat(catId, oldName, newName) {
+  const cats = getCats();
+  const cat = cats.find(c=>c.id===catId);
+  if (!cat||!cat.sub) return;
+  const idx = cat.sub.indexOf(oldName);
+  if (idx>=0) { cat.sub[idx]=newName; DB.set('cats', cats); }
+}
+function delSubCat(catId, subName) {
+  const cats = getCats();
+  const cat = cats.find(c=>c.id===catId);
+  if (!cat||!cat.sub) return;
+  cat.sub = cat.sub.filter(s=>s!==subName);
+  DB.set('cats', cats);
+}
+
+// ── 私密記帳（只有 kevin 看得到）────────────────────
+const KEVIN_EMAIL = 'kevin67222@gmail.com';
+function isKevin() { return (localStorage.getItem('current_email')||'')===KEVIN_EMAIL; }
+function pPrivKey(k) { return 'priv_'+uid()+'_'+k; }
+
+function getPrivTx()   { return DB.get(pPrivKey('tx')) || []; }
+function addPrivTx(tx) {
+  const list = getPrivTx();
+  tx.id = 'priv_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
+  tx.private = true;
+  list.unshift(tx);
+  DB.set(pPrivKey('tx'), list);
+  return tx;
+}
+function delPrivTx(id) { DB.set(pPrivKey('tx'), getPrivTx().filter(t=>t.id!==id)); }
+function editPrivTx(id, updates) {
+  const list = getPrivTx().map(t=>t.id===id?{...t,...updates}:t);
+  DB.set(pPrivKey('tx'), list);
+}
+
+// ── 備忘錄（只有 kevin 看得到）──────────────────────
+function getMemos()   { return DB.get(pPrivKey('memos')) || []; }
+function addMemo(m)   {
+  const list = getMemos();
+  m.id   = 'memo_'+Date.now().toString(36);
+  m.at   = new Date().toISOString();
+  list.unshift(m);
+  DB.set(pPrivKey('memos'), list);
+  return m;
+}
+function editMemo(id, updates) {
+  DB.set(pPrivKey('memos'), getMemos().map(m=>m.id===id?{...m,...updates,updatedAt:new Date().toISOString()}:m));
+}
+function delMemo(id)  { DB.set(pPrivKey('memos'), getMemos().filter(m=>m.id!==id)); }
 function catName(id) { return catFind(id).name; }
 function addCat(c)   { const l=getCats(); c.id='cat_'+Date.now().toString(36); l.push(c); DB.set('cats',l); }
 function delCat(id)  { DB.set('cats', getCats().filter(c=>c.id!==id)); }

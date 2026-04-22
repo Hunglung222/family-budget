@@ -1,7 +1,7 @@
-const V = 'fb-v25';
+const V = 'fb-v26';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
-  './wallet.html','./settings.html','./shopping.html',
+  './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
   './css/style.css','./js/db.js','./js/firebase.js',
   './icons/icon-192.png','./icons/icon-512.png',
 ];

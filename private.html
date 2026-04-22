@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>私密記帳</title>
+<link rel="stylesheet" href="./css/style.css">
+</head>
+<body>
+<header class="hdr">
+  <div><h1>🔒 私密記帳</h1><div class="hdr-sub">只有你看得到</div></div>
+  <a href="./settings.html" class="hdr-btn">⚙️</a>
+</header>
+
+<div class="w">
+  <!-- 新增私密記帳 -->
+  <div class="data-card" style="padding:14px 16px;margin-bottom:12px">
+    <div class="sec-t" style="margin:0 0 10px">➕ 新增私密記帳</div>
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <input type="number" class="fc" id="p-amt" placeholder="金額" style="flex:1">
+      <select class="fc" id="p-cat" style="flex:1.2">
+        <option value="">分類</option>
+      </select>
+    </div>
+    <input type="text" class="fc" id="p-detail" placeholder="說明（私密）" style="margin-bottom:8px" maxlength="50">
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <select class="fc" id="p-pay" style="flex:1">
+        <option value="cash">💵 現金</option>
+        <option value="card">💳 信用卡</option>
+      </select>
+      <input type="date" id="p-date" class="fc" style="flex:1.2">
+    </div>
+    <button onclick="addPrivRecord()"
+      style="width:100%;padding:13px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;border-radius:var(--rs);font-weight:900;font-size:1rem;cursor:pointer;font-family:inherit">
+      🔒 記錄私密消費
+    </button>
+  </div>
+
+  <!-- 私密記帳列表 -->
+  <div class="sec-t">📋 私密記帳記錄</div>
+  <div id="priv-list"></div>
+</div>
+
+<!-- 編輯 modal -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeEditModal()">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px">
+    <div style="font-weight:700;font-size:1rem;margin-bottom:14px">✏️ 編輯私密記帳</div>
+    <input type="number" class="fc" id="e-amt" placeholder="金額" style="margin-bottom:8px">
+    <input type="text" class="fc" id="e-detail" placeholder="說明" style="margin-bottom:8px" maxlength="50">
+    <input type="hidden" id="e-id">
+    <div style="display:flex;gap:8px">
+      <button onclick="closeEditModal()" style="flex:1;padding:12px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">取消</button>
+      <button onclick="saveEdit()" style="flex:1;padding:12px;background:linear-gradient(135deg,#8b5cf6,#6d28d9);color:#fff;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni on" href="./private.html"><span class="ic">🔒</span><span>私密</span></a>
+</nav>
+
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script>
+// 權限檢查
+window.addEventListener('DOMContentLoaded', async ()=>{
+  const email = localStorage.getItem('current_email')||'';
+  if(email !== 'kevin67222@gmail.com'){
+    document.querySelector('.w').innerHTML =
+      '<div style="text-align:center;padding:60px 20px;color:var(--t3)"><div style="font-size:3rem;margin-bottom:16px">🔒</div><div style="font-size:1.1rem">此功能僅限宏龍使用</div></div>';
+    return;
+  }
+  applyTheme();
+  initPrivatePage();
+});
+
+function initPrivatePage(){
+  // 填分類選項
+  const sel = document.getElementById('p-cat');
+  getCats().forEach(c=>{ const o=document.createElement('option'); o.value=c.id; o.textContent=c.name; sel.appendChild(o); });
+  // 填今天日期
+  const today = new Date();
+  document.getElementById('p-date').value =
+    new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+  renderPrivList();
+}
+
+function addPrivRecord(){
+  const amt    = parseInt(document.getElementById('p-amt').value)||0;
+  const cat    = document.getElementById('p-cat').value;
+  const detail = document.getElementById('p-detail').value.trim();
+  const pay    = document.getElementById('p-pay').value;
+  const date   = document.getElementById('p-date').value;
+  if(!amt)  { toast('請輸入金額','warn'); return; }
+  if(!cat)  { toast('請選擇分類','warn'); return; }
+  const [yyyy,mm,dd] = date.split('-').map(Number);
+  const tx = { amount:amt, cat, detail, pay, cardId:null, icardId:null,
+    at: new Date(yyyy,mm-1,dd,12,0,0).toISOString(), person:'宏龍', private:true };
+  addPrivTx(tx);
+  document.getElementById('p-amt').value='';
+  document.getElementById('p-detail').value='';
+  renderPrivList();
+  toast('🔒 私密記帳已記錄');
+}
+
+function renderPrivList(){
+  const list = getPrivTx();
+  const el   = document.getElementById('priv-list');
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:40px 20px;color:var(--t3)"><div style="font-size:2.5rem;margin-bottom:12px">🔒</div><div>尚無私密記帳</div></div>';
+    return;
+  }
+  const total = list.reduce((s,t)=>s+t.amount,0);
+  el.innerHTML = `<div style="text-align:right;font-size:.8rem;color:var(--t3);margin-bottom:8px">共 ${list.length} 筆，合計 <span style="color:var(--danger);font-weight:700">-$${fmt(total)}</span></div>` +
+    list.map(t=>`
+    <div class="data-card" style="padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;background:rgba(139,92,246,.2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0">${catFind(t.cat).name.split(' ')[0]||'📦'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.88rem;font-weight:600">${t.detail||catName(t.cat)}</div>
+        <div style="font-size:.72rem;color:var(--t3)">${fmtD(t.at)} · ${catName(t.cat)} · ${t.pay==='card'?'💳':'💵'}</div>
+      </div>
+      <div style="font-weight:900;color:var(--danger);flex-shrink:0">-$${fmt(t.amount)}</div>
+      <div style="display:flex;gap:4px;flex-shrink:0">
+        <button onclick="openEdit('${t.id}',${t.amount},'${(t.detail||'').replace(/'/g,"\\\'")}')"
+          style="padding:5px 8px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">✏️</button>
+        <button onclick="delPrivRecord('${t.id}')"
+          style="padding:5px 8px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--danger);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">🗑</button>
+      </div>
+    </div>`).join('');
+}
+
+function delPrivRecord(id){
+  if(!confirm('確定刪除此私密記帳？')) return;
+  delPrivTx(id); renderPrivList(); toast('已刪除');
+}
+
+function openEdit(id, amt, detail){
+  document.getElementById('e-id').value=id;
+  document.getElementById('e-amt').value=amt;
+  document.getElementById('e-detail').value=detail;
+  document.getElementById('edit-modal').style.display='flex';
+}
+function closeEditModal(){ document.getElementById('edit-modal').style.display='none'; }
+function saveEdit(){
+  const id     = document.getElementById('e-id').value;
+  const amt    = parseInt(document.getElementById('e-amt').value)||0;
+  const detail = document.getElementById('e-detail').value.trim();
+  if(!amt){ toast('請輸入金額','warn'); return; }
+  editPrivTx(id,{amount:amt,detail});
+  closeEditModal(); renderPrivList(); toast('✅ 已更新');
+}
+</script>
+</body>
+</html>

@@ -17,7 +17,11 @@
     <h1>🏡 家庭記帳</h1>
     <div class="hdr-sub" id="hdr-date"></div>
   </div>
-  <a href="./settings.html" class="hdr-btn">⚙️</a>
+  <div style="display:flex;gap:8px">
+    <a href="./private.html" id="priv-btn" style="display:none" class="hdr-btn" title="私密記帳">🔒</a>
+    <a href="./memo.html" id="memo-btn" style="display:none" class="hdr-btn" title="備忘錄">📝</a>
+    <a href="./settings.html" class="hdr-btn">⚙️</a>
+  </div>
 </header>
 
 <div class="w">
@@ -274,6 +278,10 @@ let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
 applyTheme();
+// 宏龍專屬功能顯示
+if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
+  ['priv-btn','memo-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='flex';});
+}
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
 fbPullAll().then(()=>render());

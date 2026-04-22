@@ -165,6 +165,22 @@
     </div>
   </div>
 
+  <!-- 子分類維護 -->
+  <div class="sec-t">🏷️ 子分類維護</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px">選擇分類後可新增、修改、刪除子分類</div>
+    <div class="fg" style="margin-bottom:10px">
+      <select class="fc" id="sub-cat-sel" onchange="renderSubList()" style="font-size:.88rem">
+        <option value="">── 選擇主分類 ──</option>
+      </select>
+    </div>
+    <div id="sub-list" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" class="fc" id="sub-inp" placeholder="輸入新子分類名稱" style="flex:1;font-size:.85rem">
+      <button onclick="doAddSub()" style="padding:10px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">新增</button>
+    </div>
+  </div>
+
   <!-- Discord 通知設定 -->
   <div class="sec-t">📣 Discord 通知設定</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
@@ -341,7 +357,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.22 01:20';
+const APP_VERSION = 'v2026.04.22 02:50';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -514,6 +530,60 @@ async function testDiscordBtn(){
       body:JSON.stringify({content:`🧪 **家庭記帳測試通知**\n${new Date().toLocaleString('zh-TW')}\n✅ Discord 通知設定成功！`})});
     toast('測試通知已發送！請查看 Discord');
   }catch(e){toast('發送失敗，請確認 URL','err');}
+}
+
+// ── 子分類維護 ────────────────────────────────────────
+function renderSubCatSel(){
+  const sel = document.getElementById('sub-cat-sel');
+  if(!sel) return;
+  const cats = getCats();
+  sel.innerHTML = '<option value="">── 選擇主分類 ──</option>' +
+    cats.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function renderSubList(){
+  const catId = document.getElementById('sub-cat-sel').value;
+  const el = document.getElementById('sub-list');
+  if(!catId){ el.innerHTML=''; return; }
+  const subs = getSubCats(catId);
+  if(!subs.length){ el.innerHTML='<div style="color:var(--t3);font-size:.8rem;padding:6px 0">尚無子分類</div>'; return; }
+  el.innerHTML = subs.map(s=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="flex:1;font-size:.88rem">${s}</span>
+      <button onclick="doRenameSub('${catId}','${s}')"
+        style="padding:5px 10px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">修改</button>
+      <button onclick="doDelSub('${catId}','${s}')"
+        style="padding:5px 10px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--danger);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">刪除</button>
+    </div>`).join('');
+}
+
+function doAddSub(){
+  const catId = document.getElementById('sub-cat-sel').value;
+  const name  = document.getElementById('sub-inp').value.trim();
+  if(!catId){ toast('請先選擇主分類','warn'); return; }
+  if(!name) { toast('請輸入子分類名稱','warn'); return; }
+  addSubCat(catId, name);
+  document.getElementById('sub-inp').value='';
+  renderSubList();
+  fbSyncCats();
+  toast('✅ 子分類已新增');
+}
+
+function doRenameSub(catId, oldName){
+  const newName = prompt(`修改「${oldName}」為：`, oldName);
+  if(!newName||newName===oldName) return;
+  renameSubCat(catId, oldName, newName.trim());
+  renderSubList();
+  fbSyncCats();
+  toast('✅ 子分類已修改');
+}
+
+function doDelSub(catId, subName){
+  if(!confirm(`確定刪除子分類「${subName}」？`)) return;
+  delSubCat(catId, subName);
+  renderSubList();
+  fbSyncCats();
+  toast('子分類已刪除');
 }
 
 function renderStat(){
