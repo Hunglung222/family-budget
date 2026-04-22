@@ -204,12 +204,6 @@ async function fbPullMemos() {
   } catch(e) { console.warn('[FB]pullMemos', e); }
 }
 
-// 登入後自動拉取私密資料
-async function fbPullPrivateData() {
-  if (!isKevin()) return;
-  await fbPullPrivTx();
-  await fbPullMemos();
-}
     // 共用記帳
     const ts=await db.collection('transactions').orderBy('at','desc').get();
     const tl=[];ts.forEach(d=>tl.push(d.data()));if(tl.length)DB.set('tx',tl);
@@ -228,6 +222,13 @@ async function fbPullPrivateData() {
     await fbPullPrivateData();
     return true;
   }catch(e){console.warn('[FB]pullAll',e);return false;}
+}
+
+// 登入後自動拉取私密資料
+async function fbPullPrivateData() {
+  if (!isKevin()) return;
+  await fbPullPrivTx();
+  await fbPullMemos();
 }
 
 // 相容舊版呼叫
