@@ -170,10 +170,10 @@ async function fbPullPrivTx() {
     // 與本地合併（以 Firebase 為主）
     const localList = getPrivTx();
     const localIds = new Set(localList.map(t=>t.id));
-    const merged = [...items];
-    // 保留本地有但 Firebase 沒有的（剛新增還沒同步的）
-    localList.forEach(t => { if(!merged.find(x=>x.id===t.id)) merged.push(t); });
-    merged.sort((a,b)=>new Date(b.at)-new Date(a.at));
+    // 合併並去重（以 id 為唯一鍵）
+    const mergedMap = new Map();
+    [...items, ...localList].forEach(t => { if(!mergedMap.has(t.id)) mergedMap.set(t.id, t); });
+    const merged = [...mergedMap.values()].sort((a,b)=>new Date(b.at)-new Date(a.at));
     const {DB} = window; if(typeof DB!=='undefined') DB.set(pPrivKey('tx'), merged);
     else localStorage.setItem('db_priv_'+uid()+'_tx', JSON.stringify(merged));
     console.log('[FB] 私密記帳已拉取', merged.length, '筆');
@@ -212,9 +212,10 @@ async function fbPullMemos() {
     if (snap.empty) return;
     const items = snap.docs.map(d => d.data());
     const localList = getMemos();
-    const merged = [...items];
-    localList.forEach(m => { if(!merged.find(x=>x.id===m.id)) merged.push(m); });
-    merged.sort((a,b)=>new Date(b.at)-new Date(a.at));
+    // 合併並去重（以 id 為唯一鍵）
+    const mergedMap = new Map();
+    [...items, ...localList].forEach(m => { if(!mergedMap.has(m.id)) mergedMap.set(m.id, m); });
+    const merged = [...mergedMap.values()].sort((a,b)=>new Date(b.at)-new Date(a.at));
     const {DB} = window; if(typeof DB!=='undefined') DB.set(pPrivKey('memos'), merged);
     else localStorage.setItem('db_priv_'+uid()+'_memos', JSON.stringify(merged));
     console.log('[FB] 備忘錄已拉取', merged.length, '筆');
