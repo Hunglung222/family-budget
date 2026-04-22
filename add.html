@@ -379,14 +379,25 @@ async function submitAI() {
       // 短暫後恢復可輸入
       setTimeout(()=>detailEl.removeAttribute('readonly'), 300);
     }
-    // 填日期
+    // 填日期（iOS Safari 需要 YYYY-MM-DDTHH:MM:SS 格式）
     if (r.date) {
-      const d = new Date(r.date.replace(/\//g,'-'));
-      if (!isNaN(d)) {
-        const now = new Date(); d.setHours(now.getHours(), now.getMinutes());
-        document.getElementById('tx-dt-raw').value =
-          new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);
-        refreshDtDisp();
+      // 統一轉成 YYYY-MM-DD 格式再加時間，相容 iOS Safari
+      const dateStr = r.date.replace(/\//g,'-').replace(/\./g,'-').trim();
+      // 確保格式是 YYYY-MM-DD（iOS 不接受 YYYY-M-D）
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const yyyy = parts[0].padStart(4,'0');
+        const mm   = parts[1].padStart(2,'0');
+        const dd   = parts[2].padStart(2,'0');
+        const now  = new Date();
+        const hh   = String(now.getHours()).padStart(2,'0');
+        const min  = String(now.getMinutes()).padStart(2,'0');
+        const isoStr = `${yyyy}-${mm}-${dd}T${hh}:${min}:00`;
+        const d = new Date(isoStr);
+        if (!isNaN(d)) {
+          document.getElementById('tx-dt-raw').value = isoStr.slice(0,16);
+          refreshDtDisp();
+        }
       }
     }
     // 填付款方式
@@ -583,7 +594,13 @@ function submit() {
     person, pay,
     cardId:  pay==='card'  ? selCard  : null,
     icardId: pay==='icard' ? selIcard : null,
-    at: dtv ? new Date(dtv).toISOString() : new Date().toISOString(),
+    // iOS Safari 相容：dtv 格式是 "YYYY-MM-DDTHH:MM"，需明確解析避免時區問題
+    at: dtv ? (()=>{
+      const [datePart, timePart] = dtv.split('T');
+      const [yyyy,mm,dd] = datePart.split('-').map(Number);
+      const [hh,min] = (timePart||'00:00').split(':').map(Number);
+      return new Date(yyyy, mm-1, dd, hh, min).toISOString();
+    })() : new Date().toISOString(),
   };
   addTx(tx); fbAddTx(tx);
   // Discord 通知 + 預算警示
