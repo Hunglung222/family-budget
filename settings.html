@@ -255,6 +255,9 @@
 
   <!-- 分類管理 -->
   <div class="sec-t">🏷️ 分類管理</div>
+  <div style="margin-bottom:8px">
+    <button onclick="restoreDefaultCat()" style="width:100%;padding:9px;background:var(--pdim);color:var(--p);border:1px solid var(--p);border-radius:var(--rs);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">🔄 還原缺少的預設分類</button>
+  </div>
   <div class="data-card" style="padding:14px 16px">
     <div id="cat-list"></div>
     <div style="display:flex;gap:8px;margin-top:12px">
@@ -354,10 +357,11 @@ function init(){
   renderNotifySettings();
   renderStat();
   renderCats();
+  renderSubCatSel();
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.22 17:00';
+const APP_VERSION = 'v2026.04.22 18:15';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -607,7 +611,43 @@ function renderCats(){
     </div>`).join('');
 }
 function addNewCat(){const name=document.getElementById('new-cat').value.trim();if(!name){toast('請輸入分類名稱','warn');return;}const cols=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6'];addCat({name,color:cols[Math.floor(Math.random()*cols.length)],sub:[]});document.getElementById('new-cat').value='';renderCats();toast(`已新增 ${name}`);}
-function removeCat(id){delCat(id);renderCats();renderBudgets();toast('已刪除分類','err');}
+function restoreDefaultCat(){
+  const DEF = [
+    {id:'food',      name:'🍜 餐飲',  color:'#10b981', sub:['早餐','午餐','晚餐','飲料','零食','聚餐']},
+    {id:'transport', name:'🚌 交通',  color:'#3b82f6', sub:['加油','捷運/公車','停車費','計程車','高鐵']},
+    {id:'shopping',  name:'🛍️ 購物', color:'#f59e0b', sub:['服飾','3C','日用品','網購']},
+    {id:'home',      name:'🏠 居家',  color:'#ec4899', sub:['房租','水費','電費','瓦斯','網路']},
+    {id:'medical',   name:'💊 醫療',  color:'#8b5cf6', sub:['掛號','藥費','健檢','牙科']},
+    {id:'entertain', name:'🎬 娛樂',  color:'#06b6d4', sub:['電影','遊戲','訂閱','旅遊']},
+    {id:'education', name:'📚 教育',  color:'#84cc16', sub:['學費','補習','課程']},
+    {id:'child',     name:'👶 育兒',  color:'#f97316', sub:['奶粉','玩具','衣物','托育']},
+    {id:'other',     name:'📦 其他',  color:'#94a3b8', sub:['禮金','捐款','雜費']},
+  ];
+  const cats = getCats();
+  const existIds = cats.map(c=>c.id);
+  let added = 0;
+  DEF.forEach(d=>{
+    if(!existIds.includes(d.id)){
+      cats.push(d); added++;
+    }
+  });
+  if(added===0){ toast('所有預設分類都還在，不需要還原'); return; }
+  DB.set('cats', cats);
+  renderCats();
+  renderSubCatSel();
+  fbSyncCats && fbSyncCats();
+  toast(`✅ 已還原 ${added} 個預設分類（含餐飲）`);
+}
+
+function removeCat(id){
+  const cat = catFind(id);
+  if(!confirm(`確定刪除「${cat.name}」分類？\n此分類下的記帳記錄不會消失，但分類名稱會顯示為 ID。`)) return;
+  delCat(id);
+  renderCats();
+  renderSubCatSel();
+  renderBudgets();
+  toast('已刪除分類');
+}
 
 // Excel 匯出
 function exportXlsx(range){
