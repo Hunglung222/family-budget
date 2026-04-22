@@ -223,11 +223,11 @@ async function callClaude(text) {
   const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
   const today = new Date();
   const todayStr = fmtD(today.toISOString());
-  const yestStr  = fmtD(new Date(today-864e5).toISOString());
+  const yestStr  = fmtD(new Date(today.getTime()-864e5).toISOString());
 
   const cardList  = getCards().map(cd=>`${cd.id}:${cd.name}(${cd.last4})`).join(',') || '無';
   const icardList = getIcards().map(ic=>`${ic.id}:${ic.name}`).join(',') || '無';
-  const tomStr    = fmtD(new Date(today+864e5).toISOString());
+  const tomStr    = fmtD(new Date(today.getTime()+864e5).toISOString());
 
   const prompt = `你是記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
 今天:${todayStr} 昨天:${yestStr} 明天:${tomStr}
