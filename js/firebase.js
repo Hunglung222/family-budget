@@ -74,7 +74,28 @@ async function fbPullSharedAccts(){
 // ── 初始拉取全部資料 ─────────────────────────────────
 async function fbPullAll(){
   try{
-    const db=// 啟動時拉取 App 共用設定（多裝置一致）
+    const db=getDb();
+    // 共用記帳
+    const ts=await db.collection('transactions').orderBy('at','desc').get();
+    const tl=[];ts.forEach(d=>tl.push(d.data()));if(tl.length)DB.set('tx',tl);
+    // 個人資料
+    await fbPullPersonal();
+    // 共用帳戶
+    await fbPullSharedAccts();
+    // 分類 & 預算
+    const cd=await db.collection('shared').doc('cats').get();
+    if(cd.exists&&cd.data().list)DB.set('cats',cd.data().list);
+    const bd=await db.collection('shared').doc('budgets').get();
+    if(bd.exists)DB.set('budgets',bd.data());
+    // App 共用設定（webhook、claude key）統一由 fbPullAppConfig 處理
+    await fbPullAppConfig();
+    // 宏龍私密資料（只有 kevin 會執行）
+    await fbPullPrivateData();
+    return true;
+  }catch(e){console.warn('[FB]pullAll',e);return false;}
+}
+
+// ── 啟動時拉取 App 共用設定（多裝置一致）────────────
 async function fbPullAppConfig(){
   try{
     const appCfg = await getDb().collection('shared').doc('app_config').get();
@@ -108,10 +129,12 @@ async function fbSyncAppConfig(){
   try{
     const webhook = localStorage.getItem('discord_webhook')||'';
     const geminiKey = localStorage.getItem('gemini_api_key')||'';
-    if(webhook||geminiKey){
+    const claudeKey = localStorage.getItem('claude_api_key')||'';
+    if(webhook||geminiKey||claudeKey){
       await getDb().collection('shared').doc('app_config').set({
         discordWebhook: webhook,
         geminiKey: geminiKey,
+        claudeKey: claudeKey,
         updatedAt: Date.now(),
         updatedBy: localStorage.getItem('current_user')||'',
       });
@@ -202,26 +225,6 @@ async function fbPullMemos() {
     else localStorage.setItem('db_priv_'+uid()+'_memos', JSON.stringify(merged));
     console.log('[FB] 備忘錄已拉取', merged.length, '筆');
   } catch(e) { console.warn('[FB]pullMemos', e); }
-}
-
-    // 共用記帳
-    const ts=await db.collection('transactions').orderBy('at','desc').get();
-    const tl=[];ts.forEach(d=>tl.push(d.data()));if(tl.length)DB.set('tx',tl);
-    // 個人資料
-    await fbPullPersonal();
-    // 共用帳戶
-    await fbPullSharedAccts();
-    // 分類 & 預算
-    const cd=await db.collection('shared').doc('cats').get();
-    if(cd.exists&&cd.data().list)DB.set('cats',cd.data().list);
-    const bd=await db.collection('shared').doc('budgets').get();
-    if(bd.exists)DB.set('budgets',bd.data());
-    // App 共用設定（webhook、gemini key）統一由 fbPullAppConfig 處理
-    await fbPullAppConfig();
-    // 宏龍私密資料（只有 kevin 會執行）
-    await fbPullPrivateData();
-    return true;
-  }catch(e){console.warn('[FB]pullAll',e);return false;}
 }
 
 // 登入後自動拉取私密資料
@@ -351,22 +354,6 @@ async function fbPullAppConfig(){
       console.log('[FB] App config 已同步，更新者：', cfg.updatedBy||'');
     }
   }catch(e){console.warn('[FB]pullAppConfig',e);}
-}
-
-// 同步 App 共用設定（宏龍設定後，盈慧自動同步）
-async function fbSyncAppConfig(){
-  try{
-    const webhook = localStorage.getItem('discord_webhook')||'';
-    const geminiKey = localStorage.getItem('gemini_api_key')||'';
-    if(webhook||geminiKey){
-      await getDb().collection('shared').doc('app_config').set({
-        discordWebhook: webhook,
-        geminiKey: geminiKey,
-        updatedAt: Date.now(),
-        updatedBy: localStorage.getItem('current_user')||'',
-      });
-    }
-  }catch(e){console.warn('[FB]appConfig',e);}
 }
 
 getDb();
