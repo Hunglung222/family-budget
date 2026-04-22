@@ -77,6 +77,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
     return;
   }
   applyTheme();
+  await fbPullMemos();
   renderMemoList();
 });
 
@@ -87,12 +88,13 @@ function addMemoRecord(){
   const content = document.getElementById('m-content').value.trim();
   const tag     = document.getElementById('m-tag').value;
   if(!content){ toast('請輸入內容','warn'); return; }
-  addMemo({title, content, tag});
+  const m = addMemo({title, content, tag});
+  fbAddMemo(m);
   document.getElementById('m-title').value='';
   document.getElementById('m-content').value='';
   document.getElementById('m-tag').value='';
   renderMemoList();
-  toast('📝 備忘已儲存');
+  toast('📝 備忘已儲存並備份');
 }
 
 function renderMemoList(){
@@ -125,7 +127,7 @@ function renderMemoList(){
 
 function delMemoRecord(id){
   if(!confirm('確定刪除此備忘？')) return;
-  delMemo(id); renderMemoList(); toast('已刪除');
+  delMemo(id); fbDelMemo(id); renderMemoList(); toast('已刪除');
 }
 
 function openMemoEdit(id){
@@ -143,7 +145,8 @@ function saveMemoEdit(){
   const content = document.getElementById('em-content').value.trim();
   if(!content){ toast('請輸入內容','warn'); return; }
   editMemo(id,{title,content});
-  closeMemoModal(); renderMemoList(); toast('✅ 已更新');
+  fbEditMemo(id,{title,content});
+  closeMemoModal(); renderMemoList(); toast('✅ 已更新並備份');
 }
 </script>
 </body>

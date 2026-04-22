@@ -75,6 +75,7 @@ window.addEventListener('DOMContentLoaded', async ()=>{
     return;
   }
   applyTheme();
+  await fbPullPrivTx();
   initPrivatePage();
 });
 
@@ -101,10 +102,11 @@ function addPrivRecord(){
   const tx = { amount:amt, cat, detail, pay, cardId:null, icardId:null,
     at: new Date(yyyy,mm-1,dd,12,0,0).toISOString(), person:'宏龍', private:true };
   addPrivTx(tx);
+  fbAddPrivTx(tx);
   document.getElementById('p-amt').value='';
   document.getElementById('p-detail').value='';
   renderPrivList();
-  toast('🔒 私密記帳已記錄');
+  toast('🔒 私密記帳已記錄並備份');
 }
 
 function renderPrivList(){
@@ -135,7 +137,7 @@ function renderPrivList(){
 
 function delPrivRecord(id){
   if(!confirm('確定刪除此私密記帳？')) return;
-  delPrivTx(id); renderPrivList(); toast('已刪除');
+  delPrivTx(id); fbDelPrivTx(id); renderPrivList(); toast('已刪除');
 }
 
 function openEdit(id, amt, detail){
@@ -151,7 +153,8 @@ function saveEdit(){
   const detail = document.getElementById('e-detail').value.trim();
   if(!amt){ toast('請輸入金額','warn'); return; }
   editPrivTx(id,{amount:amt,detail});
-  closeEditModal(); renderPrivList(); toast('✅ 已更新');
+  fbEditPrivTx(id,{amount:amt,detail});
+  closeEditModal(); renderPrivList(); toast('✅ 已更新並備份');
 }
 </script>
 </body>
