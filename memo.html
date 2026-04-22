@@ -12,7 +12,7 @@
   <a href="./settings.html" class="hdr-btn">⚙️</a>
 </header>
 
-<div class="w">
+<div class="w" style="padding-bottom:calc(var(--nav) + 20px)">
   <!-- 新增備忘錄 -->
   <div class="data-card" style="padding:14px 16px;margin-bottom:12px">
     <div class="sec-t" style="margin:0 0 10px">✏️ 新增備忘</div>
@@ -46,7 +46,7 @@
 
 <!-- 編輯 modal -->
 <div id="memo-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeMemoModal()">
-  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto">
+  <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px 20px calc(20px + var(--nav));width:100%;max-width:480px;max-height:80vh;overflow-y:auto">
     <div style="font-weight:700;font-size:1rem;margin-bottom:14px">✏️ 編輯備忘</div>
     <input type="text" class="fc" id="em-title" placeholder="標題" style="margin-bottom:8px" maxlength="30">
     <textarea class="fc" id="em-content" rows="5" style="resize:vertical;font-family:inherit;line-height:1.6;margin-bottom:8px"></textarea>
