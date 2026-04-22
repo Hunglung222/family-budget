@@ -235,6 +235,12 @@ async function fbPullPrivateData() {
 async function fbSyncWal(){await fbSyncPersonal();}
 async function fbSyncCards(){await fbSyncPersonal();}
 async function fbSyncIcards(){await fbSyncPersonal();}
+async function fbSyncCats(){
+  try{
+    await getDb().collection('shared').doc('cats').set({list:getCats(),updatedAt:Date.now()});
+  }catch(e){console.warn('[FB]syncCats',e);}
+}
+
 async function fbSyncBudgets(){
   try{await getDb().collection('shared').doc('budgets').set(getBudgetConfig());}catch(e){}
 }
