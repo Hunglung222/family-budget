@@ -1,4 +1,4 @@
-const V = 'fb-v33';
+const V = 'fb-v34';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
@@ -18,7 +18,9 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // HTML 和 JS 檔案走網路優先（確保更新即時生效）
+  // 外部 API 請求完全不攔截，直接放行
+  if (!url.startsWith(self.location.origin)) return;
+  // HTML 和 JS 走網路優先
   if (e.request.destination === 'document' ||
       url.endsWith('.js') || url.includes('/js/')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
