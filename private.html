@@ -158,7 +158,12 @@ async function submitVoiceAI(text) {
     }
     toast('✅ AI 解析完成，請確認後按記錄', 'info');
   } catch(e) {
-    toast('AI 解析失敗：'+e.message, 'err');
+    const msg = e.message||'';
+    if(msg.includes('Failed to fetch')||msg.includes('fetch')){
+      toast('📶 網路受限，請關閉 WiFi 改用行動網路再試', 'err');
+    } else {
+      toast('❌ AI 解析失敗，請改用行動網路再試', 'err');
+    }
   } finally {
     btn.innerHTML = '🎤 語音記帳'; btn.disabled = false;
   }
