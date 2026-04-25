@@ -328,24 +328,18 @@ async function discordSend(msg){
   catch(e){console.warn('[Discord]',e);}
 }
 
+// discordOnAddWithComment：由 add.html 的 getFunnyComment 呼叫，附帶角色說的話
+async function discordOnAddWithComment(tx, comment){
+  const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
+  const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
+  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}\n💬 ${comment}`);
+}
+
+// discordOnAdd：無 Claude Key 時的 fallback，不附帶趣味話
 async function discordOnAdd(tx){
   const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
   const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
-  // 取得趣味回應
-  let funnyLine='';
-  try{
-    const key=localStorage.getItem('claude_api_key')||'';
-    if(key){
-      const catLabel=catName(tx.cat);
-      const prompt=`你是記帳小夥伴，每次有人記帳後說一句話。這筆：${catLabel} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}。說一句15~25字的話，風格隨機（幽默/鼓勵/理財提示/感嘆），加emoji，只回傳那句話。`;
-      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-        body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
-      });
-      if(res.ok){const d=await res.json();funnyLine='\n💬 '+(d.content?.[0]?.text||'').trim();}
-    }
-  }catch(e){console.warn('[discord mascot]',e.message);}
-  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}${funnyLine}`);
+  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}`);
 }
 
 async function checkBudgetAlert(tx){
