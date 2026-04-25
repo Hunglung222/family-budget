@@ -26,7 +26,7 @@
   </div>
   <div class="amt-card" id="amt-card" onclick="backToStep1()" style="cursor:pointer" title="點此重新輸入金額">
     <div class="amt-lbl">💰 記帳金額 <span id="edit-hint" style="font-size:.65rem;opacity:.6">（點此修改）</span></div>
-    <div id="calc-expr" style="display:none;font-size:.75rem;color:var(--t3);min-height:18px;margin-bottom:2px;letter-spacing:.5px;text-align:center"></div>
+    <div id="calc-expr" style="display:none;font-size:.75rem;color:var(--t3);min-height:18px;margin-bottom:2px;letter-spacing:.5px;text-align:center;word-break:break-all"></div>
     <div class="amt-big" id="adisp">
       <span class="cur">$</span><span id="aval">0</span><span class="cursor"></span>
     </div>
@@ -49,15 +49,16 @@
         4. 儲存後等 5 分鐘即可使用
       </div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <button id="calc-toggle" onclick="toggleCalcMode()"
-        style="margin:0 10px;padding:4px 12px;background:var(--card2);border:1.5px solid var(--border);color:var(--t3);border-radius:20px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
+        style="margin:0 8px;padding:4px 14px;background:var(--card2);border:1.5px solid var(--border);color:var(--t3);border-radius:20px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .2s">
         🧮 計算機
       </button>
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
-    <!-- 一般模式 -->
+
+    <!-- 一般模式鍵盤 -->
     <div class="numpad" id="numpad-normal">
       <button class="nk" onclick="nk(7)">7</button><button class="nk" onclick="nk(8)">8</button><button class="nk" onclick="nk(9)">9</button>
       <button class="nk" onclick="nk(4)">4</button><button class="nk" onclick="nk(5)">5</button><button class="nk" onclick="nk(6)">6</button>
@@ -70,19 +71,22 @@
         🎤 <span id="voice-txt" style="font-size:.88rem;font-weight:700;color:var(--t2)">語音記帳</span>
       </button>
     </div>
-    <!-- 計算機模式 -->
+
+    <!-- 計算機模式鍵盤 -->
     <div class="numpad" id="numpad-calc" style="display:none">
-      <button class="nk op" onclick="calcOp('clear')" style="background:rgba(244,63,94,.15);color:var(--danger);font-weight:900">C</button>
-      <button class="nk op" onclick="calcOp('/')" style="background:var(--pdim);color:var(--p);font-size:1.2rem">÷</button>
-      <button class="nk op" onclick="calcOp('*')" style="background:var(--pdim);color:var(--p);font-size:1.2rem">×</button>
+      <button class="nk" onclick="calcOp('clear')" style="background:rgba(244,63,94,.15);color:var(--danger);font-weight:900;font-size:.9rem">C</button>
+      <button class="nk" onclick="calcPct()" style="background:var(--pdim);color:var(--p);font-weight:900">%</button>
+      <button class="nk" onclick="calcDot()" style="background:var(--pdim);color:var(--p);font-weight:900">.</button>
       <button class="nk del" onclick="calcBack()">⌫</button>
       <button class="nk" onclick="calcNum(7)">7</button><button class="nk" onclick="calcNum(8)">8</button><button class="nk" onclick="calcNum(9)">9</button>
-      <button class="nk op" onclick="calcOp('-')" style="background:var(--pdim);color:var(--p);font-size:1.3rem">−</button>
+      <button class="nk" onclick="calcOp('/')" style="background:var(--pdim);color:var(--p);font-size:1.2rem;font-weight:900">÷</button>
       <button class="nk" onclick="calcNum(4)">4</button><button class="nk" onclick="calcNum(5)">5</button><button class="nk" onclick="calcNum(6)">6</button>
-      <button class="nk op" onclick="calcOp('+')" style="background:var(--pdim);color:var(--p);font-size:1.3rem">＋</button>
+      <button class="nk" onclick="calcOp('*')" style="background:var(--pdim);color:var(--p);font-size:1.2rem;font-weight:900">×</button>
       <button class="nk" onclick="calcNum(1)">1</button><button class="nk" onclick="calcNum(2)">2</button><button class="nk" onclick="calcNum(3)">3</button>
-      <button class="nk go" onclick="calcConfirm()" style="grid-row:span 2;background:linear-gradient(135deg,var(--p),var(--p2));color:#000">確認<br>金額</button>
+      <button class="nk" onclick="calcOp('-')" style="background:var(--pdim);color:var(--p);font-size:1.3rem;font-weight:900">−</button>
       <button class="nk" onclick="calcNum(0)" style="grid-column:span 2">0</button>
+      <button class="nk" onclick="calcOp('+')" style="background:var(--pdim);color:var(--p);font-size:1.3rem;font-weight:900">＋</button>
+      <button class="nk go" onclick="calcConfirm()" style="grid-column:span 3;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-weight:900">✓ 確認金額</button>
     </div>
   </div>
 
@@ -545,91 +549,187 @@ function buildIcardChips() {
   selIcard = cs[0].id; el.querySelector('.cc').classList.add('on');
 }
 
+// ── 記帳夥伴角色資料 ─────────────────────────────────
+const CHARACTERS = [
+  { id:'koala',    emoji:'🐨', name:'無尾熊可可', style:'軟萌溫柔、正能量滿滿，像媽媽一樣鼓勵你，說話暖心，偶爾撒嬌' },
+  { id:'oyster',   emoji:'🦪', name:'牡蠣寶寶',   style:'莫名其妙、語出驚人、邏輯跳躍，讓人哭笑不得但忍不住想看' },
+  { id:'fox',      emoji:'🦊', name:'狐狸小智',   style:'數據導向、邏輯清晰、像專業財務顧問，給具體可執行的理財建議' },
+  { id:'frog',     emoji:'🐸', name:'青蛙呱呱',   style:'嘴巴很壞但其實關心你，每句話都在吐槽，說完又補一句安慰' },
+  { id:'otter',    emoji:'🦦', name:'水獺阿福',   style:'超放鬆、佛系、什麼都覺得沒關係，充滿治癒感，讓人壓力全消' },
+  { id:'hamster',  emoji:'🐹', name:'倉鼠米米',   style:'超級節省觀念，對每筆花費都心痛，各種省錢妙招脫口而出' },
+  { id:'panda',    emoji:'🐼', name:'熊貓胖胖',   style:'什麼都跟吃扯上關係，人生哲學全是食物，超有梗的美食觀點' },
+  { id:'hedgehog', emoji:'🦔', name:'刺蝟蓬蓬',   style:'一本正經、像專業會計師、非常重視數字精確度，完全不開玩笑' },
+  { id:'cat',      emoji:'🐱', name:'貓咪嗚嗚',   style:'傲嬌、不在乎你但其實很在乎，貓式關心，說話帶刺但有溫度' },
+  { id:'dog',      emoji:'🐶', name:'狗狗旺財',   style:'每次都超開心超興奮，用力鼓勵，元氣滿滿，讓人被感染活力' },
+  { id:'owl',      emoji:'🦉', name:'貓頭鷹歐比', style:'充滿哲理、說話像古代智者，每句話都有深意，有點裝但很有料' },
+  { id:'octopus',  emoji:'🐙', name:'章魚奧托',   style:'腦洞超大、思路跳躍、說話充滿意外，根本猜不到下一句是什麼' },
+];
+function getChar() {
+  const id = localStorage.getItem('mascot_char') || 'koala';
+  return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0];
+}
+
+let _mascotTimer = null;
+function showMascot(text) {
+  const char   = getChar();
+  const wrap   = document.getElementById('mascot-wrap');
+  const bubble = document.getElementById('mascot-bubble');
+  const icon   = document.getElementById('mascot-icon');
+  if (icon) icon.textContent = char.emoji;
+  bubble.textContent = text;
+  wrap.style.display    = 'block';
+  wrap.style.opacity    = '0';
+  wrap.style.transform  = 'translateY(12px)';
+  wrap.style.transition = 'opacity .3s, transform .3s';
+  requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
+  clearTimeout(_mascotTimer);
+  _mascotTimer = setTimeout(()=>{
+    wrap.style.opacity='0'; wrap.style.transform='translateY(8px)';
+    setTimeout(()=>{ wrap.style.display='none'; }, 350);
+  }, 5000);
+}
+
+async function getFunnyComment(tx) {
+  const key = localStorage.getItem('claude_api_key')||'';
+  if (!key) return;
+  const char     = getChar();
+  const catLabel = catName(tx.cat);
+  const payLabel = tx.pay==='cash'?'現金':tx.pay==='icard'?'悠遊卡':'信用卡';
+  const prompt   = `你是「${char.name}」，一個記帳小夥伴。\n你的個性：${char.style}\n這筆消費：${catLabel} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount} 用${payLabel}付\n請用你的個性說一句話回應（15~25字），加一個相關emoji，只回傳那句話，不要其他內容。`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok) return;
+    const data = await res.json();
+    const text = (data.content?.[0]?.text||'').trim();
+    if(text) showMascot(text);
+  } catch(e){ console.warn('[mascot]',e.message); }
+}
+
 // ── 計算機模式 ────────────────────────────────────────
-let calcMode  = false;
-let calcExpr  = '';   // 算式字串，例如 '100+50'
-let calcDisp  = '';   // 顯示用字串，例如 '100＋50'
+let calcMode = false;
+let calcExpr = '';  // 實際計算用字串 e.g. '350+120*0.8'
+let calcDisp = '';  // 顯示用字串    e.g. '350＋120×0.8'
+
+const OP_DISP = {'+':'＋', '-':'－', '*':'×', '/':'÷'};
 
 function toggleCalcMode() {
   calcMode = !calcMode;
-  document.getElementById('numpad-normal').style.display = calcMode ? 'none'  : 'grid';
-  document.getElementById('numpad-calc').style.display   = calcMode ? 'grid'  : 'none';
+  document.getElementById('numpad-normal').style.display = calcMode ? 'none' : 'grid';
+  document.getElementById('numpad-calc').style.display   = calcMode ? 'grid' : 'none';
   document.getElementById('calc-expr').style.display     = calcMode ? 'block' : 'none';
   const btn = document.getElementById('calc-toggle');
   btn.style.borderColor = calcMode ? 'var(--p)' : 'var(--border)';
   btn.style.color       = calcMode ? 'var(--p)' : 'var(--t3)';
-  if (!calcMode) { calcExpr=''; calcDisp=''; refreshCalcDisplay(); }
+  btn.style.background  = calcMode ? 'var(--pdim)' : 'var(--card2)';
+  if (!calcMode) { calcExpr=''; calcDisp=''; _refreshCalc(); }
+}
+
+function _lastToken() {
+  // 取得最後一個數字 token
+  return calcExpr.split(/[\+\-\*\/]/).pop() || '';
 }
 
 function calcNum(n) {
-  // 最多7位數
-  const parts = calcExpr.split(/[\+\-\*\/]/);
-  if ((parts[parts.length-1]||'').length >= 7) return;
-  calcExpr += String(n);
-  calcDisp += String(n);
-  refreshCalcDisplay();
+  const last = _lastToken();
+  if (last.replace('.','').length >= 7) return;
+  calcExpr += n; calcDisp += n;
+  _refreshCalc();
+}
+
+function calcDot() {
+  const last = _lastToken();
+  if (last.includes('.')) return;  // 已有小數點
+  if (!last) { calcExpr += '0'; calcDisp += '0'; }
+  calcExpr += '.'; calcDisp += '.';
+  _refreshCalc();
+}
+
+function calcPct() {
+  // 把最後一個數字 ÷100，例如 1000*80% → 1000*0.8
+  const last = _lastToken();
+  if (!last || isNaN(parseFloat(last))) return;
+  const val = parseFloat(last) / 100;
+  // 把 expr 最後的 token 換掉
+  const base = calcExpr.slice(0, calcExpr.length - last.length);
+  const dispBase = calcDisp.slice(0, calcDisp.length - last.length);
+  calcExpr = base + val;
+  calcDisp = dispBase + last + '%';
+  _refreshCalc();
 }
 
 function calcOp(op) {
-  if (op === 'clear') { calcExpr=''; calcDisp=''; refreshCalcDisplay(); return; }
+  if (op === 'clear') {
+    calcExpr = ''; calcDisp = '';
+    _refreshCalc(); return;
+  }
   // 避免連續運算符
-  if (calcExpr && /[\+\-\*\/]$/.test(calcExpr)) {
+  if (/[\+\-\*\/]$/.test(calcExpr)) {
     calcExpr = calcExpr.slice(0,-1);
     calcDisp = calcDisp.slice(0,-1);
   }
   if (!calcExpr) return;
-  const dispMap = {'+':'＋', '-':'－', '*':'×', '/':'÷'};
   calcExpr += op;
-  calcDisp += dispMap[op] || op;
-  refreshCalcDisplay();
+  calcDisp += (OP_DISP[op] || op);
+  _refreshCalc();
 }
 
 function calcBack() {
   if (!calcExpr) return;
+  // 若最後是 % 結尾（顯示用），特殊處理
+  if (calcDisp.endsWith('%')) {
+    // 找到對應的 expr token 結尾重刪
+    const last = _lastToken();
+    calcExpr = calcExpr.slice(0, calcExpr.length - String(last).length);
+    calcDisp = calcDisp.slice(0, calcDisp.lastIndexOf(_lastToken().split('').pop())-1);
+    _refreshCalc(); return;
+  }
   calcExpr = calcExpr.slice(0,-1);
   calcDisp = calcDisp.slice(0,-1);
-  refreshCalcDisplay();
+  _refreshCalc();
 }
 
-function refreshCalcDisplay() {
+function _refreshCalc() {
   document.getElementById('calc-expr').textContent = calcDisp || '';
-  // 即時預覽計算結果
   try {
-    if (calcExpr && !/[\+\-\*\/]$/.test(calcExpr)) {
-      const result = Math.round(Function('"use strict";return (' + calcExpr + ')')());
+    if (calcExpr && !/[\+\-\*\/\.]$/.test(calcExpr)) {
+      // eslint-disable-next-line no-new-func
+      const result = Math.round(Function('"use strict";return (' + calcExpr + ')')() * 100) / 100;
       if (result > 0 && result < 9999999) {
-        document.getElementById('aval').textContent = fmt(result);
+        document.getElementById('aval').textContent = fmt(Math.round(result));
         document.getElementById('adisp').classList.add('has-val');
         return;
       }
     }
   } catch(e) {}
-  // 沒有完整算式時顯示最後輸入的數字
-  const parts = calcExpr.split(/[\+\-\*\/]/);
-  const last  = parseInt(parts[parts.length-1]) || 0;
-  document.getElementById('aval').textContent = last > 0 ? fmt(last) : '0';
+  const last = parseFloat(_lastToken()) || 0;
+  document.getElementById('aval').textContent = last > 0 ? fmt(Math.round(last)) : '0';
   document.getElementById('adisp').classList.toggle('has-val', last > 0);
 }
 
 function calcConfirm() {
   if (!calcExpr) { toast('請輸入金額','warn'); return; }
   try {
+    // eslint-disable-next-line no-new-func
     const result = Math.round(Function('"use strict";return (' + calcExpr + ')')());
     if (!result || result <= 0) { toast('計算結果不能為 0','warn'); return; }
     if (result > 9999999)       { toast('金額太大了','warn'); return; }
-    // 把結果填入一般模式的 astr
-    astr = String(result);
+    astr     = String(result);
     calcExpr = ''; calcDisp = '';
-    refreshCalcDisplay();
-    toggleCalcMode(); // 切回一般模式
+    toggleCalcMode();
     refreshAmt();
-    goStep2();        // 直接進下一步
+    goStep2();
   } catch(e) {
-    toast('計算式有誤，請重新輸入','warn');
+    toast('算式有誤，請重新輸入','warn');
   }
 }
 
 // ── 數字鍵盤（一般模式）─────────────────────────────
+// 數字鍵盤
+function nk(n) { if(astr.length>=7)return; astr+=String(n); refreshAmt(); }
 function nkd()  { astr=astr.slice(0,-1); refreshAmt(); }
 function refreshAmt() {
   const v = parseInt(astr)||0;
@@ -686,86 +786,8 @@ function showHints() { }  // 已關閉
 function hideHints() { document.getElementById('hint-list').style.display='none'; }
 function pickHint(v) { document.getElementById('tx-detail').value=v; hideHints(); }
 
-// ── 記帳夥伴角色資料 ─────────────────────────────────
-const CHARACTERS = [
-  { id:'koala',    emoji:'🐨', name:'無尾熊可可', style:'軟萌溫柔、正能量滿滿，像媽媽一樣鼓勵你，說話暖心，偶爾撒嬌' },
-  { id:'oyster',   emoji:'🦪', name:'牡蠣寶寶',   style:'莫名其妙、語出驚人、邏輯跳躍，讓人哭笑不得但忍不住想看' },
-  { id:'fox',      emoji:'🦊', name:'狐狸小智',   style:'數據導向、邏輯清晰、像專業財務顧問，給具體可執行的理財建議' },
-  { id:'frog',     emoji:'🐸', name:'青蛙呱呱',   style:'嘴巴很壞但其實關心你，每句話都在吐槽，說完又補一句安慰' },
-  { id:'otter',    emoji:'🦦', name:'水獺阿福',   style:'超放鬆、佛系、什麼都覺得沒關係，充滿治癒感，讓人壓力全消' },
-  { id:'hamster',  emoji:'🐹', name:'倉鼠米米',   style:'超級節省觀念，對每筆花費都心痛，各種省錢妙招脫口而出' },
-  { id:'panda',    emoji:'🐼', name:'熊貓胖胖',   style:'什麼都跟吃扯上關係，人生哲學全是食物，超有梗的美食觀點' },
-  { id:'hedgehog', emoji:'🦔', name:'刺蝟蓬蓬',   style:'一本正經、像專業會計師、非常重視數字精確度，完全不開玩笑' },
-  { id:'cat',      emoji:'🐱', name:'貓咪嗚嗚',   style:'傲嬌、不在乎你但其實很在乎，貓式關心，說話帶刺但有溫度' },
-  { id:'dog',      emoji:'🐶', name:'狗狗旺財',   style:'每次都超開心超興奮，用力鼓勵，元氣滿滿，讓人被感染活力' },
-  { id:'owl',      emoji:'🦉', name:'貓頭鷹歐比', style:'充滿哲理、說話像古代智者，每句話都有深意，有點裝但很有料' },
-  { id:'octopus',  emoji:'🐙', name:'章魚奧托',   style:'腦洞超大、思路跳躍、說話充滿意外，根本猜不到下一句是什麼' },
-];
-function getChar() {
-  const id = localStorage.getItem('mascot_char') || 'koala';
-  return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0];
-}
-
-// ── 記帳小夥伴趣味回應 ───────────────────────────────
-let _mascotTimer = null;
-function showMascot(text) {
-  const char   = getChar();
-  const wrap   = document.getElementById('mascot-wrap');
-  const bubble = document.getElementById('mascot-bubble');
-  const icon   = document.getElementById('mascot-icon');
-  if (icon) icon.textContent = char.emoji;
-  bubble.textContent = text;
-  wrap.style.display = 'block';
-  wrap.style.opacity = '0';
-  wrap.style.transform = 'translateY(12px)';
-  wrap.style.transition = 'opacity .3s, transform .3s';
-  requestAnimationFrame(() => {
-    wrap.style.opacity = '1';
-    wrap.style.transform = 'translateY(0)';
-  });
-  clearTimeout(_mascotTimer);
-  _mascotTimer = setTimeout(() => {
-    wrap.style.opacity = '0';
-    wrap.style.transform = 'translateY(8px)';
-    setTimeout(() => { wrap.style.display = 'none'; }, 350);
-  }, 5000);
-}
-
-async function getFunnyComment(tx) {
-  const key = localStorage.getItem('claude_api_key') || '';
-  if (!key) return;
-  const char     = getChar();
-  const catLabel = catName(tx.cat);
-  const payLabel = tx.pay === 'cash' ? '現金' : tx.pay === 'icard' ? '悠遊卡' : '信用卡';
-  const prompt = `你是「${char.name}」，一個記帳小夥伴。
-你的個性：${char.style}
-這筆消費：${catLabel} ${tx.detail ? '「'+tx.detail+'」' : ''} $${tx.amount} 用${payLabel}付
-請用你的個性說一句話回應（15~25字），加一個相關emoji，只回傳那句話，不要其他內容。`;
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 80,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    const text = (data.content?.[0]?.text || '').trim();
-    if (text) showMascot(text);
-  } catch(e) {
-    console.warn('[mascot]', e.message);
-  }
-}
-
-
+// 提交
+function submit() {
   const amt = parseInt(astr)||0;
   if (!amt)                      { toast('金額不可為 0','warn');             return; }
   if (!selCat)                   { toast('請選擇分類','warn');               return; }
@@ -798,7 +820,7 @@ async function getFunnyComment(tx) {
       else if (res.pct>=(getDiscord().budgetPct||80)) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`,'warn'),1400);
     });
   }
-  // 趣味小夥伴回應（非同步，不阻擋流程）
+  // 記帳夥伴回應
   getFunnyComment(tx);
   const sov = document.getElementById('sov');
   sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
