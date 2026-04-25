@@ -26,7 +26,7 @@
   </div>
   <div class="amt-card" id="amt-card" onclick="backToStep1()" style="cursor:pointer" title="點此重新輸入金額">
     <div class="amt-lbl">💰 記帳金額 <span id="edit-hint" style="font-size:.65rem;opacity:.6">（點此修改）</span></div>
-    <div id="calc-expr" style="display:none;font-size:.75rem;color:var(--t3);min-height:18px;margin-bottom:2px;letter-spacing:.5px;text-align:center;word-break:break-all"></div>
+    <div id="calc-expr" style="display:none;font-size:.95rem;font-weight:700;color:var(--p);min-height:22px;margin-bottom:4px;text-align:center;word-break:break-all;letter-spacing:.5px"></div>
     <div class="amt-big" id="adisp">
       <span class="cur">$</span><span id="aval">0</span><span class="cursor"></span>
     </div>
@@ -52,13 +52,13 @@
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <button id="calc-toggle" onclick="toggleCalcMode()"
-        style="margin:0 8px;padding:4px 14px;background:var(--card2);border:1.5px solid var(--border);color:var(--t3);border-radius:20px;font-size:.7rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .2s">
+        style="padding:5px 16px;background:var(--card2);border:1.5px solid var(--border);color:var(--t3);border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s">
         🧮 計算機
       </button>
       <div style="flex:1;height:1px;background:var(--border)"></div>
     </div>
 
-    <!-- 一般模式鍵盤 -->
+    <!-- 一般模式（原本的 numpad） -->
     <div class="numpad" id="numpad-normal">
       <button class="nk" onclick="nk(7)">7</button><button class="nk" onclick="nk(8)">8</button><button class="nk" onclick="nk(9)">9</button>
       <button class="nk" onclick="nk(4)">4</button><button class="nk" onclick="nk(5)">5</button><button class="nk" onclick="nk(6)">6</button>
@@ -72,21 +72,57 @@
       </button>
     </div>
 
-    <!-- 計算機模式鍵盤 -->
-    <div class="numpad" id="numpad-calc" style="display:none">
-      <button class="nk" onclick="calcOp('clear')" style="background:rgba(244,63,94,.15);color:var(--danger);font-weight:900;font-size:.9rem">C</button>
-      <button class="nk" onclick="calcPct()" style="background:var(--pdim);color:var(--p);font-weight:900">%</button>
-      <button class="nk" onclick="calcDot()" style="background:var(--pdim);color:var(--p);font-weight:900">.</button>
-      <button class="nk del" onclick="calcBack()">⌫</button>
-      <button class="nk" onclick="calcNum(7)">7</button><button class="nk" onclick="calcNum(8)">8</button><button class="nk" onclick="calcNum(9)">9</button>
-      <button class="nk" onclick="calcOp('/')" style="background:var(--pdim);color:var(--p);font-size:1.2rem;font-weight:900">÷</button>
-      <button class="nk" onclick="calcNum(4)">4</button><button class="nk" onclick="calcNum(5)">5</button><button class="nk" onclick="calcNum(6)">6</button>
-      <button class="nk" onclick="calcOp('*')" style="background:var(--pdim);color:var(--p);font-size:1.2rem;font-weight:900">×</button>
-      <button class="nk" onclick="calcNum(1)">1</button><button class="nk" onclick="calcNum(2)">2</button><button class="nk" onclick="calcNum(3)">3</button>
-      <button class="nk" onclick="calcOp('-')" style="background:var(--pdim);color:var(--p);font-size:1.3rem;font-weight:900">−</button>
-      <button class="nk" onclick="calcNum(0)" style="grid-column:span 2">0</button>
-      <button class="nk" onclick="calcOp('+')" style="background:var(--pdim);color:var(--p);font-size:1.3rem;font-weight:900">＋</button>
-      <button class="nk go" onclick="calcConfirm()" style="grid-column:span 3;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-weight:900">✓ 確認金額</button>
+    <!-- 計算機模式（獨立 grid，4欄，不用 .numpad） -->
+    <div id="numpad-calc" style="display:none">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+        <button onclick="calcOp('clear')"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid rgba(244,63,94,.3);background:rgba(244,63,94,.12);color:var(--danger);font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit">C</button>
+        <button onclick="calcPct()"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit">%</button>
+        <button onclick="calcDot()"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1.2rem;font-weight:900;cursor:pointer;font-family:inherit">.</button>
+        <button onclick="calcBack()"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid rgba(244,63,94,.2);background:rgba(244,63,94,.08);color:var(--danger);font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit">⌫</button>
+
+        <button onclick="calcNum(7)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">7</button>
+        <button onclick="calcNum(8)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">8</button>
+        <button onclick="calcNum(9)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">9</button>
+        <button onclick="calcOp('/')"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1.4rem;font-weight:900;cursor:pointer;font-family:inherit">÷</button>
+
+        <button onclick="calcNum(4)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">4</button>
+        <button onclick="calcNum(5)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">5</button>
+        <button onclick="calcNum(6)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">6</button>
+        <button onclick="calcOp('*')"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1.4rem;font-weight:900;cursor:pointer;font-family:inherit">×</button>
+
+        <button onclick="calcNum(1)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">1</button>
+        <button onclick="calcNum(2)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">2</button>
+        <button onclick="calcNum(3)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">3</button>
+        <button onclick="calcOp('-')"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1.5rem;font-weight:900;cursor:pointer;font-family:inherit">−</button>
+      </div>
+      <!-- 最後一行：0佔3格 + 加號 -->
+      <div style="display:grid;grid-template-columns:3fr 1fr;gap:8px;margin-top:8px">
+        <button onclick="calcNum(0)"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t);font-size:1.25rem;font-weight:700;cursor:pointer;font-family:inherit">0</button>
+        <button onclick="calcOp('+')"
+          style="padding:17px 0;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--pdim);color:var(--p);font-size:1.5rem;font-weight:900;cursor:pointer;font-family:inherit">＋</button>
+      </div>
+      <!-- 確認金額（全寬） -->
+      <button onclick="calcConfirm()"
+        style="width:100%;margin-top:8px;padding:17px 0;border-radius:var(--rs);border:none;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:1rem;font-weight:900;cursor:pointer;font-family:inherit">
+        ✓ 確認金額
+      </button>
     </div>
   </div>
 
@@ -568,34 +604,26 @@ function getChar() {
   const id = localStorage.getItem('mascot_char') || 'koala';
   return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0];
 }
-
 let _mascotTimer = null;
 function showMascot(text) {
-  const char   = getChar();
-  const wrap   = document.getElementById('mascot-wrap');
-  const bubble = document.getElementById('mascot-bubble');
-  const icon   = document.getElementById('mascot-icon');
+  const char = getChar();
+  const wrap = document.getElementById('mascot-wrap');
+  const icon = document.getElementById('mascot-icon');
   if (icon) icon.textContent = char.emoji;
-  bubble.textContent = text;
-  wrap.style.display    = 'block';
-  wrap.style.opacity    = '0';
-  wrap.style.transform  = 'translateY(12px)';
-  wrap.style.transition = 'opacity .3s, transform .3s';
+  document.getElementById('mascot-bubble').textContent = text;
+  wrap.style.cssText += ';display:block;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s';
   requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
   clearTimeout(_mascotTimer);
   _mascotTimer = setTimeout(()=>{
     wrap.style.opacity='0'; wrap.style.transform='translateY(8px)';
-    setTimeout(()=>{ wrap.style.display='none'; }, 350);
+    setTimeout(()=>wrap.style.display='none', 350);
   }, 5000);
 }
-
 async function getFunnyComment(tx) {
   const key = localStorage.getItem('claude_api_key')||'';
   if (!key) return;
-  const char     = getChar();
-  const catLabel = catName(tx.cat);
-  const payLabel = tx.pay==='cash'?'現金':tx.pay==='icard'?'悠遊卡':'信用卡';
-  const prompt   = `你是「${char.name}」，一個記帳小夥伴。\n你的個性：${char.style}\n這筆消費：${catLabel} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount} 用${payLabel}付\n請用你的個性說一句話回應（15~25字），加一個相關emoji，只回傳那句話，不要其他內容。`;
+  const char = getChar();
+  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。`;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -603,23 +631,22 @@ async function getFunnyComment(tx) {
       body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
     });
     if(!res.ok) return;
-    const data = await res.json();
-    const text = (data.content?.[0]?.text||'').trim();
-    if(text) showMascot(text);
+    const d = await res.json();
+    const t = (d.content?.[0]?.text||'').trim();
+    if(t) showMascot(t);
   } catch(e){ console.warn('[mascot]',e.message); }
 }
 
 // ── 計算機模式 ────────────────────────────────────────
 let calcMode = false;
-let calcExpr = '';  // 實際計算用字串 e.g. '350+120*0.8'
-let calcDisp = '';  // 顯示用字串    e.g. '350＋120×0.8'
-
-const OP_DISP = {'+':'＋', '-':'－', '*':'×', '/':'÷'};
+let calcExpr = '';
+let calcDisp = '';
+const OP_DISP = {'+':'＋','-':'－','*':'×','/':'÷'};
 
 function toggleCalcMode() {
   calcMode = !calcMode;
-  document.getElementById('numpad-normal').style.display = calcMode ? 'none' : 'grid';
-  document.getElementById('numpad-calc').style.display   = calcMode ? 'grid' : 'none';
+  document.getElementById('numpad-normal').style.display = calcMode ? 'none'  : 'grid';
+  document.getElementById('numpad-calc').style.display   = calcMode ? 'block' : 'none';
   document.getElementById('calc-expr').style.display     = calcMode ? 'block' : 'none';
   const btn = document.getElementById('calc-toggle');
   btn.style.borderColor = calcMode ? 'var(--p)' : 'var(--border)';
@@ -628,106 +655,72 @@ function toggleCalcMode() {
   if (!calcMode) { calcExpr=''; calcDisp=''; _refreshCalc(); }
 }
 
-function _lastToken() {
-  // 取得最後一個數字 token
-  return calcExpr.split(/[\+\-\*\/]/).pop() || '';
-}
+function _lastToken() { return calcExpr.split(/[\+\-\*\/]/).pop()||''; }
 
 function calcNum(n) {
-  const last = _lastToken();
-  if (last.replace('.','').length >= 7) return;
-  calcExpr += n; calcDisp += n;
-  _refreshCalc();
+  if (_lastToken().replace('.','').length >= 7) return;
+  calcExpr += n; calcDisp += n; _refreshCalc();
 }
-
 function calcDot() {
-  const last = _lastToken();
-  if (last.includes('.')) return;  // 已有小數點
-  if (!last) { calcExpr += '0'; calcDisp += '0'; }
-  calcExpr += '.'; calcDisp += '.';
-  _refreshCalc();
+  if (_lastToken().includes('.')) return;
+  if (!_lastToken()) { calcExpr+='0'; calcDisp+='0'; }
+  calcExpr+='.'; calcDisp+='.'; _refreshCalc();
 }
-
 function calcPct() {
-  // 把最後一個數字 ÷100，例如 1000*80% → 1000*0.8
   const last = _lastToken();
   if (!last || isNaN(parseFloat(last))) return;
-  const val = parseFloat(last) / 100;
-  // 把 expr 最後的 token 換掉
-  const base = calcExpr.slice(0, calcExpr.length - last.length);
-  const dispBase = calcDisp.slice(0, calcDisp.length - last.length);
+  const val = parseFloat(last)/100;
+  const base = calcExpr.slice(0, calcExpr.length-last.length);
+  const dbase = calcDisp.slice(0, calcDisp.length-last.length);
   calcExpr = base + val;
-  calcDisp = dispBase + last + '%';
+  calcDisp = dbase + last + '%';
   _refreshCalc();
 }
-
 function calcOp(op) {
-  if (op === 'clear') {
-    calcExpr = ''; calcDisp = '';
-    _refreshCalc(); return;
-  }
-  // 避免連續運算符
-  if (/[\+\-\*\/]$/.test(calcExpr)) {
-    calcExpr = calcExpr.slice(0,-1);
-    calcDisp = calcDisp.slice(0,-1);
-  }
+  if (op==='clear') { calcExpr=''; calcDisp=''; _refreshCalc(); return; }
+  if (/[\+\-\*\/]$/.test(calcExpr)) { calcExpr=calcExpr.slice(0,-1); calcDisp=calcDisp.slice(0,-1); }
   if (!calcExpr) return;
-  calcExpr += op;
-  calcDisp += (OP_DISP[op] || op);
-  _refreshCalc();
+  calcExpr += op; calcDisp += (OP_DISP[op]||op); _refreshCalc();
 }
-
 function calcBack() {
   if (!calcExpr) return;
-  // 若最後是 % 結尾（顯示用），特殊處理
   if (calcDisp.endsWith('%')) {
-    // 找到對應的 expr token 結尾重刪
     const last = _lastToken();
-    calcExpr = calcExpr.slice(0, calcExpr.length - String(last).length);
-    calcDisp = calcDisp.slice(0, calcDisp.lastIndexOf(_lastToken().split('').pop())-1);
+    calcExpr = calcExpr.slice(0, calcExpr.length-String(last).length);
+    calcDisp = calcDisp.slice(0, calcDisp.length-String(last).length-1);
     _refreshCalc(); return;
   }
   calcExpr = calcExpr.slice(0,-1);
   calcDisp = calcDisp.slice(0,-1);
   _refreshCalc();
 }
-
 function _refreshCalc() {
-  document.getElementById('calc-expr').textContent = calcDisp || '';
+  document.getElementById('calc-expr').textContent = calcDisp||'';
   try {
     if (calcExpr && !/[\+\-\*\/\.]$/.test(calcExpr)) {
-      // eslint-disable-next-line no-new-func
-      const result = Math.round(Function('"use strict";return (' + calcExpr + ')')() * 100) / 100;
-      if (result > 0 && result < 9999999) {
+      const result = Math.round(Function('"use strict";return ('+calcExpr+')')() * 100) / 100;
+      if (result>0 && result<9999999) {
         document.getElementById('aval').textContent = fmt(Math.round(result));
         document.getElementById('adisp').classList.add('has-val');
         return;
       }
     }
-  } catch(e) {}
-  const last = parseFloat(_lastToken()) || 0;
-  document.getElementById('aval').textContent = last > 0 ? fmt(Math.round(last)) : '0';
-  document.getElementById('adisp').classList.toggle('has-val', last > 0);
+  } catch(e){}
+  const last = parseFloat(_lastToken())||0;
+  document.getElementById('aval').textContent = last>0 ? fmt(Math.round(last)) : '0';
+  document.getElementById('adisp').classList.toggle('has-val', last>0);
 }
-
 function calcConfirm() {
   if (!calcExpr) { toast('請輸入金額','warn'); return; }
   try {
-    // eslint-disable-next-line no-new-func
-    const result = Math.round(Function('"use strict";return (' + calcExpr + ')')());
-    if (!result || result <= 0) { toast('計算結果不能為 0','warn'); return; }
-    if (result > 9999999)       { toast('金額太大了','warn'); return; }
-    astr     = String(result);
-    calcExpr = ''; calcDisp = '';
-    toggleCalcMode();
-    refreshAmt();
-    goStep2();
-  } catch(e) {
-    toast('算式有誤，請重新輸入','warn');
-  }
+    const result = Math.round(Function('"use strict";return ('+calcExpr+')')());
+    if (!result||result<=0) { toast('計算結果不能為 0','warn'); return; }
+    if (result>9999999) { toast('金額太大了','warn'); return; }
+    astr=String(result); calcExpr=''; calcDisp='';
+    toggleCalcMode(); refreshAmt(); goStep2();
+  } catch(e) { toast('算式有誤，請重新輸入','warn'); }
 }
 
-// ── 數字鍵盤（一般模式）─────────────────────────────
 // 數字鍵盤
 function nk(n) { if(astr.length>=7)return; astr+=String(n); refreshAmt(); }
 function nkd()  { astr=astr.slice(0,-1); refreshAmt(); }
