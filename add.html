@@ -135,7 +135,12 @@
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
-<div class="toast" id="toast"></div>
+<div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 16px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:none">
+  <div style="display:flex;align-items:flex-end;gap:10px;max-width:480px;margin:0 auto">
+    <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,229,180,.3)">🐷</div>
+    <div id="mascot-bubble" style="background:var(--card);border:1.5px solid var(--border);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;color:var(--t1);line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100% - 60px)"></div>
+  </div>
+</div>
 
 <!-- Firebase Auth -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -423,21 +428,19 @@ async function submitAI() {
     toast('✅ AI 解析完成，請確認', 'info');
     document.getElementById('ai-input').value = '';
   } catch(e) {
-    console.warn('[Claude]', e);
+    console.warn('[Gemini]', e);
     const msg = e.message||'';
-    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')||msg.includes('fetch')){
-      toast('📶 網路受限，請關閉 WiFi 改用行動網路再試', 'err');
-    } else if(msg.includes('429')){
-      toast('⏳ AI 使用太頻繁，請稍等 1 分鐘再試', 'warn');
+    if(msg.includes('429')){
+      toast('⏳ AI 使用頻繁，請稍待 1 分鐘再試（HTTP 429）', 'warn');
     } else if(msg.includes('allowlist')||msg.includes('403')){
-      toast('🔑 Claude API Key 需要設定，請在設定頁填入', 'err');
+      toast('Claude API Key 需要設定，請在設定頁填入', 'err');
       document.getElementById('api-hint').style.display='block';
     } else if(msg.includes('503')||msg.includes('overloaded')||msg.includes('Service Unavailable')){
-      toast('⚠️ AI 伺服器忙碌中，請再試一次', 'warn');
+      toast('⚠️ Gemini 伺服器忙碌中（503），請再試一次', 'warn');
     } else if(msg.includes('500')){
-      toast('⚠️ AI 伺服器錯誤，請再試一次', 'warn');
+      toast('⚠️ Gemini 伺服器錯誤（500），請再試一次', 'warn');
     } else {
-      toast('❌ AI 解析失敗，請改用行動網路再試', 'err');
+      toast('AI 解析失敗：'+msg, 'err');
     }
   } finally {
     btn.textContent = 'AI 記帳'; btn.disabled = false;
@@ -580,8 +583,66 @@ function showHints() { }  // 已關閉
 function hideHints() { document.getElementById('hint-list').style.display='none'; }
 function pickHint(v) { document.getElementById('tx-detail').value=v; hideHints(); }
 
-// 提交
-function submit() {
+// ── 記帳小夥伴趣味回應 ───────────────────────────────
+let _mascotTimer = null;
+function showMascot(text) {
+  const wrap   = document.getElementById('mascot-wrap');
+  const bubble = document.getElementById('mascot-bubble');
+  bubble.textContent = text;
+  wrap.style.display = 'block';
+  wrap.style.opacity = '0';
+  wrap.style.transform = 'translateY(12px)';
+  wrap.style.transition = 'opacity .3s, transform .3s';
+  requestAnimationFrame(() => {
+    wrap.style.opacity = '1';
+    wrap.style.transform = 'translateY(0)';
+  });
+  clearTimeout(_mascotTimer);
+  _mascotTimer = setTimeout(() => {
+    wrap.style.opacity = '0';
+    wrap.style.transform = 'translateY(8px)';
+    setTimeout(() => { wrap.style.display = 'none'; }, 350);
+  }, 5000);
+}
+
+async function getFunnyComment(tx) {
+  const key = localStorage.getItem('claude_api_key') || '';
+  if (!key) return;
+  const catLabel = catName(tx.cat);
+  const payLabel = tx.pay === 'cash' ? '現金' : tx.pay === 'icard' ? '悠遊卡' : '信用卡';
+  const prompt = `你是一個可愛又有點無厘頭的記帳小夥伴🐷，每次有人記帳後你會說一句話。
+這筆消費：${catLabel} ${tx.detail ? '「' + tx.detail + '」' : ''} $${tx.amount} 用${payLabel}付
+請說一句話回應（15~25字），風格隨機混合以下任一種：
+- 幽默吐槽（有點無厘頭）
+- 溫暖鼓勵
+- 理財小提示
+- 感同身受的感嘆
+加一個相關emoji，只回傳那句話，不要其他內容。`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 80,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const text = (data.content?.[0]?.text || '').trim();
+    if (text) showMascot(text);
+  } catch(e) {
+    console.warn('[mascot]', e.message);
+  }
+}
+
+
   const amt = parseInt(astr)||0;
   if (!amt)                      { toast('金額不可為 0','warn');             return; }
   if (!selCat)                   { toast('請選擇分類','warn');               return; }
@@ -614,6 +675,8 @@ function submit() {
       else if (res.pct>=(getDiscord().budgetPct||80)) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`,'warn'),1400);
     });
   }
+  // 趣味小夥伴回應（非同步，不阻擋流程）
+  getFunnyComment(tx);
   const sov = document.getElementById('sov');
   sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
   toast(`記帳 $${fmt(amt)} 成功！`);

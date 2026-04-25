@@ -242,10 +242,22 @@
     </div>
     <div class="notify-row">
       <div class="notify-info">
-        <div class="notify-name">📈 每週摘要通知</div>
-        <div class="notify-desc">每週日發送本週支出摘要</div>
+        <div class="notify-name">📈 每週財務報表</div>
+        <div class="notify-desc">每週六發送上週六～本週五記帳統計 + AI 財務建議</div>
       </div>
       <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
+      <div class="notify-info">
+        <div class="notify-name">🗓️ 週報發送時間</div>
+        <div class="notify-desc">每週六幾點發送週報</div>
+      </div>
+      <select class="fc" id="weekly-hour" onchange="saveNotify()" style="width:100px;padding:8px 10px;font-size:.88rem">
+        <option value="7">07:00</option>
+        <option value="8">08:00</option>
+        <option value="9">09:00</option>
+        <option value="10">10:00</option>
+      </select>
     </div>
   </div>
 
@@ -361,7 +373,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.23 09:40';
+const APP_VERSION = 'v2026.04.25 16:00';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -459,13 +471,13 @@ function saveBudgetLimit(catId,val){
 // Discord 通知設定
 function renderNotifySettings(){
   const cfg=getDiscord();
-  // 優先讀 localStorage（最新值），其次讀 discord 設定
   document.getElementById('discord-url').value=localStorage.getItem('discord_webhook')||cfg.webhook||'';
   document.getElementById('sw-add').checked=cfg.onAdd!==false;
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
   document.getElementById('sw-budget').checked=cfg.onBudget!==false;
   document.getElementById('sw-weekly').checked=cfg.onWeekly===true;
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
+  document.getElementById('weekly-hour').value=cfg.weeklyHour||8;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
 }
 function saveClaudeKey(){
@@ -517,14 +529,16 @@ function saveDiscordUrl(){
 }
 function saveNotify(){
   saveDiscord({
-    onAdd:    document.getElementById('sw-add').checked,
-    onDaily:  document.getElementById('sw-daily').checked,
-    onBudget: document.getElementById('sw-budget').checked,
-    onWeekly: document.getElementById('sw-weekly').checked,
-    dailyHour:parseInt(document.getElementById('daily-hour').value)||21,
-    budgetPct:parseInt(document.getElementById('budget-pct').value)||80,
+    onAdd:      document.getElementById('sw-add').checked,
+    onDaily:    document.getElementById('sw-daily').checked,
+    onBudget:   document.getElementById('sw-budget').checked,
+    onWeekly:   document.getElementById('sw-weekly').checked,
+    dailyHour:  parseInt(document.getElementById('daily-hour').value)||21,
+    weeklyHour: parseInt(document.getElementById('weekly-hour').value)||8,
+    budgetPct:  parseInt(document.getElementById('budget-pct').value)||80,
   });
-  toast('通知設定已儲存');
+  fbSyncAppConfig();
+  toast('通知設定已儲存並同步');
 }
 async function testDiscordBtn(){
   const url=document.getElementById('discord-url').value.trim();
