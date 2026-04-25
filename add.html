@@ -633,7 +633,12 @@ async function getFunnyComment(tx) {
     if(!res.ok) return;
     const d = await res.json();
     const t = (d.content?.[0]?.text||'').trim();
-    if(t) showMascot(t);
+    if(!t) return;
+    // 泡泡顯示（角色名稱 + 冒號 + 內容）
+    const char2 = getChar();
+    showMascot(char2.name + '：' + t);
+    // 同一句話傳給 Discord（不再重複呼叫 AI）
+    if (typeof discordOnAddWithComment === 'function') discordOnAddWithComment(tx, t);
   } catch(e){ console.warn('[mascot]',e.message); }
 }
 
@@ -804,8 +809,7 @@ function submit() {
     })() : new Date().toISOString(),
   };
   addTx(tx); fbAddTx(tx);
-  // Discord 通知 + 預算警示
-  if (typeof discordOnAdd === 'function') discordOnAdd(tx);
+  // 預算警示
   if (typeof checkBudgetAlert === 'function') {
     checkBudgetAlert(tx).then(res=>{
       if (!res) return;
@@ -813,8 +817,14 @@ function submit() {
       else if (res.pct>=(getDiscord().budgetPct||80)) setTimeout(()=>toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`,'warn'),1400);
     });
   }
-  // 記帳夥伴回應
-  getFunnyComment(tx);
+  // 記帳夥伴回應（同時把同一句話發到 Discord）
+  // 若沒有 Claude Key 則直接用舊版 discordOnAdd
+  const hasKey = !!localStorage.getItem('claude_api_key');
+  if (hasKey) {
+    getFunnyComment(tx);
+  } else {
+    if (typeof discordOnAdd === 'function') discordOnAdd(tx);
+  }
   const sov = document.getElementById('sov');
   sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
   toast(`記帳 $${fmt(amt)} 成功！`);
