@@ -36,7 +36,9 @@
 .bamts{display:flex;justify-content:space-between;font-size:.72rem;color:var(--t2)}
 .bwarn{font-size:.72rem;font-weight:700;margin-top:4px}
 .bwarn.warn{color:var(--warn)}.bwarn.danger{color:var(--danger)}
-.period-badge{display:inline-flex;align-items:center;gap:6px;background:var(--pdim);color:var(--p);border-radius:8px;padding:6px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
+.qnav-btn{flex-shrink:0;padding:5px 12px;background:var(--card2);border:1.5px solid var(--border);color:var(--t2);border-radius:20px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;white-space:nowrap}
+.qnav-btn:active{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.qnav-btn.active{background:var(--pdim);border-color:var(--p);color:var(--p)}
 .char-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
 .char-card{background:var(--card2);border:2px solid var(--border);border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
 .char-card:active{transform:scale(.95)}
@@ -55,7 +57,18 @@
   <a href="./index.html" class="hdr-btn">📋</a>
 </header>
 <div class="w">
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <!-- 快速導覽列 -->
+  <div style="position:sticky;top:0;z-index:100;background:var(--bg);padding:8px 0 6px;margin-bottom:4px;border-bottom:1px solid var(--border)">
+    <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 2px">
+      <button onclick="jumpTo('sec-account')" class="qnav-btn">👤 帳號</button>
+      <button onclick="jumpTo('sec-theme')"   class="qnav-btn">🎨 外觀</button>
+      <button onclick="jumpTo('sec-notify')"  class="qnav-btn">🔔 通知</button>
+      <button onclick="jumpTo('sec-budget')"  class="qnav-btn">📊 記帳</button>
+      <button onclick="jumpTo('sec-ai')"      class="qnav-btn">🤖 AI</button>
+      <button onclick="jumpTo('sec-data')"    class="qnav-btn">📁 備份</button>
+    </div>
+  </div>
+  <div id="sec-account" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">👤 帳號與版本</div>
   </div>
@@ -109,7 +122,7 @@
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <div id="sec-theme" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🎨 外觀與個人化</div>
   </div>
@@ -146,7 +159,7 @@
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <div id="sec-notify" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🔔 通知設定</div>
   </div>
@@ -218,7 +231,7 @@
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <div id="sec-budget" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">📊 記帳管理</div>
   </div>
@@ -269,7 +282,7 @@
   <div class="sec-t">📊 資料統計</div>
   <div class="data-card" id="data-stat"></div>
 
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <div id="sec-ai" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🤖 AI 設定</div>
   </div>
@@ -317,7 +330,7 @@
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+  <div id="sec-data" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">📁 資料與備份</div>
   </div>
@@ -360,6 +373,14 @@
       <span class="sarr">›</span>
     </div>
   </div>
+  <!-- 回頂端按鈕 -->
+  <div style="text-align:center;padding:8px 0 4px">
+    <button onclick="window.scrollTo({top:0,behavior:'smooth'})"
+      style="padding:10px 28px;background:var(--card2);border:1.5px solid var(--border);color:var(--t2);border-radius:20px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">
+      ⬆️ 回到最上面
+    </button>
+  </div>
+
   <div style="height:20px"></div>
 </div>
 <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
@@ -415,7 +436,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.26 04:30';
+const APP_VERSION = 'v2026.04.26 05:00';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -829,6 +850,20 @@ function updateCharPreview(id) {
   document.getElementById('char-preview-emoji').textContent = c.emoji;
   document.getElementById('char-preview-name').textContent  = c.name + '　·　' + c.tag;
   document.getElementById('char-preview-desc').textContent  = '「' + c.preview + '」';
+}
+
+function jumpTo(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  // 高亮對應按鈕
+  document.querySelectorAll('.qnav-btn').forEach(b => b.classList.remove('active'));
+  const map = {'sec-account':0,'sec-theme':1,'sec-notify':2,'sec-budget':3,'sec-ai':4,'sec-data':5};
+  const btns = document.querySelectorAll('.qnav-btn');
+  if (btns[map[id]] !== undefined) {
+    btns[map[id]].classList.add('active');
+    setTimeout(() => btns[map[id]].classList.remove('active'), 1200);
+  }
 }
 
 window.addEventListener("DOMContentLoaded", ()=>setTimeout(()=>{ init(); buildCharGrid(); }, 150));
