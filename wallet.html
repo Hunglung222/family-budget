@@ -76,7 +76,7 @@
 .hist-amt.in{color:var(--ok)}.hist-amt.out{color:#ff6b82}.hist-amt.topup{color:var(--p)}
 </style>
 </head>
-<body><button style="position:fixed;top:12px;right:12px;width:40px;height:40px;background:var(--card);border:1.5px solid var(--border);color:var(--p);border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:999" onclick="location.href='./settings.html'" title="設定">⚙️</button>
+<body>
 <header class="hdr">
   <div><h1>💼 財務管理</h1><div class="hdr-sub" id="user-lbl">載入中...</div></div>
   <a href="./settings.html" class="hdr-btn">⚙️</a>
@@ -348,6 +348,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/assistant.js"></script>
 <script>
 let pickedColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
