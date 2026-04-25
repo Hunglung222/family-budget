@@ -124,7 +124,7 @@ async function callClaude(userMsg) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 1024,
+        max_tokens: 2048,
         system: buildSystemPrompt(),
         messages: chatHistory
       })
@@ -304,6 +304,27 @@ function saveConversation(note) {
   saveChatLog(note, '✅ 記帳完成');
 }
 
+
+// ── Markdown 簡易渲染 ─────────────────────────────────────────
+function renderMarkdown(text) {
+  return text
+    .replace(/^### (.+)$/gm, '<div style="font-weight:900;font-size:.9rem;color:var(--p);margin:8px 0 4px">$1</div>')
+    .replace(/^## (.+)$/gm,  '<div style="font-weight:900;font-size:.95rem;color:var(--t1);margin:10px 0 4px">$1</div>')
+    .replace(/^# (.+)$/gm,   '<div style="font-weight:900;font-size:1rem;color:var(--t1);margin:10px 0 4px">$1</div>')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.+?)\*/g, '<i>$1</i>')
+    .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">')
+    .replace(/^\|(.+)\|$/gm, (match, inner) => {
+      if (/^[\s\-\|]+$/.test(inner)) return '';
+      const cells = inner.split('|').map(c => c.trim());
+      return '<div style="display:flex;gap:4px;margin:2px 0">' +
+        cells.map(c => '<span style="flex:1;min-width:0;font-size:.8rem;padding:2px 4px;background:var(--card2);border-radius:4px;word-break:break-all">' + c + '</span>').join('') +
+        '</div>';
+    })
+    .replace(/^[-] (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--p);flex-shrink:0">•</span><span>$1</span></div>')
+    .replace(/\n/g, '<br>');
+}
+
 // ── UI 操作函數 ──────────────────────────────────────────────
 function appendMsg(role, text, extraHtml) {
   const msgs    = document.getElementById('ast-msgs');
@@ -331,7 +352,11 @@ function appendMsg(role, text, extraHtml) {
   }
 
   const textNode = document.createElement('div');
-  textNode.textContent = text;
+  if (isUser) {
+    textNode.textContent = text; // 使用者訊息不渲染 markdown
+  } else {
+    textNode.innerHTML = renderMarkdown(text); // 助理訊息渲染 markdown
+  }
   bubble.appendChild(textNode);
 
   if (extraHtml) {
@@ -472,7 +497,7 @@ function buildUI() {
   // 浮動按鈕
   const fab = document.createElement('div');
   fab.id    = 'ast-fab';
-  fab.style.cssText = `position:fixed;bottom:calc(var(--nav,72px) + 16px);right:16px;z-index:300;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 16px rgba(0,229,180,.4);transition:transform .2s`;
+  fab.style.cssText = `position:fixed;bottom:calc(68px + env(safe-area-inset-bottom,0px) + 16px);right:16px;z-index:300;width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.5rem;cursor:pointer;box-shadow:0 4px 20px rgba(0,229,180,.45);transition:transform .2s`;
   fab.textContent = char.emoji;
   fab.onclick     = openAssistant;
   fab.onmouseenter = () => fab.style.transform = 'scale(1.1)';
