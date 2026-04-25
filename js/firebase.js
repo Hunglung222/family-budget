@@ -126,11 +126,16 @@ async function fbSyncAppConfig(){
     const webhook   = localStorage.getItem('discord_webhook')||'';
     const geminiKey = localStorage.getItem('gemini_api_key')||'';
     const claudeKey = localStorage.getItem('claude_api_key')||'';
+    const discordCfg = getDiscord();
     if(webhook||geminiKey||claudeKey){
       await getDb().collection('shared').doc('app_config').set({
         discordWebhook: webhook,
         geminiKey: geminiKey,
         claudeKey: claudeKey,
+        dailyHour:  discordCfg.dailyHour  || 21,
+        weeklyHour: discordCfg.weeklyHour || 8,
+        onDaily:    discordCfg.onDaily  !== false,
+        onWeekly:   discordCfg.onWeekly === true,
         updatedAt: Date.now(),
         updatedBy: localStorage.getItem('current_user')||'',
       });
@@ -261,12 +266,6 @@ async function discordSend(msg){
   catch(e){console.warn('[Discord]',e);}
 }
 
-async function discordOnAdd(tx){
-  const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
-  const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
-  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}`);
-}
-
 async function checkBudgetAlert(tx){
   const cfg=getDiscord();
   const limit=getBudget(tx.cat);if(!limit)return null;
@@ -294,32 +293,6 @@ async function discordBillReminder(){
       await discordSend(`💳 **信用卡繳費提醒**\n${card.name} ${bill.month}月帳單\n應繳金額：**$${fmt(bill.total)}**\n繳費截止：${bill.year}/${bill.month}/${bill.dueDay||15}\n⏰ 還有 ${diff} 天！`);
     }
   }
-}
-
-async function discordDailySummary(){
-  const cfg=getDiscord();if(!cfg.onDaily||!getWebhook())return;
-  const key='discord_daily_'+new Date().toDateString();
-  if(localStorage.getItem(key))return;
-  const now=new Date(),s=new Date(now.getFullYear(),now.getMonth(),now.getDate());
-  const today=getTx().filter(t=>{const d=new Date(t.at);return d>=s&&d<new Date(s.getTime()+864e5);});
-  if(!today.length)return;
-  const total=today.reduce((s,t)=>s+t.amount,0);
-  const lines=today.map(t=>`• ${catName(t.cat)} ${t.detail||''} **$${fmt(t.amount)}** (${t.person})`).join('\n');
-  await discordSend(`📊 **家庭記帳日結算** ${now.getMonth()+1}/${now.getDate()}\n${lines}\n\n💰 今日合計：**$${fmt(total)}**`);
-  localStorage.setItem(key,'1');
-}
-
-function scheduleNotifications(){
-  if(!getWebhook())return;
-  const cfg=getDiscord();
-  const now=new Date(),target=new Date();
-  target.setHours(cfg.dailyHour||21,0,0,0);
-  if(target<=now)target.setDate(target.getDate()+1);
-  setTimeout(async()=>{
-    await discordDailySummary();
-    await discordBillReminder();
-    setInterval(async()=>{await discordDailySummary();await discordBillReminder();},864e5);
-  },target-now);
 }
 
 // 相容舊版呼叫
@@ -358,7 +331,21 @@ async function discordSend(msg){
 async function discordOnAdd(tx){
   const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
   const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
-  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}`);
+  // 取得趣味回應
+  let funnyLine='';
+  try{
+    const key=localStorage.getItem('claude_api_key')||'';
+    if(key){
+      const catLabel=catName(tx.cat);
+      const prompt=`你是記帳小夥伴，每次有人記帳後說一句話。這筆：${catLabel} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}。說一句15~25字的話，風格隨機（幽默/鼓勵/理財提示/感嘆），加emoji，只回傳那句話。`;
+      const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+        body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
+      });
+      if(res.ok){const d=await res.json();funnyLine='\n💬 '+(d.content?.[0]?.text||'').trim();}
+    }
+  }catch(e){console.warn('[discord mascot]',e.message);}
+  await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}${funnyLine}`);
 }
 
 async function checkBudgetAlert(tx){
