@@ -37,6 +37,16 @@
 .bwarn{font-size:.72rem;font-weight:700;margin-top:4px}
 .bwarn.warn{color:var(--warn)}.bwarn.danger{color:var(--danger)}
 .period-badge{display:inline-flex;align-items:center;gap:6px;background:var(--pdim);color:var(--p);border-radius:8px;padding:6px 12px;font-size:.8rem;font-weight:600;margin-bottom:12px}
+.char-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.char-card{background:var(--card2);border:2px solid var(--border);border-radius:14px;padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.char-card:active{transform:scale(.95)}
+.char-card.on{border-color:var(--p);background:var(--pdim)}
+.char-card .char-emoji{font-size:1.8rem;line-height:1;margin-bottom:4px}
+.char-card .char-name{font-size:.62rem;font-weight:700;color:var(--t2);margin-bottom:2px}
+.char-card .char-tag{font-size:.55rem;color:var(--t3);line-height:1.3}
+.char-card.on .char-name{color:var(--p)}
+.char-preview{background:var(--card2);border:1.5px solid var(--border);border-radius:14px;padding:12px 14px;margin-top:10px;display:flex;align-items:center;gap:10px}
+.char-preview-bubble{flex:1;font-size:.8rem;color:var(--t2);line-height:1.5;font-style:italic}
 </style>
 </head>
 <body>
@@ -113,6 +123,20 @@
       <button class="mode-btn" id="fs-lg"  onclick="setFontSize(1.3)">特大</button>
     </div>
     <div style="font-size:.72rem;color:var(--t3);margin-top:8px">調整後所有頁面文字同步放大</div>
+  </div>
+
+  <!-- 記帳夥伴角色選擇 -->
+  <div class="sec-t">🐨 記帳夥伴</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">選擇每次記帳後出現的小夥伴，每個角色個性不同，今天無尾熊、明天牡蠣，隨心所欲！</div>
+    <div class="char-grid" id="char-grid"></div>
+    <div class="char-preview" id="char-preview">
+      <div id="char-preview-emoji" style="font-size:2rem;flex-shrink:0"></div>
+      <div>
+        <div id="char-preview-name" style="font-size:.82rem;font-weight:700;margin-bottom:3px"></div>
+        <div id="char-preview-desc" class="char-preview-bubble"></div>
+      </div>
+    </div>
   </div>
 
   <!-- 預算週期設定 -->
@@ -242,22 +266,10 @@
     </div>
     <div class="notify-row">
       <div class="notify-info">
-        <div class="notify-name">📈 每週財務報表</div>
-        <div class="notify-desc">每週六發送上週六～本週五記帳統計 + AI 財務建議</div>
+        <div class="notify-name">📈 每週摘要通知</div>
+        <div class="notify-desc">每週日發送本週支出摘要</div>
       </div>
       <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
-    </div>
-    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
-      <div class="notify-info">
-        <div class="notify-name">🗓️ 週報發送時間</div>
-        <div class="notify-desc">每週六幾點發送週報</div>
-      </div>
-      <select class="fc" id="weekly-hour" onchange="saveNotify()" style="width:100px;padding:8px 10px;font-size:.88rem">
-        <option value="7">07:00</option>
-        <option value="8">08:00</option>
-        <option value="9">09:00</option>
-        <option value="10">10:00</option>
-      </select>
     </div>
   </div>
 
@@ -373,7 +385,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.25 16:00';
+const APP_VERSION = 'v2026.04.25 18:30';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -471,13 +483,13 @@ function saveBudgetLimit(catId,val){
 // Discord 通知設定
 function renderNotifySettings(){
   const cfg=getDiscord();
+  // 優先讀 localStorage（最新值），其次讀 discord 設定
   document.getElementById('discord-url').value=localStorage.getItem('discord_webhook')||cfg.webhook||'';
   document.getElementById('sw-add').checked=cfg.onAdd!==false;
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
   document.getElementById('sw-budget').checked=cfg.onBudget!==false;
   document.getElementById('sw-weekly').checked=cfg.onWeekly===true;
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
-  document.getElementById('weekly-hour').value=cfg.weeklyHour||8;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
 }
 function saveClaudeKey(){
@@ -529,16 +541,14 @@ function saveDiscordUrl(){
 }
 function saveNotify(){
   saveDiscord({
-    onAdd:      document.getElementById('sw-add').checked,
-    onDaily:    document.getElementById('sw-daily').checked,
-    onBudget:   document.getElementById('sw-budget').checked,
-    onWeekly:   document.getElementById('sw-weekly').checked,
-    dailyHour:  parseInt(document.getElementById('daily-hour').value)||21,
-    weeklyHour: parseInt(document.getElementById('weekly-hour').value)||8,
-    budgetPct:  parseInt(document.getElementById('budget-pct').value)||80,
+    onAdd:    document.getElementById('sw-add').checked,
+    onDaily:  document.getElementById('sw-daily').checked,
+    onBudget: document.getElementById('sw-budget').checked,
+    onWeekly: document.getElementById('sw-weekly').checked,
+    dailyHour:parseInt(document.getElementById('daily-hour').value)||21,
+    budgetPct:parseInt(document.getElementById('budget-pct').value)||80,
   });
-  fbSyncAppConfig();
-  toast('通知設定已儲存並同步');
+  toast('通知設定已儲存');
 }
 async function testDiscordBtn(){
   const url=document.getElementById('discord-url').value.trim();
@@ -748,7 +758,50 @@ function closeModal(){document.getElementById('confirm-modal').classList.remove(
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
-window.addEventListener("DOMContentLoaded", ()=>setTimeout(init, 150));
+// ── 記帳夥伴角色系統 ─────────────────────────────────
+const CHARACTERS = [
+  { id:'koala',    emoji:'🐨', name:'無尾熊可可', tag:'溫暖鼓勵',   style:'軟萌溫柔、正能量滿滿，像媽媽一樣鼓勵你，說話暖心，偶爾撒嬌', preview:'花錢也要花得有溫度，你辛苦了 🌿' },
+  { id:'oyster',   emoji:'🦪', name:'牡蠣寶寶',   tag:'無厘頭搞笑', style:'莫名其妙、語出驚人、邏輯跳躍，讓人哭笑不得但忍不住想看', preview:'記帳讓我想到海浪，然後我想吃炸蚵仔 🌊' },
+  { id:'fox',      emoji:'🦊', name:'狐狸小智',   tag:'專業理財',   style:'數據導向、邏輯清晰、像專業財務顧問，給具體可執行的理財建議', preview:'此筆支出建議列入固定成本欄位，可優化現金流 📊' },
+  { id:'frog',     emoji:'🐸', name:'青蛙呱呱',   tag:'毒舌吐槽',   style:'嘴巴很壞但其實關心你，每句話都在吐槽，說完又補一句安慰', preview:'又花錢了？你的錢包哭了，但我懂你的痛 🫠' },
+  { id:'otter',    emoji:'🦦', name:'水獺阿福',   tag:'療癒佛系',   style:'超放鬆、佛系、什麼都覺得沒關係，充滿治癒感，讓人壓力全消', preview:'花了就花了，人生嘛，開心最重要 🌊✨' },
+  { id:'hamster',  emoji:'🐹', name:'倉鼠米米',   tag:'省錢狂魔',   style:'超級節省觀念，對每筆花費都心痛，各種省錢妙招脫口而出', preview:'這筆如果省下來可以買好多葵瓜子啊啊啊 😭' },
+  { id:'panda',    emoji:'🐼', name:'熊貓胖胖',   tag:'吃貨哲學',   style:'什麼都跟吃扯上關係，人生哲學全是食物，超有梗的美食觀點', preview:'錢花掉了沒關係，只要沒餓肚子就好 🍜' },
+  { id:'hedgehog', emoji:'🦔', name:'刺蝟蓬蓬',   tag:'嚴肅認真',   style:'一本正經、像專業會計師、非常重視數字精確度，完全不開玩笑', preview:'本筆消費已記錄，請確認歸類正確性。謝謝。' },
+  { id:'cat',      emoji:'🐱', name:'貓咪嗚嗚',   tag:'傲嬌冷漠',   style:'傲嬌、不在乎你但其實很在乎，貓式關心，說話帶刺但有溫度', preview:'本貓懶得管你，但…還是希望你存到錢啦 😾' },
+  { id:'dog',      emoji:'🐶', name:'狗狗旺財',   tag:'超級熱情',   style:'每次都超開心超興奮，用力鼓勵，元氣滿滿，讓人被感染活力', preview:'哇你記帳了！你最棒了！加油加油！汪！🐾' },
+  { id:'owl',      emoji:'🦉', name:'貓頭鷹歐比', tag:'人生導師',   style:'充滿哲理、說話像古代智者，每句話都有深意，有點裝但很有料', preview:'金錢如流水，記錄即智慧。消費者，須自知也 🌙' },
+  { id:'octopus',  emoji:'🐙', name:'章魚奧托',   tag:'鬼靈精怪',   style:'腦洞超大、思路跳躍、說話充滿意外，根本猜不到下一句是什麼', preview:'我有八隻手臂但只有一個錢包，好難過喔 🌀' },
+];
+
+function buildCharGrid() {
+  const saved = localStorage.getItem('mascot_char') || 'koala';
+  const grid  = document.getElementById('char-grid');
+  const shortName = n => n.replace(/無尾熊|牡蠣|狐狸|青蛙|水獺|倉鼠|熊貓|刺蝟|貓咪|狗狗|貓頭鷹|章魚/g,'');
+  grid.innerHTML = CHARACTERS.map(c=>`
+    <div class="char-card${c.id===saved?' on':''}" onclick="selectChar('${c.id}')" data-id="${c.id}">
+      <div class="char-emoji">${c.emoji}</div>
+      <div class="char-name">${shortName(c.name)}</div>
+      <div class="char-tag">${c.tag}</div>
+    </div>`).join('');
+  updateCharPreview(saved);
+}
+
+function selectChar(id) {
+  localStorage.setItem('mascot_char', id);
+  document.querySelectorAll('.char-card').forEach(el=>el.classList.toggle('on', el.dataset.id===id));
+  updateCharPreview(id);
+  toast('🎉 已換成 ' + CHARACTERS.find(c=>c.id===id).name);
+}
+
+function updateCharPreview(id) {
+  const c = CHARACTERS.find(x=>x.id===id) || CHARACTERS[0];
+  document.getElementById('char-preview-emoji').textContent = c.emoji;
+  document.getElementById('char-preview-name').textContent  = c.name + '　·　' + c.tag;
+  document.getElementById('char-preview-desc').textContent  = '「' + c.preview + '」';
+}
+
+window.addEventListener("DOMContentLoaded", ()=>setTimeout(()=>{ init(); buildCharGrid(); }, 150));
 </script>
 </body>
 </html>
