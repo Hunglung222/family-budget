@@ -55,7 +55,10 @@
   <a href="./index.html" class="hdr-btn">📋</a>
 </header>
 <div class="w">
-
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">👤 帳號與版本</div>
+  </div>
   <!-- App 版本資訊 -->
   <div style="background:linear-gradient(135deg,var(--card),var(--card2));border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:14px;margin-top:8px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
@@ -106,6 +109,10 @@
     </div>
   </div>
 
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🎨 外觀與個人化</div>
+  </div>
   <!-- 外觀主題 -->
   <div class="sec-t">🎨 外觀主題</div>
   <div class="data-card" style="padding:14px 16px">
@@ -139,72 +146,10 @@
     </div>
   </div>
 
-  <!-- 預算週期設定 -->
-  <div class="sec-t">🎯 預算設定</div>
-  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
-    <div class="flbl" style="margin-bottom:8px">📅 每月週期起始日</div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-      <span style="font-size:.88rem;color:var(--t2)">每月</span>
-      <input type="number" class="binput" id="start-day" min="1" max="28" style="width:70px;text-align:center" onchange="saveStartDay()">
-      <span style="font-size:.88rem;color:var(--t2)">日 開始</span>
-    </div>
-    <div class="period-badge" id="period-display">📅 計算中...</div>
-    <div style="font-size:.72rem;color:var(--t3)">例如設定 10，則每月 10 日～次月 9 日為一個週期</div>
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🔔 通知設定</div>
   </div>
-
-  <!-- 各分類預算上限 -->
-  <div id="budget-list"></div>
-
-  <!-- Claude API 設定 -->
-  <div class="sec-t">✨ Claude API 設定（推薦用）</div>
-  <div class="data-card" style="padding:14px 16px;margin-bottom:8px;border-left:4px solid var(--p)">
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
-      用於 AI 記帳辨識功能，比 Gemini 穩定。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
-      <a href="https://console.anthropic.com" target="_blank" style="color:var(--p)">點此申請 API Key</a>
-    </div>
-    <div class="fg">
-      <span class="flbl">Claude API Key</span>
-      <input type="text" class="fc" id="claude-key" placeholder="sk-ant-api03-..." style="font-size:.78rem">
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="saveClaudeKey()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">💾 儲存</button>
-      <button onclick="testClaude()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">✅ 測試</button>
-    </div>
-  </div>
-
-  <!-- Gemini AI 設定 -->
-  <div class="sec-t">🤖 Gemini AI 設定（舊用）</div>
-  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
-      用於 AI 記帳辨識功能。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
-      <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--p)">點此取得 API Key</a>
-    </div>
-    <div class="fg">
-      <span class="flbl">Gemini API Key</span>
-      <input type="text" class="fc" id="gemini-key" placeholder="AIzaSy..." style="font-size:.78rem">
-    </div>
-    <div style="display:flex;gap:8px">
-      <button onclick="saveGeminiKey()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
-      <button onclick="testGemini()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
-    </div>
-  </div>
-
-  <!-- 子分類維護 -->
-  <div class="sec-t">🏷️ 子分類維護</div>
-  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px">選擇分類後可新增、修改、刪除子分類</div>
-    <div class="fg" style="margin-bottom:10px">
-      <select class="fc" id="sub-cat-sel" onchange="renderSubList()" style="font-size:.88rem">
-        <option value="">── 選擇主分類 ──</option>
-      </select>
-    </div>
-    <div id="sub-list" style="margin-bottom:10px"></div>
-    <div style="display:flex;gap:8px">
-      <input type="text" class="fc" id="sub-inp" placeholder="輸入新子分類名稱" style="flex:1;font-size:.85rem">
-      <button onclick="doAddSub()" style="padding:10px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">新增</button>
-    </div>
-  </div>
-
   <!-- Discord 通知設定 -->
   <div class="sec-t">📣 Discord 通知設定</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
@@ -273,10 +218,25 @@
     </div>
   </div>
 
-  <!-- 資料統計 -->
-  <div class="sec-t">📊 資料統計</div>
-  <div class="data-card" id="data-stat"></div>
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">📊 記帳管理</div>
+  </div>
+  <!-- 預算週期設定 -->
+  <div class="sec-t">🎯 預算設定</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div class="flbl" style="margin-bottom:8px">📅 每月週期起始日</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <span style="font-size:.88rem;color:var(--t2)">每月</span>
+      <input type="number" class="binput" id="start-day" min="1" max="28" style="width:70px;text-align:center" onchange="saveStartDay()">
+      <span style="font-size:.88rem;color:var(--t2)">日 開始</span>
+    </div>
+    <div class="period-badge" id="period-display">📅 計算中...</div>
+    <div style="font-size:.72rem;color:var(--t3)">例如設定 10，則每月 10 日～次月 9 日為一個週期</div>
+  </div>
 
+  <!-- 各分類預算上限 -->
+  <div id="budget-list"></div>
   <!-- 分類管理 -->
   <div class="sec-t">🏷️ 分類管理</div>
   <div style="margin-bottom:8px">
@@ -289,7 +249,78 @@
       <button onclick="addNewCat()" style="padding:12px 16px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋新增</button>
     </div>
   </div>
+  <!-- 子分類維護 -->
+  <div class="sec-t">🏷️ 子分類維護</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px">選擇分類後可新增、修改、刪除子分類</div>
+    <div class="fg" style="margin-bottom:10px">
+      <select class="fc" id="sub-cat-sel" onchange="renderSubList()" style="font-size:.88rem">
+        <option value="">── 選擇主分類 ──</option>
+      </select>
+    </div>
+    <div id="sub-list" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" class="fc" id="sub-inp" placeholder="輸入新子分類名稱" style="flex:1;font-size:.85rem">
+      <button onclick="doAddSub()" style="padding:10px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">新增</button>
+    </div>
+  </div>
 
+  <!-- 資料統計 -->
+  <div class="sec-t">📊 資料統計</div>
+  <div class="data-card" id="data-stat"></div>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">🤖 AI 設定</div>
+  </div>
+  <!-- Claude API 設定 -->
+  <div class="sec-t">✨ Claude API 設定（推薦用）</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px;border-left:4px solid var(--p)">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
+      用於 AI 記帳辨識功能，比 Gemini 穩定。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
+      <a href="https://console.anthropic.com" target="_blank" style="color:var(--p)">點此申請 API Key</a>
+    </div>
+    <div class="fg">
+      <span class="flbl">Claude API Key</span>
+      <input type="text" class="fc" id="claude-key" placeholder="sk-ant-api03-..." style="font-size:.78rem">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveClaudeKey()" style="flex:1;padding:11px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">💾 儲存</button>
+      <button onclick="testClaude()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">✅ 測試</button>
+    </div>
+  </div>
+
+  <!-- Gemini AI 設定（收折）-->
+  <div style="margin-bottom:8px">
+    <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.querySelector('.arr').style.transform=this.nextElementSibling.style.display==='block'?'rotate(90deg)':'rotate(0deg)'"
+      style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;font-family:inherit;color:var(--t3);font-size:.8rem;font-weight:700">
+      <span>🤖 Gemini AI 設定（舊版，不常用）</span>
+      <span class="arr" style="transition:transform .2s;font-size:.9rem">›</span>
+    </button>
+    <div style="display:none">
+  <!-- Gemini AI 設定 -->
+  <div class="sec-t">🤖 Gemini AI 設定（舊用）</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:10px;line-height:1.6">
+      用於 AI 記帳辨識功能。API Key 儲存在本機，儲存後自動同步給盈慧。<br>
+      <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--p)">點此取得 API Key</a>
+    </div>
+    <div class="fg">
+      <span class="flbl">Gemini API Key</span>
+      <input type="text" class="fc" id="gemini-key" placeholder="AIzaSy..." style="font-size:.78rem">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="saveGeminiKey()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+      <button onclick="testGemini()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px">
+    <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
+    <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">📁 資料與備份</div>
+  </div>
   <!-- 匯出報表 -->
   <div class="sec-t">📊 匯出報表</div>
   <div class="set-card">
@@ -329,9 +360,8 @@
       <span class="sarr">›</span>
     </div>
   </div>
-  <div style="height:16px"></div>
+  <div style="height:20px"></div>
 </div>
-
 <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
 <div class="ov" id="confirm-modal">
   <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
@@ -385,7 +415,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.26 03:30';
+const APP_VERSION = 'v2026.04.26 04:30';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
