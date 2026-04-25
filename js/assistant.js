@@ -307,22 +307,74 @@ function saveConversation(note) {
 
 // ── Markdown 簡易渲染 ─────────────────────────────────────────
 function renderMarkdown(text) {
-  return text
-    .replace(/^### (.+)$/gm, '<div style="font-weight:900;font-size:.9rem;color:var(--p);margin:8px 0 4px">$1</div>')
-    .replace(/^## (.+)$/gm,  '<div style="font-weight:900;font-size:.95rem;color:var(--t1);margin:10px 0 4px">$1</div>')
-    .replace(/^# (.+)$/gm,   '<div style="font-weight:900;font-size:1rem;color:var(--t1);margin:10px 0 4px">$1</div>')
-    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-    .replace(/\*(.+?)\*/g, '<i>$1</i>')
-    .replace(/^---+$/gm, '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">')
-    .replace(/^\|(.+)\|$/gm, (match, inner) => {
-      if (/^[\s\-\|]+$/.test(inner)) return '';
-      const cells = inner.split('|').map(c => c.trim());
-      return '<div style="display:flex;gap:4px;margin:2px 0">' +
-        cells.map(c => '<span style="flex:1;min-width:0;font-size:.8rem;padding:2px 4px;background:var(--card2);border-radius:4px;word-break:break-all">' + c + '</span>').join('') +
-        '</div>';
-    })
-    .replace(/^[-] (.+)$/gm, '<div style="display:flex;gap:6px;margin:2px 0"><span style="color:var(--p);flex-shrink:0">•</span><span>$1</span></div>')
-    .replace(/\n/g, '<br>');
+  const lines = text.split('\n');
+  let html = '';
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // 表格處理（連續的 | 開頭行）
+    if (/^\|/.test(line)) {
+      const tableLines = [];
+      while (i < lines.length && /^\|/.test(lines[i])) {
+        // 跳過分隔行 |---|---|
+        if (!/^\|[\s\-\|]+\|$/.test(lines[i])) {
+          tableLines.push(lines[i]);
+        }
+        i++;
+      }
+      if (tableLines.length > 0) {
+        html += '<div style="margin:6px 0">';
+        tableLines.forEach((tl, idx) => {
+          const cells = tl.split('|').filter((c, ci, arr) => ci > 0 && ci < arr.length - 1).map(c => c.trim());
+          const isHeader = idx === 0;
+          html += '<div style="display:flex;gap:4px;margin-bottom:3px">';
+          cells.forEach(cell => {
+            const cellContent = cell.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+            html += `<span style="flex:1;min-width:0;font-size:.78rem;padding:4px 6px;background:${isHeader ? 'var(--pdim)' : 'var(--card2)'};border-radius:5px;word-break:break-all;${isHeader ? 'color:var(--p);font-weight:700' : 'color:var(--t1)'}">${cellContent}</span>`;
+          });
+          html += '</div>';
+        });
+        html += '</div>';
+      }
+      continue;
+    }
+
+    // 標題
+    if (/^### (.+)$/.test(line)) {
+      const t = line.replace(/^### /, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      html += `<div style="font-weight:900;font-size:.88rem;color:var(--p);margin:10px 0 4px">${t}</div>`;
+    } else if (/^## (.+)$/.test(line)) {
+      const t = line.replace(/^## /, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      html += `<div style="font-weight:900;font-size:.92rem;color:var(--t1);margin:10px 0 4px">${t}</div>`;
+    } else if (/^# (.+)$/.test(line)) {
+      const t = line.replace(/^# /, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      html += `<div style="font-weight:900;font-size:.96rem;color:var(--t1);margin:10px 0 4px">${t}</div>`;
+    }
+    // 分隔線
+    else if (/^---+$/.test(line)) {
+      html += '<hr style="border:none;border-top:1px solid var(--border);margin:8px 0">';
+    }
+    // 清單
+    else if (/^- (.+)$/.test(line)) {
+      const t = line.replace(/^- /, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+      html += `<div style="display:flex;gap:6px;margin:3px 0"><span style="color:var(--p);flex-shrink:0;margin-top:1px">•</span><span>${t}</span></div>`;
+    }
+    // 空行
+    else if (line.trim() === '') {
+      html += '<div style="height:6px"></div>';
+    }
+    // 一般文字
+    else {
+      const t = line
+        .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+        .replace(/\*(.+?)\*/g, '<i>$1</i>');
+      html += `<div style="margin:1px 0">${t}</div>`;
+    }
+    i++;
+  }
+  return html;
 }
 
 // ── UI 操作函數 ──────────────────────────────────────────────
