@@ -436,7 +436,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.26 22:30';
+const APP_VERSION = 'v2026.04.26 23:00';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -845,6 +845,34 @@ function selectChar(id) {
   document.querySelectorAll('.char-card').forEach(el=>el.classList.toggle('on', el.dataset.id===id));
   updateCharPreview(id);
   toast('🎉 已換成 ' + CHARACTERS.find(c=>c.id===id).name);
+  // 同步到 Firebase（每個人各自儲存）
+  syncMascotChar(id);
+}
+
+// 儲存角色到 Firebase（每人各自獨立）
+async function syncMascotChar(id) {
+  try {
+    const uid = localStorage.getItem('current_uid');
+    if (!uid || typeof getDb !== 'function') return;
+    await getDb().collection('users').doc(uid).set(
+      { mascotChar: id, updatedAt: Date.now() },
+      { merge: true }
+    );
+  } catch(e) { console.warn('[mascot sync]', e.message); }
+}
+
+// 從 Firebase 還原角色設定（清快取或換手機時）
+async function restoreMascotChar() {
+  try {
+    const uid = localStorage.getItem('current_uid');
+    if (!uid || typeof getDb !== 'function') return;
+    const doc = await getDb().collection('users').doc(uid).get();
+    if (doc.exists && doc.data().mascotChar) {
+      const id = doc.data().mascotChar;
+      localStorage.setItem('mascot_char', id);
+      buildCharGrid(); // 重新渲染選擇格
+    }
+  } catch(e) { console.warn('[mascot restore]', e.message); }
 }
 
 function updateCharPreview(id) {
@@ -868,7 +896,11 @@ function jumpTo(id) {
   }
 }
 
-window.addEventListener("DOMContentLoaded", ()=>setTimeout(()=>{ init(); buildCharGrid(); }, 150));
+window.addEventListener("DOMContentLoaded", ()=>setTimeout(async ()=>{
+  init();
+  await restoreMascotChar(); // 先從 Firebase 還原角色設定
+  buildCharGrid();
+}, 150));
 </script>
 </body>
 </html>
