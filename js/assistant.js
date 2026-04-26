@@ -37,7 +37,10 @@ let voiceRec      = null;
 
 // ── 工具函數 ─────────────────────────────────────────────────
 function fmt(n) { return Number(n).toLocaleString('zh-TW'); }
-function today() { return new Date().toLocaleDateString('zh-TW', { year:'numeric', month:'2-digit', day:'2-digit' }); }
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+}
 
 function getKey() { return localStorage.getItem('claude_api_key') || ''; }
 
@@ -47,14 +50,18 @@ function getTxData() {
   cutoff.setDate(cutoff.getDate() - 90);
   const txList = (typeof getTx === 'function' ? getTx() : [])
     .filter(t => new Date(t.at) >= cutoff && !t.private);
-  return txList.map(t => ({
-    date:   new Date(t.at).toLocaleDateString('zh-TW'),
-    cat:    typeof catName === 'function' ? catName(t.cat) : t.cat,
-    detail: t.detail || '',
-    amount: t.amount,
-    person: t.person || '',
-    pay:    t.pay === 'cash' ? '現金' : t.pay === 'icard' ? '悠遊卡' : '信用卡'
-  }));
+  return txList.map(t => {
+    const d = new Date(t.at);
+    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    return {
+      date:   dateStr,
+      cat:    typeof catName === 'function' ? catName(t.cat) : t.cat,
+      detail: t.detail || '',
+      amount: t.amount,
+      person: t.person || '',
+      pay:    t.pay === 'cash' ? '現金' : t.pay === 'icard' ? '悠遊卡' : '信用卡'
+    };
+  });
 }
 
 function getCatList() {
