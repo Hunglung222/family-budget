@@ -194,7 +194,7 @@
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
-<div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 16px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:none">
+<div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 70px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:auto" onclick="closeMascot()">
   <div style="display:flex;align-items:flex-end;gap:10px;max-width:480px;margin:0 auto">
     <div id="mascot-icon" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,229,180,.3)">🐨</div>
     <div id="mascot-bubble" style="background:var(--card);border:1.5px solid var(--border);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;color:var(--t1);line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100% - 60px)"></div>
@@ -232,7 +232,6 @@ if ('serviceWorker' in navigator) {
 </script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/assistant.js"></script>
 
 <!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
@@ -606,6 +605,14 @@ function getChar() {
   return CHARACTERS.find(c=>c.id===id) || CHARACTERS[0];
 }
 let _mascotTimer = null;
+function closeMascot() {
+  const wrap = document.getElementById('mascot-wrap');
+  if (!wrap || wrap.style.display === 'none') return;
+  wrap.style.opacity = '0';
+  wrap.style.transform = 'translateY(8px)';
+  clearTimeout(_mascotTimer);
+  setTimeout(() => { wrap.style.display = 'none'; }, 350);
+}
 function showMascot(text) {
   const char = getChar();
   const wrap = document.getElementById('mascot-wrap');
@@ -615,10 +622,7 @@ function showMascot(text) {
   wrap.style.cssText += ';display:block;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s';
   requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
   clearTimeout(_mascotTimer);
-  _mascotTimer = setTimeout(()=>{
-    wrap.style.opacity='0'; wrap.style.transform='translateY(8px)';
-    setTimeout(()=>wrap.style.display='none', 350);
-  }, 5000);
+  _mascotTimer = setTimeout(closeMascot, 8000); // 8秒後自動關閉
 }
 async function getFunnyComment(tx) {
   const key = localStorage.getItem('claude_api_key')||'';
@@ -638,8 +642,8 @@ async function getFunnyComment(tx) {
     // 泡泡顯示（角色名稱 + 冒號 + 內容）
     const char2 = getChar();
     showMascot(char2.name + '：' + t);
-    // 同一句話傳給 Discord（不再重複呼叫 AI）
-    if (typeof discordOnAddWithComment === 'function') discordOnAddWithComment(tx, t);
+    // 同一句話傳給 Discord（附帶角色名稱）
+    if (typeof discordOnAddWithComment === 'function') discordOnAddWithComment(tx, t, char2.name);
   } catch(e){ console.warn('[mascot]',e.message); }
 }
 
