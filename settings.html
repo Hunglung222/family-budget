@@ -436,7 +436,7 @@ function init(){
 }
 
 // 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.26 18:30';
+const APP_VERSION = 'v2026.04.26 22:30';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -597,9 +597,11 @@ function saveNotify(){
     onBudget: document.getElementById('sw-budget').checked,
     onWeekly: document.getElementById('sw-weekly').checked,
     dailyHour:parseInt(document.getElementById('daily-hour').value)||21,
+    weeklyHour:parseInt(document.getElementById('weekly-hour')?.value)||8,
     budgetPct:parseInt(document.getElementById('budget-pct').value)||80,
   });
-  toast('通知設定已儲存');
+  fbSyncAppConfig(); // 同步到 Firebase，讓 Google Apps Script 讀到最新設定
+  toast('通知設定已儲存並同步');
 }
 async function testDiscordBtn(){
   const url=document.getElementById('discord-url').value.trim();
