@@ -280,21 +280,43 @@ async function saveChatLog(userMsg, assistantMsg) {
     const char    = getChar();
     const nowStr  = new Date().toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
     const person  = localStorage.getItem('current_user') || '';
-    await fetch(CHAT_LOG_WEBHOOK, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        embeds: [{
-          title: `💬 AI 對話記錄　${today()} ${nowStr}`,
-          color: 0x6366F1,
-          fields: [
-            { name: `👤 ${person}`, value: userMsg,       inline: false },
-            { name: `${char.emoji} ${char.name}`, value: assistantMsg.slice(0, 1024), inline: false }
-          ],
-          footer: { text: '家庭記帳 PWA · AI 助理' }
-        }]
-      })
-    });
+
+    // Discord 2000 字元限制，超過自動分段
+    const MAX = 1800;
+    const sendChunk = async (text, title) => {
+      await fetch(CHAT_LOG_WEBHOOK, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [{
+            title,
+            color: 0x6366F1,
+            description: text,
+            footer: { text: '家庭記帳 PWA · AI 助理' }
+          }]
+        })
+      });
+    };
+
+    // 第一則：用戶問題 + 助理回覆開頭
+    const header = `👤 **${person}**\n${userMsg}\n\n${char.emoji} **${char.name}**\n`;
+    const title  = `💬 AI 對話記錄　${today()} ${nowStr}`;
+
+    if ((header + assistantMsg).length <= MAX) {
+      await sendChunk(header + assistantMsg, title);
+    } else {
+      // 分段發送
+      await sendChunk(header, title);
+      let remaining = assistantMsg;
+      let part = 1;
+      while (remaining.length > 0) {
+        const chunk = remaining.slice(0, MAX);
+        remaining = remaining.slice(MAX);
+        await sendChunk(chunk, remaining.length > 0 ? `${title}（續${part}）` : `${title}（完）`);
+        part++;
+        if (part > 5) break; // 最多5段保護
+      }
+    }
   } catch(e) {
     console.warn('[assistant] saveChatLog error:', e.message);
   }
