@@ -117,6 +117,8 @@ async function fbPullAll(){
     const tl = []; ts.forEach(d=>tl.push(d.data())); if(tl.length) DB.set('tx',tl);
     // 個人資料
     await fbPullPersonal();
+    // 同步自己的卡名到共用對照表（讓對方看到）
+    await fbSyncCardNames();
     // 共用帳戶
     await fbPullSharedAccts();
     // 信用卡名稱對照表
