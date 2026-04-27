@@ -367,15 +367,15 @@ function startVoiceInput() {
   // 如果正在錄音，點一下停止
   if (voiceRec) {
     try { voiceRec.stop(); } catch {}
+    voiceRec = null;
     return;
   }
 
+  const btn = document.getElementById('voice-btn');
   const recognition = new SR();
   recognition.lang = 'zh-TW';
   recognition.interimResults = false;
   recognition.continuous = false;
-
-  const btn = document.getElementById('voice-btn');
 
   recognition.onstart = () => {
     voiceRec = recognition;
@@ -388,12 +388,25 @@ function startVoiceInput() {
   recognition.onresult = (e) => {
     const text = e.results[0][0].transcript;
     document.getElementById('ai-input').value = text;
-    // 自動觸發 AI 解析
     submitAI();
   };
 
   recognition.onerror = (e) => {
-    if (e.error !== 'aborted') toast('語音辨識失敗，請再試', 'err');
+    console.warn('[Voice] error:', e.error);
+    voiceRec = null;
+    btn.textContent = '🎤';
+    btn.style.background = 'var(--card)';
+    btn.style.borderColor = 'var(--border)';
+    if (e.error === 'aborted') return;
+    const errMap = {
+      'not-allowed':         '請允許麥克風權限，並確認已按「允許」',
+      'no-speech':           '沒有偵測到聲音，請再說一次',
+      'network':             '網路問題，請確認網路連線',
+      'audio-capture':       '麥克風無法使用，請檢查權限設定',
+      'service-not-allowed': 'iOS 請改用 Safari 瀏覽器開啟',
+      'language-not-supported': '語言不支援，請改用文字輸入',
+    };
+    toast(errMap[e.error] || `語音辨識失敗(${e.error})`, 'err');
   };
 
   recognition.onend = () => {
@@ -403,11 +416,8 @@ function startVoiceInput() {
     btn.style.borderColor = 'var(--border)';
   };
 
-  try {
-    recognition.start();
-  } catch(e) {
-    toast('請允許麥克風權限', 'warn');
-  }
+  // iOS 關鍵：直接呼叫 start()，不包在 try/catch 裡
+  recognition.start();
 }
 
 async function submitAI() {
