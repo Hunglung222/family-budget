@@ -38,6 +38,8 @@ async function fbSyncPersonal(){
       syncAt: Date.now(),
     };
     await getDb().collection('personal').doc(u).set(doc);
+    // 同步卡名對照表（讓對方看到正確卡名）
+    await fbSyncCardNames();
   }catch(e){console.warn('[FB]syncPersonal',e);}
 }
 
@@ -71,6 +73,40 @@ async function fbPullSharedAccts(){
   }catch(e){}
 }
 
+// ── 信用卡名稱共用對照表（讓盈慧看到宏龍的卡名）────
+async function fbSyncCardNames(){
+  try{
+    // 把所有人的卡名整合成對照表 {cardId: cardName}
+    const cards  = getCards()  || [];
+    const icards = getIcards() || [];
+    const map = {};
+    cards.forEach(c  => { map[c.id] = c.name + (c.last4?'('+c.last4+')':''); });
+    icards.forEach(c => { map[c.id] = c.name; });
+    if(Object.keys(map).length === 0) return;
+    // merge 方式：不覆蓋別人的卡，只加自己的
+    const existing = await getDb().collection('shared').doc('card_names').get();
+    const existingMap = existing.exists ? (existing.data().map || {}) : {};
+    const merged = {...existingMap, ...map};
+    await getDb().collection('shared').doc('card_names').set({map: merged, updatedAt: Date.now()});
+  }catch(e){console.warn('[FB]syncCardNames',e);}
+}
+async function fbPullCardNames(){
+  try{
+    const d = await getDb().collection('shared').doc('card_names').get();
+    if(d.exists && d.data().map) DB.set('shared_card_names', d.data().map);
+  }catch(e){console.warn('[FB]pullCardNames',e);}
+}
+// 查詢卡名（優先用共用對照表，fallback 用本地）
+function getCardName(cardId){
+  if(!cardId) return '';
+  // 先查本地
+  const localCard = cardFind(cardId);
+  if(localCard && localCard.name) return localCard.name + (localCard.last4?'('+localCard.last4+')':'');
+  // 再查共用對照表
+  const sharedMap = DB.get('shared_card_names') || {};
+  return sharedMap[cardId] || '信用卡';
+}
+
 
 // ── 初始拉取全部資料 ─────────────────────────────────
 async function fbPullAll(){
@@ -83,6 +119,8 @@ async function fbPullAll(){
     await fbPullPersonal();
     // 共用帳戶
     await fbPullSharedAccts();
+    // 信用卡名稱對照表
+    await fbPullCardNames();
     // 分類 & 預算
     const cd = await db.collection('shared').doc('cats').get();
     if(cd.exists && cd.data().list) DB.set('cats', cd.data().list);
