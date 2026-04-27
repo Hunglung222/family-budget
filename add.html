@@ -295,6 +295,7 @@ async function callClaude(text) {
   const tomStr    = fmtD(new Date(today+864e5).toISOString());
 
   const prompt = `你是記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
+【重要】所有文字欄位必須使用台灣繁體中文，不可使用簡體中文字。
 今天:${todayStr} 昨天:${yestStr} 明天:${tomStr}
 可用分類(id:名稱): ${cats}
 信用卡清單(id:名稱末4碼): ${cardList}
@@ -628,7 +629,7 @@ async function getFunnyComment(tx) {
   const key = localStorage.getItem('claude_api_key')||'';
   if (!key) return;
   const char = getChar();
-  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。`;
+  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
