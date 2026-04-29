@@ -998,7 +998,8 @@ function confirmReset(){
   document.getElementById('confirm-modal').classList.add('show');
   document.getElementById('cm-ok').onclick=()=>{clearAll();fbClearAll();toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);};
 }
-function closeModal(){document.getElementById('confirm-modal').classList.remove('show');}
+function closeModal(id){document.getElementById(id||'confirm-modal').classList.remove('show');}
+function showModal(id){document.getElementById(id).classList.add('show');}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
