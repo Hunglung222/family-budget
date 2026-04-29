@@ -793,13 +793,9 @@ async function checkRecurringToday() {
   if (typeof discordSend === 'function' && typeof getWebhook === 'function' && getWebhook()) {
     const lines = due.filter(r => r.discord).map(r =>
       `• **${r.name}**${r.amt ? '　$'+fmt(r.amt) : '　金額待確認'}`
-    ).join('
-');
+    ).join('\n');
     if (lines) {
-      await discordSend(`📌 **固定支出提醒** ${new Date().getMonth()+1}/${today}
-${lines}
-
-記得記帳喔！`);
+      await discordSend(`📌 **固定支出提醒** ${new Date().getMonth()+1}/${today}\n${lines}\n\n記得記帳喔！`);
     }
   }
   localStorage.setItem(doneKey, '1');
