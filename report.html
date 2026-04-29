@@ -11,6 +11,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+</style>
 </head>
 <body>
 <header class="hdr">
@@ -103,24 +106,8 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){
-      window.location.replace('./login.html');
-    } else {
-      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
-      localStorage.setItem('current_user',name);
-      localStorage.setItem('current_email',user.email);
-      localStorage.setItem('current_uid',user.uid); // Firebase Auth uid
-    }
-  });
-})();
-</script>
-
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
@@ -145,6 +132,8 @@ function preset(t){
 function load(){
   const f=document.getElementById('df').value,e=document.getElementById('dt').value;
   if(!f||!e){toast('請選擇日期','warn');return;}
+  // 收合目前展開的卡片明細
+  if(_expandedCardId) { collapseCard(_expandedCardId); _expandedCardId=null; }
   txData=txByRange(f,e);
   document.getElementById('range-lbl').textContent=`${f} ～ ${e}（${txData.length}筆）`;
   renderOv();renderPie();renderBar();renderBud();
@@ -164,17 +153,20 @@ function renderOv(){
   if(!Object.keys(s.byCard).length){el.innerHTML='<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無信用卡消費</div>';}
   else{el.innerHTML=Object.entries(s.byCard).sort((a,b)=>b[1]-a[1]).map(([cid,amt])=>{
     const c=cardFind(cid);const pct=s.card>0?Math.round(amt/s.card*100):0;
-    return `<div class="cb-item" onclick="drillCard('${cid}')" style="cursor:pointer;transition:.15s;border-radius:var(--rs);padding:8px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
+    return `<div class="cb-item" data-card-id="${cid}" onclick="drillCard('${cid}')" style="cursor:pointer;transition:.15s;border-radius:var(--rs);padding:10px;margin-bottom:4px;background:var(--card)" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background='var(--card)'">
       <div class="cb-hdr" style="justify-content:space-between;align-items:center">
         <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${c?.color||'var(--blue)'};flex-shrink:0"></div>
           <span style="font-weight:700">${c?c.name:cid}</span>
           <span style="font-size:.8rem;color:var(--t3)">···${c?.last4||'0000'}</span>
         </div>
-        <span style="font-weight:900;color:var(--blue)">$${fmt(amt)}</span>
-        <span style="color:var(--t3);margin-left:4px;font-size:.8rem">›</span>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-weight:900;color:${c?.color||'var(--blue)'} ">$${fmt(amt)}</span>
+          <span class="cb-arrow" style="color:var(--t3);font-size:.85rem;transition:.2s">›</span>
+        </div>
       </div>
-      <div class="cb-bar" style="margin-top:6px"><div class="cb-fill" style="width:${pct}%;background:${c?.color||'var(--blue)'};height:6px;border-radius:3px"></div></div>
-      <div style="font-size:.7rem;color:var(--t3);margin-top:4px;text-align:right">${pct}%</div>
+      <div class="cb-bar" style="margin-top:8px"><div class="cb-fill" style="width:${pct}%;background:${c?.color||'var(--blue)'};height:5px;border-radius:3px"></div></div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:3px;text-align:right">${pct}% · 點擊展開明細</div>
     </div>`;
   }).join('');}
   if(personC)personC.destroy();
@@ -290,50 +282,87 @@ function drillSubCat(catId, subName) {
   }).join('');
 }
 
+// 記錄目前展開哪張卡
+let _expandedCardId = null;
+
 function drillCard(cardId) {
-  const card = cardFind(cardId)||{name:'信用卡',last4:'????'};
-  // 用當前日期範圍篩選交易（同 renderReport 的邏輯）
-  const allTxs = getTx();
-  const filtered = allTxs.filter(t=>{
+  // 如果已展開同一張卡，就收合
+  if (_expandedCardId === cardId) {
+    collapseCard(cardId);
+    return;
+  }
+  // 先收合上一張
+  if (_expandedCardId) collapseCard(_expandedCardId);
+  _expandedCardId = cardId;
+
+  const card = cardFind(cardId) || {name:'信用卡', last4:'????', color:'var(--blue)'};
+
+  // 用頁面上的日期範圍篩選
+  const f = document.getElementById('df').value;
+  const e = document.getElementById('dt').value;
+  const start = new Date(f), end = new Date(e);
+  end.setHours(23,59,59,999);
+  const txs = getTx().filter(t => {
     const d = new Date(t.at);
-    return d >= d1 && d <= d2;
+    return t.pay === 'card' && t.cardId === cardId && d >= start && d <= end;
   });
-  const txs = filtered.filter(t=>t.pay==='card'&&t.cardId===cardId);
-  const total = txs.reduce((s,t)=>s+t.amount,0);
+  const total = txs.reduce((s,t) => s+t.amount, 0);
 
-  // 複用 cat-drill 區塊，切換到分類頁
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
-  document.getElementById('p-cat').classList.add('on');
-  // 找分類頁籤按鈕並標記 on
-  document.querySelectorAll('.tab-btn').forEach(b=>{if(b.textContent.includes('分類'))b.classList.add('on');});
+  // 按日期分組
+  const groups = {};
+  [...txs].sort((a,b) => new Date(b.at)-new Date(a.at)).forEach(t => {
+    const d = fmtD(t.at);
+    if (!groups[d]) groups[d] = [];
+    groups[d].push(t);
+  });
 
-  document.querySelector('#p-cat .chart-card').style.display='none';
-  document.getElementById('cat-drill').style.display='block';
-  document.getElementById('drill-title').innerHTML=
-    `💳 ${card.name}···${card.last4} <span style="color:var(--blue);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
-
-  const sorted=[...txs].sort((a,b)=>new Date(b.at)-new Date(a.at));
-  const groups={};
-  sorted.forEach(t=>{const d=fmtD(t.at);if(!groups[d])groups[d]=[];groups[d].push(t);});
-
-  document.getElementById('drill-list').innerHTML=Object.entries(groups).map(([day,list])=>{
-    const dayTotal=list.reduce((s,t)=>s+t.amount,0);
-    return `<div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--t3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
-        <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
-      </div>
-      ${list.map(t=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(42,53,80,.3)">
-          <div style="width:36px;height:36px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0">${catFind(t.cat).name.slice(0,2)}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
-            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${catName(t.cat)} ${t.person} ${fmtT(t.at)}</div>
+  const detailHtml = Object.keys(groups).length === 0
+    ? '<div style="color:var(--t3);font-size:.84rem;padding:12px 4px">此區間無消費記錄</div>'
+    : Object.entries(groups).map(([day, list]) => {
+        const dayTotal = list.reduce((s,t) => s+t.amount, 0);
+        return `<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--t3);padding:4px 0 6px;border-bottom:1px solid var(--border)">
+            <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
           </div>
-          <div style="font-size:.92rem;font-weight:900;color:var(--blue);flex-shrink:0">-$${fmt(t.amount)}</div>
-        </div>`).join('')}
-    </div>`;
-  }).join('');
+          ${list.map(t => `
+            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,53,80,.25)">
+              <div style="width:34px;height:34px;border-radius:9px;background:${catFind(t.cat).color||'var(--card2)'};display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0;opacity:.85">${catFind(t.cat).name.slice(0,2)}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail || catName(t.cat)}</div>
+                <div style="font-size:.68rem;color:var(--t3);margin-top:1px">${catName(t.cat)}${t.subCat ? ' · '+t.subCat : ''} · ${t.person} · ${fmtT(t.at)}</div>
+              </div>
+              <div style="font-size:.9rem;font-weight:900;color:${card.color||'var(--blue)'};flex-shrink:0">-$${fmt(t.amount)}</div>
+            </div>`).join('')}
+        </div>`;
+      }).join('');
+
+  // 插入到該卡片 cb-item 下方
+  const cbItem = document.querySelector(`[data-card-id="${cardId}"]`);
+  if (!cbItem) return;
+
+  // 更新箭頭方向
+  const arrow = cbItem.querySelector('.cb-arrow');
+  if (arrow) arrow.textContent = '∨';
+
+  const detailDiv = document.createElement('div');
+  detailDiv.id = 'card-detail-' + cardId;
+  detailDiv.style.cssText = 'padding:10px 4px 4px;border-top:1px solid var(--border);margin-top:8px;animation:fadeIn .2s ease';
+  detailDiv.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--t2)">💳 ${card.name} ···${card.last4} 全部消費</div>
+      <div style="font-size:.78rem;font-weight:900;color:${card.color||'var(--blue)'}">共 $${fmt(total)}（${txs.length}筆）</div>
+    </div>
+    ${detailHtml}`;
+  cbItem.appendChild(detailDiv);
+}
+
+function collapseCard(cardId) {
+  const detail = document.getElementById('card-detail-' + cardId);
+  if (detail) detail.remove();
+  const cbItem = document.querySelector(`[data-card-id="${cardId}"]`);
+  const arrow = cbItem && cbItem.querySelector('.cb-arrow');
+  if (arrow) arrow.textContent = '›';
+  if (_expandedCardId === cardId) _expandedCardId = null;
 }
 
 function closeDrill() {

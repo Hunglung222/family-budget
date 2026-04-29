@@ -79,35 +79,65 @@ function buildSystemPrompt() {
   const char    = getChar();
   const txData  = getTxData();
   const txJson  = JSON.stringify(txData.slice(0, 200));
-  const nowStr  = new Date().toLocaleDateString('zh-TW', {
+  const now     = new Date();
+  const nowStr  = now.toLocaleDateString('zh-TW', {
     year:'numeric', month:'2-digit', day:'2-digit', weekday:'long'
   });
+  const todayISO = now.toISOString().slice(0,10);
+  const currentUser = localStorage.getItem('current_user') || '宏龍';
 
   return `你是「${char.name}」，一個家庭理財 AI 助理。
 個性：${char.style}
-今天日期：${nowStr}
+現在時間：${nowStr}，今天日期：${todayISO}
+目前登入者：${currentUser}
 
-你服務的是一對台灣夫妻：宏龍（kevin67222@gmail.com）和盈慧（gogosuperbird@gmail.com）。
+你服務的是一對台灣夫妻：宏龍和盈慧。
 
 你有三個能力：
-1. 【記帳】幫用戶記錄消費，解析後回傳 JSON
+1. 【記帳】幫用戶記錄消費
 2. 【查詢】查詢消費記錄並統計
 3. 【分析】分析消費習慣，給理財建議
 
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
 
-最近 90 天記帳資料（JSON格式）：
+最近 90 天記帳資料：
 ${txJson}
 
-判斷規則：
-- 如果用戶說的是「記帳/買了/花了/消費」類的話 → 解析為記帳意圖
-- 如果用戶問「多少/花了/統計/比較/分析」→ 查詢或分析意圖
-- 記帳時，回傳格式必須包含特殊標記 [RECORD] 開頭，後面接 JSON
+━━━━━━━━━━━━━━━━━━━━━
+【記帳的黃金原則：大膽假設，一次確認，絕不來回反問】
+━━━━━━━━━━━━━━━━━━━━━
 
-記帳回傳格式（必須嚴格遵守）：
-[RECORD]{"amount":數字,"cat":"分類id","detail":"說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null"}[/RECORD]
-然後再用你的個性說一句確認的話。
+收到記帳訊息時，立刻根據以下預設值補全所有缺漏資訊，然後直接出示確認句，不得反問任何問題：
+
+預設值（沒有特別說明就用這個）：
+- 日期 → 今天（${todayISO}）
+- 記帳人 → 目前登入者（${currentUser}）
+- 付款方式 → 現金（cash）
+- 分類/子分類 → 根據消費內容自行推斷（地瓜→餐飲-晚餐、飲料→餐飲-飲料、Uber→交通-計程車）
+- 明細 → 用消費內容當明細
+
+確認句格式（必須用這個格式說話）：
+「[日期] [分類]-[子分類]-[明細]，[記帳人]用[付款方式]消費 $[金額]，對嗎？」
+
+例子：
+- 輸入「飲料135」→ 確認「今天 餐飲-飲料-飲料，${currentUser}用現金消費 $135，對嗎？」
+- 輸入「晚餐地瓜60現金盈慧」→ 確認「今天 餐飲-晚餐-烤地瓜，盈慧用現金消費 $60，對嗎？」
+- 輸入「Uber 230刷卡」→ 確認「今天 交通-計程車-Uber，${currentUser}用信用卡消費 $230，對嗎？」
+
+如果用戶說「對」「是」「沒錯」「確認」「ok」→ 立刻輸出 [RECORD]
+如果用戶說「不對，是...」→ 根據修正重新推斷，再次出示確認句
+
+【嚴格禁止】：
+❌ 不可以問「是今天嗎？」
+❌ 不可以問「是宏龍還是盈慧？」
+❌ 不可以問「是現金還是刷卡？」
+❌ 不可以問任何問題，直接給確認句
+❌ 資訊完整時絕不說「還需要知道...」
+
+記帳回傳格式（用戶確認後才輸出）：
+[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null"}[/RECORD]
+然後用你的個性說一句輕鬆的話（不超過20字）。
 
 查詢/分析時：直接用你的個性回答，可以用 emoji 和換行讓格式好看。
 回答語言：台灣繁體中文，嚴禁使用簡體中文字。`;
@@ -173,22 +203,25 @@ function getDisplayReply(reply) {
 // ── 確認記帳卡片 ─────────────────────────────────────────────
 function buildConfirmCard(r) {
   const catLabel  = typeof catName === 'function' ? catName(r.cat) : r.cat;
+  const subLabel  = r.subCat ? ` › ${r.subCat}` : '';
   const payLabel  = r.pay === 'cash' ? '💵 現金' : r.pay === 'icard' ? '🎫 悠遊卡' : '💳 信用卡';
   const cardLabel = r.cardId && typeof cardFind === 'function'
-    ? `(${cardFind(r.cardId)?.name || r.cardId})` : '';
+    ? `（${cardFind(r.cardId)?.name || r.cardId}）` : '';
+  const person    = r.person || localStorage.getItem('current_user') || '';
 
   return `<div style="background:var(--pdim);border:1.5px solid var(--p);border-radius:12px;padding:12px 14px;margin:8px 0;font-size:.85rem">
-    <div style="font-weight:700;color:var(--p);margin-bottom:6px">📋 確認記帳內容</div>
-    <div style="color:var(--t1);line-height:2">
-      📅 ${r.date}<br>
-      📂 ${catLabel}<br>
-      📝 ${r.detail || '（無說明）'}<br>
-      💰 <b>$${fmt(r.amount)}</b><br>
-      ${payLabel} ${cardLabel}
+    <div style="font-weight:700;color:var(--p);margin-bottom:8px">📋 確認記帳</div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;line-height:1.9;color:var(--t1)">
+      <span style="color:var(--t3);font-size:.78rem">日期</span><span>${r.date}</span>
+      <span style="color:var(--t3);font-size:.78rem">分類</span><span>${catLabel}${subLabel}</span>
+      <span style="color:var(--t3);font-size:.78rem">明細</span><span>${r.detail || '（未填）'}</span>
+      <span style="color:var(--t3);font-size:.78rem">金額</span><span style="font-weight:900;color:var(--p)">$${fmt(r.amount)}</span>
+      <span style="color:var(--t3);font-size:.78rem">付款</span><span>${payLabel}${cardLabel}</span>
+      <span style="color:var(--t3);font-size:.78rem">記帳人</span><span>${person}</span>
     </div>
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="window._assistantConfirm()" style="flex:1;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-family:inherit;font-size:.85rem">✅ 確認記帳</button>
-      <button onclick="window._assistantCancel()" style="flex:1;padding:9px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem">❌ 取消</button>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="window._assistantConfirm()" style="flex:1;padding:10px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-family:inherit;font-size:.88rem">✅ 確認</button>
+      <button onclick="window._assistantCancel()" style="flex:1;padding:10px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.88rem">✏️ 修改</button>
     </div>
   </div>`;
 }
@@ -204,11 +237,12 @@ window._assistantConfirm = function() {
   const txObj = {
     amount:  tx.amount,
     cat:     tx.cat,
+    subCat:  tx.subCat || '',
     detail:  tx.detail || '',
     pay:     tx.pay || 'cash',
     cardId:  tx.cardId || null,
-    icardId: null,
-    person:  localStorage.getItem('current_user') || '宏龍',
+    icardId: tx.icardId || null,
+    person:  tx.person || localStorage.getItem('current_user') || '宏龍',
     at:      new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0).toISOString()
   };
 

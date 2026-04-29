@@ -1,8 +1,8 @@
-const V = 'fb-v35';
+const V = 'fb-v2026.04.29-0029';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
-  './css/style.css','./js/db.js','./js/firebase.js','./js/assistant.js',
+  './css/style.css','./js/auth.js','./js/db.js','./js/firebase.js','./js/assistant.js',
   './icons/icon-192.png','./icons/icon-512.png',
 ];
 self.addEventListener('install', e => {

@@ -43,7 +43,15 @@
     <div class="sc b"><div class="sc-lbl">🙋 宏龍</div><div class="sc-val"><span class="u">$</span><span id="s-1">0</span></div></div>
     <div class="sc w"><div class="sc-lbl">🙋‍♀️ 盈慧</div><div class="sc-val"><span class="u">$</span><span id="s-2">0</span></div></div>
   </div>
-  <div class="pills">
+  <!-- 搜尋框 -->
+  <div style="position:relative;margin-bottom:8px">
+    <input type="text" id="search-input" placeholder="🔍 搜尋明細、分類、金額..."
+      oninput="onSearch()"
+      style="width:100%;box-sizing:border-box;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:11px 36px 11px 14px;color:var(--t);font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s"
+      onfocus="this.style.borderColor='var(--p)'" onblur="this.style.borderColor='var(--border)'">
+    <button id="search-clear" onclick="clearSearch()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
+  </div>
+  <div class="pills" id="filter-pills">
     <button class="pill on" onclick="setF('all',this)">全部</button>
     <button class="pill" onclick="setF('宏龍',this)">宏龍</button>
     <button class="pill" onclick="setF('盈慧',this)">盈慧</button>
@@ -61,6 +69,11 @@
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
 <div class="toast" id="toast"></div>
+<!-- Undo Toast -->
+<div id="undo-toast" style="display:none;position:fixed;bottom:calc(var(--nav) + 16px);left:50%;transform:translateX(-50%);z-index:400;background:var(--card);border:1.5px solid var(--border);border-radius:50px;padding:10px 8px 10px 16px;display:none;align-items:center;gap:10px;font-size:.85rem;color:var(--t);box-shadow:0 4px 20px rgba(0,0,0,.3);white-space:nowrap;max-width:calc(100vw - 32px)">
+  <span id="undo-msg">已刪除</span>
+  <button onclick="undoDelete()" style="background:var(--p);color:#000;border:none;border-radius:50px;padding:5px 14px;font-weight:900;font-size:.82rem;cursor:pointer;font-family:inherit">↩ 復原</button>
+</div>
 <!-- 編輯記帳 Modal -->
 <div class="ov" id="edit-modal">
   <div class="sheet">
@@ -93,6 +106,22 @@
         <button class="tb" id="e-p-yh" onclick="setEP('盈慧',this)">🙋‍♀️ 盈慧</button>
       </div>
     </div>
+    <div class="fg">
+      <span class="flbl">💳 付款方式</span>
+      <div class="tg" style="flex-wrap:wrap;gap:8px">
+        <button class="tb" id="e-pay-cash"  onclick="setEPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
+        <button class="tb" id="e-pay-card"  onclick="setEPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
+        <button class="tb" id="e-pay-icard" onclick="setEPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+      </div>
+    </div>
+    <div class="fg" id="e-card-fg" style="display:none">
+      <span class="flbl">🃏 選擇信用卡</span>
+      <select class="fc" id="e-card-sel"></select>
+    </div>
+    <div class="fg" id="e-icard-fg" style="display:none">
+      <span class="flbl">🎫 選擇悠遊卡</span>
+      <select class="fc" id="e-icard-sel"></select>
+    </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeEdit()">取消</button>
       <button class="btn btn-p" onclick="submitEdit()">💾 儲存</button>
@@ -114,24 +143,8 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const FB_CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length) firebase.initializeApp(FB_CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){
-      window.location.replace('./login.html');
-    } else {
-      const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';
-      localStorage.setItem('current_user',name);
-      localStorage.setItem('current_email',user.email);
-      localStorage.setItem('current_uid',user.uid); // Firebase Auth uid
-    }
-  });
-})();
-</script>
-
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
@@ -150,16 +163,52 @@ function render() {
   document.getElementById('s-w').textContent=fmt(getWal().balance);
   document.getElementById('s-1').textContent=fmt(s.byPerson['宏龍']||0);
   document.getElementById('s-2').textContent=fmt(s.byPerson['盈慧']||0);
+
+  // 付款方式篩選
   if(filt==='宏龍'||filt==='盈慧') list=list.filter(t=>t.person===filt);
   else if(filt==='cash') list=list.filter(t=>t.pay==='cash');
   else if(filt==='card') list=list.filter(t=>t.pay==='card');
+
+  // 搜尋篩選
+  if(searchQ) {
+    const q = searchQ.toLowerCase();
+    list = list.filter(t =>
+      (t.detail||'').toLowerCase().includes(q) ||
+      catName(t.cat).toLowerCase().includes(q) ||
+      (t.subCat||'').toLowerCase().includes(q) ||
+      (t.person||'').includes(q) ||
+      String(t.amount).includes(q)
+    );
+  }
+
   const el=document.getElementById('list');
-  if(!list.length){el.innerHTML='<div class="empty"><div class="ei">📭</div><p>還沒有記帳<br>點 ➕ 開始記帳</p></div>';return;}
+  if(!list.length){
+    const emptyMsg = searchQ
+      ? `<div class="empty"><div class="ei">🔍</div><p>找不到「${searchQ}」<br>試試其他關鍵字</p></div>`
+      : `<div class="empty"><div class="ei">📭</div><p>還沒有記帳<br>點 ➕ 開始記帳</p></div>`;
+    el.innerHTML=emptyMsg; return;
+  }
   const g=groupDay(list);
   el.innerHTML=Object.entries(g).map(([d,ts])=>{
     const dt=ts.reduce((s,t)=>s+t.amount,0);
     return `<div class="day-h"><span class="day-d">📅 ${d}</span><span class="day-t">-$${fmt(dt)}</span></div>`+ts.map(txHTML).join('');
   }).join('');
+}
+
+// 搜尋相關函數
+function onSearch() {
+  searchQ = document.getElementById('search-input').value.trim();
+  document.getElementById('search-clear').style.display = searchQ ? 'block' : 'none';
+  // 搜尋時隱藏篩選 pills（避免干擾）
+  document.getElementById('filter-pills').style.display = searchQ ? 'none' : 'flex';
+  render();
+}
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  searchQ = '';
+  document.getElementById('search-clear').style.display = 'none';
+  document.getElementById('filter-pills').style.display = 'flex';
+  render();
 }
 
 function txHTML(t) {
@@ -184,6 +233,10 @@ function nextM(){cm++;if(cm>12){cm=1;cy++}render();}
 
 let editId = '';
 let editPerson = '宏龍';
+let editPay = 'cash';
+let searchQ = '';        // 搜尋關鍵字
+let _undoTimer = null;   // undo 計時器
+let _undoTx = null;      // 待復原的交易
 
 function askEdit(id, e) {
   e.stopPropagation();
@@ -219,6 +272,14 @@ function setEP(p, el) {
   el.classList.add('on');
 }
 
+function setEPay(p, el) {
+  editPay = p;
+  document.querySelectorAll('#e-pay-cash,#e-pay-card,#e-pay-icard').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('e-card-fg').style.display  = p==='card'  ? 'block' : 'none';
+  document.getElementById('e-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+}
+
 function closeEdit() {
   document.getElementById('edit-modal').classList.remove('show');
 }
@@ -234,11 +295,17 @@ async function submitEdit() {
   const old = list[idx];
   const dtv = document.getElementById('e-dt').value;
 
-  // 還原舊扣款
-  if (old.pay === 'cash') walIn(old.amount, '編輯還原');
-  if (old.pay === 'icard' && old.icardId) icardIn(old.icardId, old.amount, '編輯還原');
+  // 新的付款方式與卡片
+  const newPay    = editPay;
+  const newCardId  = newPay === 'card'  ? (document.getElementById('e-card-sel').value  || null) : null;
+  const newIcardId = newPay === 'icard' ? (document.getElementById('e-icard-sel').value || null) : null;
 
-  // 更新資料
+  // ── 1. 還原舊扣款 ──────────────────────────────────
+  if (old.pay === 'cash')                          walIn(old.amount, '編輯還原');
+  if (old.pay === 'icard' && old.icardId)          icardIn(old.icardId, old.amount, '編輯還原');
+  if (old.pay === 'card'  && old.cardId)           cardVoidBill(old.cardId, old.amount, old.id);
+
+  // ── 2. 更新記帳資料 ────────────────────────────────
   list[idx] = {
     ...old,
     amount:  amt,
@@ -246,32 +313,70 @@ async function submitEdit() {
     subCat:  document.getElementById('e-subcat').value.trim(),
     detail:  document.getElementById('e-detail').value.trim(),
     person:  editPerson,
+    pay:     newPay,
+    cardId:  newCardId,
+    icardId: newIcardId,
     at:      dtv ? new Date(dtv).toISOString() : old.at,
     editedAt: new Date().toISOString(),
   };
   DB.set('tx', list);
 
-  // 重新扣款
+  // ── 3. 重新依新付款方式扣款 ────────────────────────
   const updated = list[idx];
-  if (updated.pay === 'cash') walOut(updated.amount, updated.detail || catName(updated.cat));
-  if (updated.pay === 'icard' && updated.icardId) icardOut(updated.icardId, updated.amount, updated.detail || catName(updated.cat));
+  const label   = updated.detail || catName(updated.cat);
+  if (updated.pay === 'cash')                          walOut(updated.amount, label);
+  if (updated.pay === 'icard' && updated.icardId)      icardOut(updated.icardId, updated.amount, label);
+  if (updated.pay === 'card'  && updated.cardId)       cardAddBill(updated.cardId, updated.amount, label, updated.at);
 
-  // 同步 Firebase
+  // ── 4. 同步 Firebase ───────────────────────────────
   await fbAddTx(updated);
   fbSyncPersonal();
 
   closeEdit();
   render();
-  toast('已儲存修改');
+  toast('已儲存修改 ✅');
 }
 
-function askDel(id,e){
+function askDel(id, e) {
   e.stopPropagation();
-  document.getElementById('m-title').textContent='刪除這筆記帳？';
-  document.getElementById('m-msg').textContent='刪除後不可復原，現金支出會歸還錢包。';
-  document.getElementById('modal').classList.add('show');
-  document.getElementById('m-ok').onclick=()=>{delTx(id);fbDelTx(id);closeM();toast('已刪除','err');render();};
+  const tx = getTx().find(t=>t.id===id);
+  if (!tx) return;
+
+  // 先暫存，5 秒內可復原
+  _undoTx = tx;
+
+  // 立即從 UI 移除（樂觀更新）
+  delTx(id);
+  fbDelTx(id);
+  render();
+
+  // 顯示 undo toast
+  const ut = document.getElementById('undo-toast');
+  const label = tx.detail || catName(tx.cat);
+  document.getElementById('undo-msg').textContent = `已刪除「${label} $${fmt(tx.amount)}」`;
+  ut.style.display = 'flex';
+  clearTimeout(_undoTimer);
+  _undoTimer = setTimeout(() => {
+    ut.style.display = 'none';
+    _undoTx = null;
+  }, 5000);
 }
+
+function undoDelete() {
+  if (!_undoTx) return;
+  clearTimeout(_undoTimer);
+  // 復原：重新加回（不重新扣款，因為 delTx 已還原）
+  const tx = _undoTx;
+  _undoTx = null;
+  const list = getTx();
+  list.unshift(tx);
+  DB.set('tx', list);
+  fbAddTx(tx);
+  document.getElementById('undo-toast').style.display = 'none';
+  render();
+  toast(`已復原「${tx.detail||catName(tx.cat)}」✅`);
+}
+
 function closeM(){document.getElementById('modal').classList.remove('show');}
 
 let _tt;
@@ -284,7 +389,18 @@ if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
 }
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
-fbPullAll().then(()=>render());
+fbPullAll().then(async ()=>{
+  render();
+  // 拉取共用固定支出清單
+  try {
+    const doc = await getDb().collection('shared').doc('recurring').get();
+    if (doc.exists && doc.data().list) {
+      localStorage.setItem('recurring_items', JSON.stringify(doc.data().list));
+    }
+  } catch(e) {}
+  // 檢查今天固定支出提醒
+  if (typeof checkRecurringToday === 'function') checkRecurringToday();
+});
 fbListenTx(()=>render());
 fbListenWal(()=>render());
 scheduleDailyDiscord();

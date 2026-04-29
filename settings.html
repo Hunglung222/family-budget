@@ -231,6 +231,41 @@
     </div>
   </div>
 
+  <!-- 固定支出提醒 -->
+  <div class="sec-t">📌 固定支出提醒</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px;line-height:1.6">房租、網路費、訂閱等每月固定支出，設定後每月到日自動在首頁提醒並可選擇推送 Discord。</div>
+    <div id="recurring-list"></div>
+    <button onclick="showAddRecurring()" style="width:100%;margin-top:10px;padding:11px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">＋ 新增固定支出</button>
+  </div>
+
+  <!-- 新增固定支出 Modal -->
+  <div class="ov" id="add-recurring-modal">
+    <div class="sheet"><div class="sh"></div><div class="st">📌 新增固定支出提醒</div>
+      <div class="fg"><span class="flbl">項目名稱</span>
+        <input type="text" class="fc" id="rc-name" placeholder="例：房租、Netflix、網路費" maxlength="20"></div>
+      <div class="fg"><span class="flbl">金額（可略，填 0 表示金額不固定）</span>
+        <input type="number" class="fc" id="rc-amt" placeholder="0" inputmode="numeric"></div>
+      <div class="fg"><span class="flbl">每月幾號提醒</span>
+        <input type="number" class="fc" id="rc-day" placeholder="例：5（每月5號）" min="1" max="28" inputmode="numeric"></div>
+      <div class="fg"><span class="flbl">🏷️ 分類</span>
+        <select class="fc" id="rc-cat"></select></div>
+      <div class="fg" style="padding:12px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:.9rem;font-weight:600">📣 推送 Discord 提醒</div>
+            <div style="font-size:.72rem;color:var(--t2);margin-top:2px">到日時同步通知到 Discord</div>
+          </div>
+          <label class="toggle-switch"><input type="checkbox" id="rc-discord" checked><span class="toggle-slider"></span></label>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="closeModal('add-recurring-modal')">取消</button>
+        <button class="btn btn-p" onclick="submitRecurring()">新增</button>
+      </div>
+    </div>
+  </div>
+
   <div id="sec-budget" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
     <div style="width:3px;height:18px;background:var(--p);border-radius:2px"></div>
     <div style="font-size:.78rem;font-weight:900;color:var(--t3);letter-spacing:.8px;text-transform:uppercase">📊 記帳管理</div>
@@ -403,13 +438,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
-const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-const FB_AUTH={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-if(!firebase.apps.length)firebase.initializeApp(FB_AUTH);
-const auth=firebase.auth();
-auth.onAuthStateChanged(user=>{if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);localStorage.setItem('current_uid',user.uid);}});
-</script>
+<script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
@@ -430,26 +459,63 @@ function init(){
   renderPeriodInfo();
   renderBudgets();
   renderNotifySettings();
+  renderRecurring();
   renderStat();
   renderCats();
   renderSubCatSel();
 }
 
-// 版本檢查：每次更新時修改這個版本號
-const APP_VERSION = 'v2026.04.27 15:00';
+// 版本檢查：每次部署新版本，同步更新這兩個地方：
+// 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
+// 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
+const APP_VERSION = 'v2026.04.29 00:29';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
-  // 比對 Service Worker 版本
-  const cached = localStorage.getItem('last_sw_version');
-  if (cached && cached !== SW_VERSION) {
-    // 偵測到版本更新
-    document.getElementById('version-status').textContent = '🆕 已更新';
-    document.getElementById('version-status').style.background = 'rgba(79,142,247,.14)';
-    document.getElementById('version-status').style.color = 'var(--blue)';
+
+  // 版本比對：用 localStorage 記上次看到的版本
+  const STORED_KEY = 'seen_app_version';
+  const lastSeen = localStorage.getItem(STORED_KEY);
+  const statusEl = document.getElementById('version-status');
+
+  if (!lastSeen) {
+    // 第一次開啟，直接記錄，顯示最新版
+    localStorage.setItem(STORED_KEY, APP_VERSION);
+    statusEl.textContent = '✅ 最新版';
+    statusEl.style.background = 'rgba(34,197,94,.12)';
+    statusEl.style.color = 'var(--ok)';
+  } else if (lastSeen !== APP_VERSION) {
+    // 版本不同 → 真的剛更新過！
+    statusEl.textContent = '🆕 已更新！';
+    statusEl.style.background = 'rgba(79,142,247,.18)';
+    statusEl.style.color = 'var(--blue)';
+    statusEl.style.cursor = 'pointer';
+    statusEl.title = `從 ${lastSeen} 更新到 ${APP_VERSION}`;
+    // 點一下確認，標記為已讀
+    statusEl.onclick = () => {
+      localStorage.setItem(STORED_KEY, APP_VERSION);
+      statusEl.textContent = '✅ 最新版';
+      statusEl.style.background = 'rgba(34,197,94,.12)';
+      statusEl.style.color = 'var(--ok)';
+      statusEl.style.cursor = '';
+      statusEl.onclick = null;
+    };
+    // 同時用 toast 提示
+    setTimeout(() => toast(`🆕 已更新到 ${APP_VERSION}`), 500);
+  } else {
+    // 版本相同 → 確實是最新版
+    statusEl.textContent = '✅ 最新版';
+    statusEl.style.background = 'rgba(34,197,94,.12)';
+    statusEl.style.color = 'var(--ok)';
   }
-  localStorage.setItem('last_sw_version', SW_VERSION);
+
+  // 主動觸發 Service Worker 更新檢查
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(regs => {
+      regs.forEach(reg => reg.update());
+    });
+  }
 }
 
 function renderLoginInfo(){
@@ -611,6 +677,132 @@ async function testDiscordBtn(){
       body:JSON.stringify({content:`🧪 **家庭記帳測試通知**\n${new Date().toLocaleString('zh-TW')}\n✅ Discord 通知設定成功！`})});
     toast('測試通知已發送！請查看 Discord');
   }catch(e){toast('發送失敗，請確認 URL','err');}
+}
+
+// ══════════════════════════════════════════════════════
+// ── 固定支出提醒 ──────────────────────────────────────
+// ══════════════════════════════════════════════════════
+
+function getRecurring() {
+  try { return JSON.parse(localStorage.getItem('recurring_items') || '[]'); } catch { return []; }
+}
+function saveRecurring(list) {
+  localStorage.setItem('recurring_items', JSON.stringify(list));
+}
+
+function renderRecurring() {
+  const list = getRecurring();
+  const el   = document.getElementById('recurring-list');
+  if (!el) return;
+
+  // 填分類選單
+  const rcCat = document.getElementById('rc-cat');
+  if (rcCat) {
+    rcCat.innerHTML = getCats().map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  }
+
+  if (!list.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:10px 0">尚未設定固定支出</div>';
+    return;
+  }
+
+  const today = new Date().getDate();
+  el.innerHTML = list.map((r, i) => {
+    const isDue   = today === r.day;
+    const isAlmost = today === r.day - 1 || (r.day === 1 && today === 31) || (r.day === 1 && today === 30);
+    const catInfo = catFind(r.cat) || {name: r.cat, color: '#94a3b8'};
+    let statusTag = '';
+    if (isDue)     statusTag = '<span style="background:rgba(244,63,94,.15);color:var(--danger);border-radius:20px;padding:2px 8px;font-size:.65rem;font-weight:700;margin-left:6px">⏰ 今天到期</span>';
+    else if (isAlmost) statusTag = '<span style="background:rgba(251,191,36,.15);color:var(--warn);border-radius:20px;padding:2px 8px;font-size:.65rem;font-weight:700;margin-left:6px">⚠️ 明天到期</span>';
+
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:9px;background:${catInfo.color}22;border:1.5px solid ${catInfo.color}44;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;font-weight:700;color:${catInfo.color}">${r.day}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.9rem;font-weight:700;display:flex;align-items:center;flex-wrap:wrap">
+          ${r.name}${statusTag}
+        </div>
+        <div style="font-size:.72rem;color:var(--t3);margin-top:2px">
+          每月 ${r.day} 日 · ${catInfo.name}${r.amt ? ' · $'+fmt(r.amt) : ''}${r.discord ? ' · 📣 Discord' : ''}
+        </div>
+      </div>
+      <button onclick="delRecurring(${i})" style="width:30px;height:30px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);color:var(--danger);border-radius:8px;font-size:.9rem;cursor:pointer;flex-shrink:0">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function showAddRecurring() {
+  document.getElementById('rc-name').value = '';
+  document.getElementById('rc-amt').value  = '';
+  document.getElementById('rc-day').value  = '';
+  document.getElementById('rc-discord').checked = true;
+  showModal('add-recurring-modal');
+}
+
+function submitRecurring() {
+  const name = document.getElementById('rc-name').value.trim();
+  const amt  = parseInt(document.getElementById('rc-amt').value) || 0;
+  const day  = parseInt(document.getElementById('rc-day').value) || 0;
+  const cat  = document.getElementById('rc-cat').value;
+  const disc = document.getElementById('rc-discord').checked;
+  if (!name)       { toast('請填入項目名稱', 'warn'); return; }
+  if (!day || day < 1 || day > 28) { toast('請填入有效日期（1～28）', 'warn'); return; }
+
+  const list = getRecurring();
+  list.push({ name, amt, day, cat, discord: disc, createdAt: new Date().toISOString() });
+  saveRecurring(list);
+  // 同步到 Firebase 讓兩人共用
+  if (typeof getDb === 'function') {
+    getDb().collection('shared').doc('recurring').set({ list, updatedAt: Date.now() }).catch(()=>{});
+  }
+  closeModal('add-recurring-modal');
+  renderRecurring();
+  toast(`✅ 已新增「${name}」每月 ${day} 日提醒`);
+}
+
+function delRecurring(idx) {
+  const list = getRecurring();
+  const name = list[idx]?.name || '';
+  list.splice(idx, 1);
+  saveRecurring(list);
+  if (typeof getDb === 'function') {
+    getDb().collection('shared').doc('recurring').set({ list, updatedAt: Date.now() }).catch(()=>{});
+  }
+  renderRecurring();
+  toast(`已刪除「${name}」`);
+}
+
+// 啟動時檢查今天有沒有到期的固定支出，並推送 Discord
+async function checkRecurringToday() {
+  const list  = getRecurring();
+  if (!list.length) return;
+  const today = new Date().getDate();
+  const doneKey = 'recurring_notified_' + new Date().toDateString();
+  if (localStorage.getItem(doneKey)) return; // 今天已通知過
+
+  const due = list.filter(r => r.day === today);
+  if (!due.length) return;
+
+  // 首頁 toast 提示（不管 Discord 設定）
+  const names = due.map(r => r.name).join('、');
+  // 用 setTimeout 讓頁面先載入完
+  setTimeout(() => {
+    if (typeof toast === 'function') toast(`📌 今日固定支出：${names}`, 'warn');
+  }, 1500);
+
+  // Discord 通知
+  if (typeof discordSend === 'function' && typeof getWebhook === 'function' && getWebhook()) {
+    const lines = due.filter(r => r.discord).map(r =>
+      `• **${r.name}**${r.amt ? '　$'+fmt(r.amt) : '　金額待確認'}`
+    ).join('
+');
+    if (lines) {
+      await discordSend(`📌 **固定支出提醒** ${new Date().getMonth()+1}/${today}
+${lines}
+
+記得記帳喔！`);
+    }
+  }
+  localStorage.setItem(doneKey, '1');
 }
 
 // ── 子分類維護 ────────────────────────────────────────

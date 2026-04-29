@@ -129,9 +129,35 @@ function walWithdraw(acctId, amount, note) {
 
 // ── 信用卡（個人） ────────────────────────────────────
 function getCards()   { return DB.get(pKey('cards')) || []; }
-function cardFind(id) { return getCards().find(c=>c.id===id) || null; }
-function addCard(c)   { const l=getCards(); c.id='cc_'+Date.now().toString(36); l.push(c); DB.set(pKey('cards'),l); }
+function cardFind(id) {
+  // 先找自己的卡
+  const mine = getCards().find(c=>c.id===id);
+  if (mine) return mine;
+  // 再找對方共用的卡
+  const shared = getSharedCards();
+  return shared.find(c=>c.id===id) || null;
+}
+function addCard(c)   { const l=getCards(); c.id='cc_'+Date.now().toString(36); c.owner=uid(); l.push(c); DB.set(pKey('cards'),l); }
+function editCard(id, updates) {
+  const l = getCards().map(c => c.id===id ? {...c, ...updates} : c);
+  DB.set(pKey('cards'), l);
+}
 function delCard(id)  { DB.set(pKey('cards'), getCards().filter(c=>c.id!==id)); }
+
+// 取得對方共用給自己的信用卡
+function getSharedCards() {
+  return DB.get('shared_cards') || [];
+}
+// 取得自己標記為共用的信用卡（給 Firebase 同步用）
+function getMySharedCards() {
+  return getCards().filter(c => c.shared === true);
+}
+// 取得記帳用的全部可用信用卡（自己的 + 對方共用的），標記來源
+function getAllAvailableCards() {
+  const mine   = getCards().map(c => ({...c, _owner: '我的'}));
+  const shared = getSharedCards().map(c => ({...c, _owner: c.ownerName || '對方'}));
+  return [...mine, ...shared];
+}
 
 // 信用卡帳單邏輯
 function getCardBills() { return DB.get(pKey('bills')) || []; }
@@ -183,9 +209,33 @@ function getPendingBills() {
 
 // ── 悠遊卡（個人） ────────────────────────────────────
 function getIcards()   { return DB.get(pKey('icards')) || []; }
-function icardFind(id) { return getIcards().find(c=>c.id===id) || null; }
-function addIcard(c)   { const l=getIcards(); c.id='ic_'+Date.now().toString(36); c.balance=c.balance||0; c.history=[]; l.push(c); DB.set(pKey('icards'),l); return c; }
+function icardFind(id) {
+  const mine = getIcards().find(c=>c.id===id);
+  if (mine) return mine;
+  const shared = getSharedIcards();
+  return shared.find(c=>c.id===id) || null;
+}
+function addIcard(c)   { const l=getIcards(); c.id='ic_'+Date.now().toString(36); c.balance=c.balance||0; c.history=[]; c.owner=uid(); l.push(c); DB.set(pKey('icards'),l); return c; }
+function editIcard(id, updates) {
+  const l = getIcards().map(c => c.id===id ? {...c, ...updates} : c);
+  DB.set(pKey('icards'), l);
+}
 function delIcard(id)  { DB.set(pKey('icards'), getIcards().filter(c=>c.id!==id)); }
+
+// 取得對方共用給自己的悠遊卡
+function getSharedIcards() {
+  return DB.get('shared_icards') || [];
+}
+// 取得自己標記為共用的悠遊卡
+function getMySharedIcards() {
+  return getIcards().filter(c => c.shared === true);
+}
+// 取得記帳用的全部可用悠遊卡（自己的 + 對方共用的），標記來源
+function getAllAvailableIcards() {
+  const mine   = getIcards().map(c => ({...c, _owner: '我的'}));
+  const shared = getSharedIcards().map(c => ({...c, _owner: c.ownerName || '對方'}));
+  return [...mine, ...shared];
+}
 function icardTopup(id, amount, payMethod, payId, note) {
   const list=getIcards(), idx=list.findIndex(c=>c.id===id); if(idx<0)return;
   list[idx].balance=(list[idx].balance||0)+amount;

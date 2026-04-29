@@ -251,9 +251,60 @@
         <div class="cdot-pick" onclick="pickColor('#b45309',this)" style="width:32px;height:32px;border-radius:50%;background:#b45309;cursor:pointer;border:3px solid transparent"></div>
       </div>
     </div>
+    <div class="fg" style="padding:12px 0;border-top:1px solid var(--border);margin-top:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.9rem;font-weight:600">🤝 共用給對方</div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:2px">開啟後對方記帳也能選此卡</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="nc-shared">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('add-card-modal')">取消</button>
       <button class="btn btn-p" onclick="submitCard()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯信用卡 -->
+<div class="ov" id="edit-card-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">✏️ 編輯信用卡</div>
+    <div class="fg"><span class="flbl">銀行 / 卡名</span>
+      <input type="text" class="fc" id="ec-name" maxlength="20"></div>
+    <div class="fg"><span class="flbl">末四碼</span>
+      <input type="text" class="fc" id="ec-last4" maxlength="4" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">結帳日（每月幾號）</span>
+      <input type="number" class="fc" id="ec-cut" min="1" max="31" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">繳費截止日（每月幾號）</span>
+      <input type="number" class="fc" id="ec-due" min="1" max="31" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">卡片顏色</span>
+      <div style="display:flex;gap:10px;padding:6px 0" id="color-picker-e">
+        <div class="cdot-pick-e" data-color="#1d4ed8" onclick="pickEditColor('#1d4ed8',this)" style="width:32px;height:32px;border-radius:50%;background:#1d4ed8;cursor:pointer;border:3px solid white;box-shadow:0 0 0 2px #1d4ed8"></div>
+        <div class="cdot-pick-e" data-color="#be185d" onclick="pickEditColor('#be185d',this)" style="width:32px;height:32px;border-radius:50%;background:#be185d;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick-e" data-color="#0d9488" onclick="pickEditColor('#0d9488',this)" style="width:32px;height:32px;border-radius:50%;background:#0d9488;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick-e" data-color="#7c3aed" onclick="pickEditColor('#7c3aed',this)" style="width:32px;height:32px;border-radius:50%;background:#7c3aed;cursor:pointer;border:3px solid transparent"></div>
+        <div class="cdot-pick-e" data-color="#b45309" onclick="pickEditColor('#b45309',this)" style="width:32px;height:32px;border-radius:50%;background:#b45309;cursor:pointer;border:3px solid transparent"></div>
+      </div>
+    </div>
+    <div class="fg" style="padding:12px 0;border-top:1px solid var(--border);margin-top:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.9rem;font-weight:600">🤝 共用給對方</div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:2px">開啟後對方記帳也能選此卡</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="ec-shared">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('edit-card-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitEditCard()">儲存</button>
     </div>
   </div>
 </div>
@@ -284,9 +335,45 @@
       <input type="text" class="fc" id="ic-name" placeholder="例：宏龍悠遊卡" maxlength="20"></div>
     <div class="fg"><span class="flbl">目前餘額</span>
       <input type="number" class="fc" id="ic-bal" placeholder="0" inputmode="numeric"></div>
+    <div class="fg" style="padding:12px 0;border-top:1px solid var(--border);margin-top:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.9rem;font-weight:600">🤝 共用給對方</div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:2px">開啟後對方記帳也能選此卡</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="ic-shared">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('add-icard-modal')">取消</button>
       <button class="btn btn-p" onclick="submitIcard()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯悠遊卡 -->
+<div class="ov" id="edit-icard-modal">
+  <div class="sheet"><div class="sh"></div><div class="st">✏️ 編輯悠遊卡</div>
+    <div class="fg"><span class="flbl">卡片名稱</span>
+      <input type="text" class="fc" id="eic-name" maxlength="20"></div>
+    <div class="fg" style="padding:12px 0;border-top:1px solid var(--border);margin-top:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.9rem;font-weight:600">🤝 共用給對方</div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:2px">開啟後對方記帳也能選此卡</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="eic-shared">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('edit-icard-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitEditIcard()">儲存</button>
     </div>
   </div>
 </div>
@@ -334,23 +421,14 @@
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
-<script>
-(function(){
-  const ALLOWED=['kevin67222@gmail.com','gogosuperbird@gmail.com'];
-  const CFG={apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",authDomain:"family-budget-aed64.firebaseapp.com",projectId:"family-budget-aed64",storageBucket:"family-budget-aed64.firebasestorage.app",messagingSenderId:"714512661107",appId:"1:714512661107:web:022f9c7f7b828b5eb9c806"};
-  if(!firebase.apps.length)firebase.initializeApp(CFG);
-  firebase.auth().onAuthStateChanged(user=>{
-    if(!user||!ALLOWED.includes(user.email)){window.location.replace('./login.html');}
-    else{const name=user.email==='kevin67222@gmail.com'?'宏龍':'盈慧';localStorage.setItem('current_user',name);localStorage.setItem('current_email',user.email);localStorage.setItem('current_uid',user.uid);}
-  });
-})();
-</script>
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
-let pickedColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
+let pickedColor='#1d4ed8', pickedEditColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
 let payFromType='wallet', payBillId='';
 let walAdjType='in';
@@ -536,20 +614,45 @@ function confirmDelAcct(id, shared) {
 // ── 信用卡 ───────────────────────────────────────────
 function renderCards() {
   const cs=getCards(), el=document.getElementById('card-list-full');
-  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增信用卡</div>';return;}
-  el.innerHTML=cs.map(c=>`
-    <div class="bill-card">
-      <div class="bill-hdr">
-        <div>
-          <div class="bill-title" style="display:flex;align-items:center;gap:8px">
-            <div style="width:12px;height:12px;border-radius:50%;background:${c.color||'#4f8ef7'};flex-shrink:0"></div>
-            ${c.name} ···${c.last4}
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增信用卡</div>';}
+  else {
+    el.innerHTML=cs.map(c=>`
+      <div class="bill-card">
+        <div class="bill-hdr">
+          <div>
+            <div class="bill-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <div style="width:12px;height:12px;border-radius:50%;background:${c.color||'#4f8ef7'};flex-shrink:0"></div>
+              ${c.name} ···${c.last4}
+              ${c.shared ? '<span style="background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:20px;padding:2px 8px;font-size:.62rem;font-weight:700">🤝 共用中</span>' : ''}
+            </div>
+            <div class="bill-meta">結帳日：每月${c.cutDay||25}日 ・ 繳費日：每月${c.dueDay||15}日</div>
           </div>
-          <div class="bill-meta">結帳日：每月${c.cutDay||25}日 ・ 繳費日：每月${c.dueDay||15}日</div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="acct-btn xfer" onclick="showEditCard('${c.id}')">編輯</button>
+            <button class="acct-btn del" onclick="confirmDelCard('${c.id}','${c.name}')">刪除</button>
+          </div>
         </div>
-        <button class="acct-btn del" onclick="confirmDelCard('${c.id}','${c.name}')">刪除</button>
-      </div>
-    </div>`).join('');
+      </div>`).join('');
+    // 對方共用給我的卡
+    const sharedCards = getSharedCards();
+    if (sharedCards.length) {
+      const ownerName = sharedCards[0]?.ownerName||'對方';
+      el.innerHTML += `<div class="sec-t" style="margin-top:14px">🤝 ${ownerName}共用的信用卡</div>`;
+      el.innerHTML += sharedCards.map(c=>`
+        <div class="bill-card" style="border-color:rgba(0,229,180,.3)">
+          <div class="bill-hdr">
+            <div>
+              <div class="bill-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <div style="width:12px;height:12px;border-radius:50%;background:${c.color||'#4f8ef7'};flex-shrink:0"></div>
+                ${c.name} ···${c.last4}
+                <span style="background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:20px;padding:2px 8px;font-size:.62rem;font-weight:700">🤝 ${c.ownerName||'對方'}的卡</span>
+              </div>
+              <div class="bill-meta">結帳日：每月${c.cutDay||25}日 ・ 繳費日：每月${c.dueDay||15}日</div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+  }
 
   // 帳單列表
   const bills=getCardBills();
@@ -577,16 +680,51 @@ function renderCards() {
 }
 
 function pickColor(color,el){pickedColor=color;document.querySelectorAll('.cdot-pick').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
+function pickEditColor(color,el){pickedEditColor=color;document.querySelectorAll('.cdot-pick-e').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
 
 function submitCard(){
   const name=document.getElementById('nc-name').value.trim();
   const last4=document.getElementById('nc-last4').value.trim();
   const cutDay=parseInt(document.getElementById('nc-cut').value)||25;
   const dueDay=parseInt(document.getElementById('nc-due').value)||15;
+  const shared=document.getElementById('nc-shared').checked;
   if(!name||!/^\d{4}$/.test(last4)){toast('請填寫完整','warn');return;}
-  addCard({name,last4,color:pickedColor,cutDay,dueDay});
-  fbSyncPersonal();closeModal('add-card-modal');renderCards();toast(`已新增 ${name}`);
+  addCard({name,last4,color:pickedColor,cutDay,dueDay,shared});
+  fbSyncPersonal(); if(shared) fbSyncSharedCardList();
+  closeModal('add-card-modal');renderCards();toast(`已新增 ${name}${shared?' 🤝 已設為共用':''}`);
   ['nc-name','nc-last4','nc-cut','nc-due'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('nc-shared').checked=false;
+}
+
+// 編輯信用卡
+let editCardId = '';
+function showEditCard(id) {
+  const c = getCards().find(x=>x.id===id);
+  if(!c) return;
+  editCardId = id;
+  document.getElementById('ec-name').value  = c.name;
+  document.getElementById('ec-last4').value = c.last4;
+  document.getElementById('ec-cut').value   = c.cutDay||25;
+  document.getElementById('ec-due').value   = c.dueDay||15;
+  document.getElementById('ec-shared').checked = !!c.shared;
+  // 設定顏色
+  pickedEditColor = c.color||'#1d4ed8';
+  document.querySelectorAll('.cdot-pick-e').forEach(d=>{
+    d.style.border = d.dataset.color===pickedEditColor ? '3px solid white' : '3px solid transparent';
+    d.style.boxShadow = d.dataset.color===pickedEditColor ? `0 0 0 2px ${pickedEditColor}` : 'none';
+  });
+  showModal('edit-card-modal');
+}
+function submitEditCard(){
+  const name=document.getElementById('ec-name').value.trim();
+  const last4=document.getElementById('ec-last4').value.trim();
+  const cutDay=parseInt(document.getElementById('ec-cut').value)||25;
+  const dueDay=parseInt(document.getElementById('ec-due').value)||15;
+  const shared=document.getElementById('ec-shared').checked;
+  if(!name||!/^\d{4}$/.test(last4)){toast('請填寫完整','warn');return;}
+  editCard(editCardId,{name,last4,color:pickedEditColor,cutDay,dueDay,shared});
+  fbSyncPersonal(); fbSyncSharedCardList();
+  closeModal('edit-card-modal');renderCards();toast(`已更新 ${name}${shared?' 🤝 共用中':''}`);
 }
 
 function confirmDelCard(id,name){
@@ -632,29 +770,73 @@ function submitPayBill(){
 // ── 悠遊卡 ───────────────────────────────────────────
 function renderIcards(){
   const cs=getIcards();const el=document.getElementById('icard-list');
-  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增悠遊卡</div>';return;}
-  el.innerHTML=cs.map(c=>`
-    <div class="ic-card">
-      <div class="ic-icon">🎫</div>
-      <div class="ic-info">
-        <div class="ic-name">${c.name}</div>
-        <div class="ic-bal">$${fmt(c.balance||0)}</div>
-        ${(c.history||[]).slice(0,1).map(h=>`<div style="font-size:.68rem;color:var(--t3);margin-top:2px">最近：${h.type==='topup'?'加值':'消費'} $${fmt(h.amount)}</div>`).join('')}
-      </div>
-      <div class="ic-actions">
-        <button class="acct-btn xfer" onclick="showTopup('${c.id}','${c.name}')">加值</button>
-        <button class="acct-btn del" onclick="confirmDelIcard('${c.id}','${c.name}')">刪除</button>
-      </div>
-    </div>`).join('');
+  if(!cs.length){el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增悠遊卡</div>';}
+  else {
+    el.innerHTML=cs.map(c=>`
+      <div class="ic-card">
+        <div class="ic-icon">🎫</div>
+        <div class="ic-info">
+          <div class="ic-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${c.name}
+            ${c.shared ? '<span style="background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:20px;padding:1px 7px;font-size:.6rem;font-weight:700">🤝 共用中</span>' : ''}
+          </div>
+          <div class="ic-bal">$${fmt(c.balance||0)}</div>
+          ${(c.history||[]).slice(0,1).map(h=>`<div style="font-size:.68rem;color:var(--t3);margin-top:2px">最近：${h.type==='topup'?'加值':'消費'} $${fmt(h.amount)}</div>`).join('')}
+        </div>
+        <div class="ic-actions">
+          <button class="acct-btn xfer" onclick="showEditIcard('${c.id}')">編輯</button>
+          <button class="acct-btn xfer" onclick="showTopup('${c.id}','${c.name}')">加值</button>
+          <button class="acct-btn del" onclick="confirmDelIcard('${c.id}','${c.name}')">刪除</button>
+        </div>
+      </div>`).join('');
+    // 對方共用給我的悠遊卡
+    const sharedIcards = getSharedIcards();
+    if (sharedIcards.length) {
+      const ownerName = sharedIcards[0]?.ownerName||'對方';
+      el.innerHTML += `<div class="sec-t" style="margin-top:14px">🤝 ${ownerName}共用的悠遊卡</div>`;
+      el.innerHTML += sharedIcards.map(c=>`
+        <div class="ic-card" style="border-color:rgba(0,229,180,.3)">
+          <div class="ic-icon">🎫</div>
+          <div class="ic-info">
+            <div class="ic-name" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${c.name}
+              <span style="background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:20px;padding:1px 7px;font-size:.6rem;font-weight:700">🤝 ${c.ownerName||'對方'}的卡</span>
+            </div>
+            <div class="ic-bal">$${fmt(c.balance||0)}</div>
+          </div>
+        </div>`).join('');
+    }
+  }
 }
 
 function submitIcard(){
   const name=document.getElementById('ic-name').value.trim();
   const bal=parseInt(document.getElementById('ic-bal').value)||0;
+  const shared=document.getElementById('ic-shared').checked;
   if(!name){toast('請輸入名稱','warn');return;}
-  addIcard({name,balance:bal});fbSyncPersonal();
-  closeModal('add-icard-modal');renderIcards();renderOverview();toast(`已新增 ${name}`);
+  addIcard({name,balance:bal,shared});fbSyncPersonal(); if(shared) fbSyncSharedCardList();
+  closeModal('add-icard-modal');renderIcards();renderOverview();toast(`已新增 ${name}${shared?' 🤝 已設為共用':''}`);
   document.getElementById('ic-name').value='';document.getElementById('ic-bal').value='';
+  document.getElementById('ic-shared').checked=false;
+}
+
+// 編輯悠遊卡
+let editIcardId = '';
+function showEditIcard(id) {
+  const c = getIcards().find(x=>x.id===id);
+  if(!c) return;
+  editIcardId = id;
+  document.getElementById('eic-name').value = c.name;
+  document.getElementById('eic-shared').checked = !!c.shared;
+  showModal('edit-icard-modal');
+}
+function submitEditIcard(){
+  const name=document.getElementById('eic-name').value.trim();
+  const shared=document.getElementById('eic-shared').checked;
+  if(!name){toast('請輸入名稱','warn');return;}
+  editIcard(editIcardId,{name,shared});
+  fbSyncPersonal(); fbSyncSharedCardList();
+  closeModal('edit-icard-modal');renderIcards();toast(`已更新 ${name}${shared?' 🤝 共用中':''}`);
 }
 
 function showTopup(id,name){

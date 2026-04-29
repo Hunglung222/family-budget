@@ -1,16 +1,9 @@
 'use strict';
-const FB_CFG={
-  apiKey:"AIzaSyA2FVuIV_5sMUxd851XhTcSMQIg0m1Lh6M",
-  authDomain:"family-budget-aed64.firebaseapp.com",
-  projectId:"family-budget-aed64",
-  storageBucket:"family-budget-aed64.firebasestorage.app",
-  messagingSenderId:"714512661107",
-  appId:"1:714512661107:web:022f9c7f7b828b5eb9c806",
-};
+// Firebase config 集中在 auth.js 管理，此處直接取用已初始化的 app
 let _db=null;
 function getDb(){
   if(_db)return _db;
-  try{if(!firebase.apps.length)firebase.initializeApp(FB_CFG);_db=firebase.firestore();}
+  try{_db=firebase.firestore();}
   catch(e){console.warn('[FB]',e);}
   return _db;
 }
@@ -130,6 +123,10 @@ async function fbPullAll(){
     if(bd.exists) DB.set('budgets', bd.data());
     // App 共用設定（webhook、claude key）
     await fbPullAppConfig();
+    // 對方共用的卡片清單
+    await fbPullSharedCardList();
+    // 同步自己的共用卡片（讓對方能拉到）
+    await fbSyncSharedCardList();
     // 宏龍私密資料（只有 kevin 會執行）
     await fbPullPrivateData();
     return true;
@@ -274,71 +271,49 @@ async function fbPullPrivateData() {
   await fbPullMemos();
 }
 
-// 相容舊版呼叫
 async function fbSyncWal(){await fbSyncPersonal();}
-async function fbSyncCards(){await fbSyncPersonal();}
-async function fbSyncIcards(){await fbSyncPersonal();}
-async function fbSyncCats(){
-  try{
-    await getDb().collection('shared').doc('cats').set({list:getCats(),updatedAt:Date.now()});
-  }catch(e){console.warn('[FB]syncCats',e);}
+async function fbSyncCards(){await fbSyncPersonal(); await fbSyncSharedCardList();}
+async function fbSyncIcards(){await fbSyncPersonal(); await fbSyncSharedCardList();}
+
+// ── 共用卡片清單同步（讓對方看到我設為共用的卡）──────
+async function fbSyncSharedCardList() {
+  try {
+    const myCards  = getMySharedCards()  || [];
+    const myIcards = getMySharedIcards() || [];
+    const myName   = localStorage.getItem('current_user') || '';
+    const myUid    = uid();
+    // 只存對方看得到需要的欄位，不存 history（避免資料過大）
+    const cards  = myCards.map(c  => ({id:c.id, name:c.name, last4:c.last4, color:c.color, cutDay:c.cutDay, dueDay:c.dueDay, owner:myUid, ownerName:myName}));
+    const icards = myIcards.map(c => ({id:c.id, name:c.name, balance:c.balance||0, owner:myUid, ownerName:myName}));
+    await getDb().collection('shared').doc('shared_cards_'+myUid).set({
+      cards, icards, updatedAt: Date.now(), ownerName: myName,
+    });
+    console.log('[FB] 共用卡片已上傳', cards.length, '張信用卡,', icards.length, '張悠遊卡');
+  } catch(e) { console.warn('[FB]syncSharedCardList', e); }
 }
 
-async function fbSyncBudgets(){
-  try{await getDb().collection('shared').doc('budgets').set(getBudgetConfig());}catch(e){}
-}
-async function fbClearAll(){
-  try{
-    const db=getDb(),sn=await db.collection('transactions').get();
-    const b=db.batch();sn.forEach(d=>b.delete(d.ref));
-    ['personal','shared'].forEach(c=>['main','accts','cats','budgets'].forEach(d=>
-      b.delete(db.collection(c).doc(d))));
-    await b.commit();
-  }catch(e){console.warn('[FB]clear',e);}
-}
-
-// ── Discord 通知系統 ──────────────────────────────────
-function getWebhook(){return localStorage.getItem('discord_webhook')||getDiscord().webhook||'';}
-
-async function discordSend(msg){
-  const url=getWebhook();if(!url)return;
-  try{await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:msg})});}
-  catch(e){console.warn('[Discord]',e);}
-}
-
-async function checkBudgetAlert(tx){
-  const cfg=getDiscord();
-  const limit=getBudget(tx.cat);if(!limit)return null;
-  const spent=txByPeriod().filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);
-  const pct=spent/limit*100;
-  const threshold=cfg.budgetPct||80;
-  if(cfg.onBudget&&getWebhook()&&(pct>=100||(pct>=threshold&&pct-tx.amount/limit*100<threshold))){
-    const emoji=pct>=100?'🚨':'⚠️';
-    await discordSend(`${emoji} **預算警示** — ${catName(tx.cat)}\n已用 **$${fmt(spent)}** / $${fmt(limit)}（${Math.round(pct)}%）\n週期：${fmtPeriod()}`);
-  }
-  return {spent,limit,pct};
-}
-
-// 信用卡帳單 Discord 提醒
-async function discordBillReminder(){
-  const bills=getPendingBills();
-  if(!bills.length)return;
-  const now=new Date();
-  for(const bill of bills){
-    const card=cardFind(bill.cardId);if(!card)continue;
-    // 距繳費日 3 天內提醒
-    const due=new Date(bill.year, bill.month-1, bill.dueDay||15);
-    const diff=Math.ceil((due-now)/(864e5));
-    if(diff<=3&&diff>=0){
-      await discordSend(`💳 **信用卡繳費提醒**\n${card.name} ${bill.month}月帳單\n應繳金額：**$${fmt(bill.total)}**\n繳費截止：${bill.year}/${bill.month}/${bill.dueDay||15}\n⏰ 還有 ${diff} 天！`);
+async function fbPullSharedCardList() {
+  try {
+    const myUid = uid();
+    // 取得另一位使用者的共用卡片（掃描 shared_cards_ 開頭的文件，排除自己的）
+    const snap = await getDb().collection('shared').get();
+    let allSharedCards  = [];
+    let allSharedIcards = [];
+    snap.forEach(doc => {
+      const id = doc.id;
+      if (!id.startsWith('shared_cards_')) return;
+      if (id === 'shared_cards_' + myUid) return; // 跳過自己的
+      const data = doc.data();
+      if (data.cards)  allSharedCards  = [...allSharedCards,  ...data.cards];
+      if (data.icards) allSharedIcards = [...allSharedIcards, ...data.icards];
+    });
+    DB.set('shared_cards',  allSharedCards);
+    DB.set('shared_icards', allSharedIcards);
+    if (allSharedCards.length || allSharedIcards.length) {
+      console.log('[FB] 已拉取共用卡片', allSharedCards.length, '張信用卡,', allSharedIcards.length, '張悠遊卡');
     }
-  }
+  } catch(e) { console.warn('[FB]pullSharedCardList', e); }
 }
-
-// 相容舊版呼叫
-async function fbSyncWal(){await fbSyncPersonal();}
-async function fbSyncCards(){await fbSyncPersonal();}
-async function fbSyncIcards(){await fbSyncPersonal();}
 async function fbSyncCats(){
   try{
     await getDb().collection('shared').doc('cats').set({list:getCats(),updatedAt:Date.now()});
