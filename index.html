@@ -263,6 +263,27 @@ function askEdit(id, e) {
   document.getElementById('e-p-hl').classList.toggle('on', editPerson==='宏龍');
   document.getElementById('e-p-yh').classList.toggle('on', editPerson==='盈慧');
 
+  // 付款方式
+  editPay = tx.pay || 'cash';
+  ['cash','card','icard'].forEach(p => {
+    document.getElementById('e-pay-'+p).classList.toggle('on', editPay===p);
+  });
+  // 信用卡下拉
+  const cardSel = document.getElementById('e-card-sel');
+  const allCards = typeof getAllAvailableCards==='function' ? getAllAvailableCards() : getCards().map(c=>({...c,_owner:'我的'}));
+  cardSel.innerHTML = allCards.map(c =>
+    `<option value="${c.id}" ${c.id===tx.cardId?'selected':''}>${c.name} ···${c.last4}${c._owner!=='我的'?' ('+c._owner+')':''}</option>`
+  ).join('') || '<option value="">尚無信用卡</option>';
+  // 悠遊卡下拉
+  const icardSel = document.getElementById('e-icard-sel');
+  const allIcards = typeof getAllAvailableIcards==='function' ? getAllAvailableIcards() : getIcards().map(c=>({...c,_owner:'我的'}));
+  icardSel.innerHTML = allIcards.map(c =>
+    `<option value="${c.id}" ${c.id===tx.icardId?'selected':''}>${c.name}${c._owner!=='我的'?' ('+c._owner+')':''}</option>`
+  ).join('') || '<option value="">尚無悠遊卡</option>';
+  // 顯示對應卡片選單
+  document.getElementById('e-card-fg').style.display  = editPay==='card'  ? 'block' : 'none';
+  document.getElementById('e-icard-fg').style.display = editPay==='icard' ? 'block' : 'none';
+
   document.getElementById('edit-modal').classList.add('show');
 }
 
