@@ -170,20 +170,35 @@
 <div class="ov" id="bill-modal">
   <div class="sheet"><div class="sh"></div>
     <div class="st">💰 記帳這筆消費</div>
-    <div style="font-size:.88rem;color:var(--t2);margin-bottom:12px" id="bm-info"></div>
-    <div class="fg"><span class="flbl">實際金額</span>
+    <div style="font-size:.85rem;color:var(--t2);margin-bottom:12px;padding:10px 12px;background:var(--card2);border-radius:var(--rs);line-height:1.5" id="bm-info"></div>
+    <div class="fg"><span class="flbl">💰 實際金額</span>
       <input type="number" class="fc" id="bm-amt" inputmode="numeric"></div>
-    <div class="fg"><span class="flbl">付款方式</span>
+    <div class="fg"><span class="flbl">📅 消費日期</span>
+      <input type="datetime-local" class="fc" id="bm-dt"></div>
+    <div class="fg"><span class="flbl">🏷️ 分類</span>
+      <select class="fc" id="bm-cat"></select></div>
+    <div class="fg"><span class="flbl">📂 子分類（可略）</span>
+      <input type="text" class="fc" id="bm-subcat" placeholder="例：3C用品、衣服" maxlength="20"></div>
+    <div class="fg"><span class="flbl">👤 記帳人</span>
       <div class="tg">
-        <button class="tb on" id="bm-cash" onclick="setBmPay('cash',this)">💵 現金</button>
-        <button class="tb" id="bm-card" onclick="setBmPay('card',this)">💳 信用卡</button>
+        <button class="tb" id="bm-p-hl" onclick="setBmPerson('宏龍',this)">🙋 宏龍</button>
+        <button class="tb" id="bm-p-yh" onclick="setBmPerson('盈慧',this)">🙋‍♀️ 盈慧</button>
       </div>
     </div>
-    <div class="fg" id="bm-card-fg" style="display:none"><span class="flbl">選擇卡片</span>
+    <div class="fg"><span class="flbl">💳 付款方式</span>
+      <div class="tg" style="flex-wrap:wrap;gap:8px">
+        <button class="tb" id="bm-cash"  onclick="setBmPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
+        <button class="tb" id="bm-card"  onclick="setBmPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
+        <button class="tb" id="bm-icard" onclick="setBmPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+      </div>
+    </div>
+    <div class="fg" id="bm-card-fg" style="display:none"><span class="flbl">🃏 選擇信用卡</span>
       <select class="fc" id="bm-card-sel"></select></div>
+    <div class="fg" id="bm-icard-fg" style="display:none"><span class="flbl">🎫 選擇悠遊卡</span>
+      <select class="fc" id="bm-icard-sel"></select></div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('bill-modal')">取消</button>
-      <button class="btn btn-p" onclick="submitBill()">確認記帳</button>
+      <button class="btn btn-p" onclick="submitBill()">✅ 確認記帳</button>
     </div>
   </div>
 </div>
@@ -307,8 +322,8 @@ function orderHTML(o) {
     <div class="order-actions">
       ${nextStatusBtn(o)}
       <button class="oa-btn" style="background:var(--pdim);color:var(--p)" onclick="editOrder('${o.id}')">✏️ 編輯</button>
-      ${o.status==='done'&&!o.billed?`<button class="oa-btn" style="background:rgba(34,197,94,.15);color:var(--ok)" onclick="showBillOrder('${o.id}')">💰 記帳</button>`:''}
-      ${o.billed?`<span style="font-size:.72rem;color:var(--ok)">✅ 已記帳</span>`:''}
+      ${o.status!=='cancel'&&!o.billed?`<button class="oa-btn" style="background:rgba(34,197,94,.15);color:var(--ok)" onclick="showBillOrder('${o.id}')">💰 轉為記帳</button>`:''}
+      ${o.billed?`<span style="font-size:.72rem;color:var(--ok);display:inline-flex;align-items:center;gap:4px">✅ 已記帳<button class="oa-btn" style="background:rgba(34,197,94,.08);color:var(--ok);padding:4px 10px;font-size:.7rem;margin-left:4px" onclick="undoBill('${o.id}')">↩</button></span>`:''}
       <button class="oa-btn" style="background:rgba(244,63,94,.1);color:var(--danger)" onclick="confirmDel('${o.id}')">🗑️</button>
     </div>
   </div>`;
@@ -414,39 +429,149 @@ function confirmDel(id) {
 }
 
 // ── 一鍵記帳 ─────────────────────────────────────────
+let bmPerson = '宏龍';
+
 function showBillOrder(id) {
-  bmOrderId=id; bmPay='cash';
-  const o=getOrders().find(x=>x.id===id);if(!o)return;
-  document.getElementById('bm-info').innerHTML=`<b>${o.name}</b><br>平台：${o.platform}`;
-  document.getElementById('bm-amt').value=o.amount||'';
-  document.getElementById('bm-cash').classList.add('on');
-  document.getElementById('bm-card').classList.remove('on');
-  document.getElementById('bm-card-fg').style.display='none';
-  const cs=getCards();
-  document.getElementById('bm-card-sel').innerHTML=cs.map(c=>`<option value="${c.id}">${c.name} ···${c.last4}</option>`).join('')||'<option>尚無信用卡</option>';
+  bmOrderId = id;
+  bmPay = 'cash';
+  const o = getOrders().find(x=>x.id===id);
+  if (!o) return;
+
+  // 訂單資訊
+  document.getElementById('bm-info').innerHTML =
+    `<b style="color:var(--t)">${o.name}</b><br>` +
+    `<span style="font-size:.78rem">📦 ${o.platform || '無平台'}${o.orderNo ? ' · 單號 '+o.orderNo : ''}</span>`;
+
+  // 金額
+  document.getElementById('bm-amt').value = o.amount || '';
+
+  // 預設日期 = 訂單日（or 今天）
+  const defaultDate = o.orderDate || new Date().toISOString().slice(0,10);
+  const dt = new Date(defaultDate + 'T12:00:00');
+  document.getElementById('bm-dt').value = new Date(dt.getTime() - dt.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  // 分類選單，預設「購物」（id='shopping' 或第一個有 shopping 字眼的）
+  const catSel = document.getElementById('bm-cat');
+  const cats = getCats();
+  const defaultCat = cats.find(c=>c.id==='shopping') || cats.find(c=>c.name.includes('購物')) || cats[0];
+  catSel.innerHTML = cats.map(c =>
+    `<option value="${c.id}" ${c.id===defaultCat?.id?'selected':''}>${c.name}</option>`
+  ).join('');
+
+  // 子分類預設「網購」
+  document.getElementById('bm-subcat').value = '網購';
+
+  // 記帳人預設目前登入者
+  bmPerson = currentUser() || '宏龍';
+  document.getElementById('bm-p-hl').classList.toggle('on', bmPerson==='宏龍');
+  document.getElementById('bm-p-yh').classList.toggle('on', bmPerson==='盈慧');
+
+  // 信用卡選單（含對方共用）
+  const cardSel = document.getElementById('bm-card-sel');
+  const allCards = typeof getAllAvailableCards==='function' ? getAllAvailableCards() : getCards().map(c=>({...c,_owner:'我的'}));
+  cardSel.innerHTML = allCards.map(c =>
+    `<option value="${c.id}">${c.name} ···${c.last4}${c._owner!=='我的'?' ('+c._owner+')':''}</option>`
+  ).join('') || '<option value="">尚無信用卡</option>';
+
+  // 悠遊卡選單
+  const icardSel = document.getElementById('bm-icard-sel');
+  const allIcards = typeof getAllAvailableIcards==='function' ? getAllAvailableIcards() : getIcards().map(c=>({...c,_owner:'我的'}));
+  icardSel.innerHTML = allIcards.map(c =>
+    `<option value="${c.id}">${c.name}${c._owner!=='我的'?' ('+c._owner+')':''}</option>`
+  ).join('') || '<option value="">尚無悠遊卡</option>';
+
+  // 重設付款按鈕
+  ['cash','card','icard'].forEach(p => {
+    document.getElementById('bm-'+p).classList.toggle('on', p==='cash');
+  });
+  document.getElementById('bm-card-fg').style.display = 'none';
+  document.getElementById('bm-icard-fg').style.display = 'none';
+
   showModal('bill-modal');
 }
-function setBmPay(p,el){
-  bmPay=p;
-  document.querySelectorAll('#bm-cash,#bm-card').forEach(b=>b.classList.remove('on'));
+
+function setBmPerson(p, el) {
+  bmPerson = p;
+  document.querySelectorAll('#bm-p-hl,#bm-p-yh').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
-  document.getElementById('bm-card-fg').style.display=p==='card'?'block':'none';
 }
-function submitBill(){
-  const amt=parseInt(document.getElementById('bm-amt').value)||0;
-  if(!amt){toast('請輸入金額','warn');return;}
-  const o=getOrders().find(x=>x.id===bmOrderId);if(!o)return;
-  const cardId=bmPay==='card'?document.getElementById('bm-card-sel').value:null;
-  const tx={
-    amount:amt, cat:'shopping', subCat:'網購',
-    detail:o.name, person:currentUser(),
-    pay:bmPay, cardId, icardId:null,
+
+function setBmPay(p, el) {
+  bmPay = p;
+  document.querySelectorAll('#bm-cash,#bm-card,#bm-icard').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('bm-card-fg').style.display  = p==='card'  ? 'block' : 'none';
+  document.getElementById('bm-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+}
+
+async function submitBill() {
+  const amt = parseInt(document.getElementById('bm-amt').value) || 0;
+  if (!amt) { toast('請輸入金額', 'warn'); return; }
+
+  const o = getOrders().find(x=>x.id===bmOrderId);
+  if (!o) return;
+
+  // 從 modal 收集所有資料
+  const dtv      = document.getElementById('bm-dt').value;
+  const at       = dtv ? new Date(dtv).toISOString() : new Date().toISOString();
+  const cat      = document.getElementById('bm-cat').value;
+  const subCat   = document.getElementById('bm-subcat').value.trim();
+  const cardId   = bmPay === 'card'  ? (document.getElementById('bm-card-sel').value  || null) : null;
+  const icardId  = bmPay === 'icard' ? (document.getElementById('bm-icard-sel').value || null) : null;
+
+  const tx = {
+    amount: amt,
+    cat,
+    subCat,
+    detail: o.name,
+    person: bmPerson,
+    pay:    bmPay,
+    cardId,
+    icardId,
+    at,
+    fromOrder: o.id,  // 記錄來源訂單，方便追蹤
   };
-  addTx(tx); fbAddTx(tx);
-  // 標記已記帳
-  const list=getOrders(),idx=list.findIndex(x=>x.id===bmOrderId);
-  if(idx>=0){list[idx].billed=true;saveOrders(list);fbSyncOrders();}
-  closeModal('bill-modal');render();toast(`已記帳 $${fmt(amt)}`);
+
+  // 加入記帳（這會自動處理現金/悠遊卡/信用卡的扣款）
+  const newTx = addTx(tx);
+  await fbAddTx(newTx || tx);
+
+  // 標記訂單已記帳，並記錄對應的 tx id（供 undo 使用）
+  const list = getOrders();
+  const idx  = list.findIndex(x=>x.id===bmOrderId);
+  if (idx >= 0) {
+    list[idx].billed = true;
+    list[idx].billedTxId = (newTx && newTx.id) || null;
+    saveOrders(list);
+    fbSyncOrders();
+  }
+
+  closeModal('bill-modal');
+  render();
+  toast(`✅ 已記帳 $${fmt(amt)}`);
+}
+
+// 撤銷已記帳：刪除對應的 tx，並把訂單標記恢復
+function undoBill(orderId) {
+  const list = getOrders();
+  const idx  = list.findIndex(x=>x.id===orderId);
+  if (idx < 0) return;
+  const order = list[idx];
+  if (!order.billed) return;
+  if (!confirm(`要撤銷「${order.name}」的記帳嗎？對應的記帳記錄會被刪除。`)) return;
+
+  // 刪除對應的 tx（如果有 ID 紀錄）
+  if (order.billedTxId && typeof delTx === 'function') {
+    delTx(order.billedTxId);
+    if (typeof fbDelTx === 'function') fbDelTx(order.billedTxId);
+  }
+  // 重置訂單狀態
+  order.billed = false;
+  order.billedTxId = null;
+  saveOrders(list);
+  fbSyncOrders();
+  render();
+  toast('已撤銷記帳');
 }
 
 // ── 到期提醒 ─────────────────────────────────────────
