@@ -501,7 +501,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.04.30 04:54';
+const APP_VERSION = 'v2026.05.02 01:54';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -742,28 +742,99 @@ async function sendWeeklyNow(){
   const btn = document.getElementById('btn-send-weekly');
   const dateVal = document.getElementById('weekly-resend-date').value;
   if(!dateVal){ toast('請選擇日期','err'); return; }
+
   // 計算該日所在週（週六為起點）
   const picked = new Date(dateVal + 'T00:00:00');
-  const dow = picked.getDay(); // 0=日,6=六
+  const dow = picked.getDay();
   const daysSinceSat = dow === 6 ? 0 : dow + 1;
   const weekStart = new Date(picked.getTime() - daysSinceSat * 864e5);
   const weekEnd   = new Date(weekStart.getTime() + 7 * 864e5);
   const txList = getTx().filter(t=>{ const d=new Date(t.at); return d>=weekStart && d<weekEnd; });
   if(!txList.length){ toast('該週無記帳資料','err'); return; }
+
   btn.disabled=true; btn.textContent='發送中...';
   try{
-    const total = txList.reduce((s,t)=>s+t.amount,0);
-    const kevinTotal = txList.filter(t=>t.person==='宏龍').reduce((s,t)=>s+t.amount,0);
-    const huiTotal   = txList.filter(t=>t.person==='盈慧').reduce((s,t)=>s+t.amount,0);
+    const total      = txList.reduce((s,t)=>s+t.amount, 0);
+    const kevinTotal = txList.filter(t=>t.person==='宏龍').reduce((s,t)=>s+t.amount, 0);
+    const huiTotal   = txList.filter(t=>t.person==='盈慧').reduce((s,t)=>s+t.amount, 0);
+    const dailyAvg   = Math.round(total / 7);
+    const cashTotal  = txList.filter(t=>t.pay==='cash'||t.pay==='icard').reduce((s,t)=>s+t.amount, 0);
+    const cardTotal  = txList.filter(t=>t.pay==='card').reduce((s,t)=>s+t.amount, 0);
+
+    // 分類排行（含筆數）
     const catMap = {};
-    txList.forEach(t=>{ catMap[t.cat]=(catMap[t.cat]||0)+t.amount; });
-    const catLines = Object.entries(catMap).sort((a,b)=>b[1]-a[1])
-      .map(([id,amt])=>`• ${catName(id)}  $${fmt(amt)}`).join('\n');
+    txList.forEach(t=>{
+      if(!catMap[t.cat]) catMap[t.cat]={total:0, count:0};
+      catMap[t.cat].total += t.amount;
+      catMap[t.cat].count++;
+    });
+    const catRanking = Object.entries(catMap).sort((a,b)=>b[1].total-a[1].total);
+    const catLines = catRanking
+      .map(([id,v],i)=>`${i+1}. ${catName(id)}  $${fmt(v.total)}（${v.count}筆）`)
+      .join('\n');
+
     const startStr = `${weekStart.getMonth()+1}/${weekStart.getDate()}`;
     const endDate  = new Date(weekEnd.getTime()-1);
     const endStr   = `${endDate.getMonth()+1}/${endDate.getDate()}`;
-    await discordSend(`📈 **家庭週報（補發）** ${startStr}～${endStr}\n\n💰 總支出：**$${fmt(total)}**（共 ${txList.length} 筆）\n🧑 宏龍：$${fmt(kevinTotal)}　👩 盈慧：$${fmt(huiTotal)}\n\n📂 分類統計\n${catLines}`);
-    toast('✅ 週報已發送到 Discord！');
+    const weekLabel = `${startStr}～${endStr}`;
+
+    // embed1：週報統計
+    const embed1 = {
+      embeds:[{
+        title: `📈 家庭週報（補發）  ${startStr}（六）~ ${endStr}（五）`,
+        color: 0x6366F1,
+        fields:[
+          { name:'💰 本週總支出', value:`**$${fmt(total)}**  （共 ${txList.length} 筆）`, inline:false },
+          { name:'🧑 宏龍', value:`$${fmt(kevinTotal)}`, inline:true },
+          { name:'👩 盈慧', value:`$${fmt(huiTotal)}`, inline:true },
+          { name:'📅 每日平均', value:`$${fmt(dailyAvg)}`, inline:true },
+          { name:'💳 付款方式', value:`💵 現金/悠遊卡：$${fmt(cashTotal)}\n💳 信用卡：$${fmt(cardTotal)}`, inline:false },
+          { name:'🏆 支出分類排行', value:catLines, inline:false }
+        ],
+        footer:{ text:'家庭記帳 PWA · 週報統計（手動補發）' },
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    const webhook = getWebhook();
+    await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(embed1) });
+
+    // Claude AI 分析
+    btn.textContent='AI 分析中...';
+    const claudeKey = localStorage.getItem('claude_api_key') || '';
+    let aiText = 'AI 分析需要設定 Claude API Key';
+    if(claudeKey){
+      const catSummary = catRanking
+        .map(([id,v])=>`${catName(id)}：$${v.total}（${v.count}筆，佔${Math.round(v.total/total*100)}%）`)
+        .join('\n');
+      const txDetail = txList.slice(0,50)
+        .map(t=>`${fmtD(t.at)} ${t.person} ${catName(t.cat)} ${t.detail||''} $${t.amount}`)
+        .join('\n');
+      const prompt = `你是一位親切專業的家庭財務顧問，正在幫助一對台灣夫妻（宏龍和盈慧）分析他們的週度消費。\n\n本週（${weekLabel}）記帳摘要：\n- 總支出：$${total}\n- 宏龍支出：$${kevinTotal}（佔${Math.round(kevinTotal/total*100)}%）\n- 盈慧支出：$${huiTotal}（佔${Math.round(huiTotal/total*100)}%）\n\n分類統計：\n${catSummary}\n\n詳細明細：\n${txDetail}\n\n請用輕鬆親切但內容專業客觀的語氣，從夫妻共同理財的角度，提供以下分析（用繁體中文）：\n\n1. **本週消費概況**（一段話總結整體狀況）\n2. **值得注意的支出**（哪些分類偏高？有沒有異常？）\n3. **兩人消費分配**（比例是否合理？）\n4. **具體改善建議**（3點具體可執行的建議）\n5. **下週小目標**（給夫妻倆一個具體小目標）\n\n語氣像朋友一樣關心，可適當加emoji，總長度控制在500字以內。`;
+      try{
+        const res = await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01'},
+          body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:1024, messages:[{role:'user',content:prompt}] })
+        });
+        const data = await res.json();
+        aiText = (data.content && data.content[0]) ? data.content[0].text : 'AI 分析暫時無法取得';
+      }catch(e){ aiText = 'AI 分析發生錯誤：'+e.message; }
+    }
+
+    // embed2：AI 分析
+    const embed2 = {
+      embeds:[{
+        title:'🤖 AI 財務分析建議',
+        color: 0xF59E0B,
+        description: aiText,
+        footer:{ text:'由 Claude AI 分析 · 僅供參考' },
+        timestamp: new Date().toISOString()
+      }]
+    };
+    await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(embed2) });
+
+    toast('✅ 週報＋AI 分析已發送！');
     closeModal('send-weekly-modal');
   }catch(e){ toast('發送失敗：'+e.message,'err'); }
   finally{ btn.disabled=false; btn.textContent='發送'; }
