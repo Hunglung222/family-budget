@@ -188,7 +188,10 @@
         <div class="notify-name">📊 每日結算通知</div>
         <div class="notify-desc">每天發送當日支出摘要（宏龍設定即可，自動同步）</div>
       </div>
-      <label class="toggle-switch"><input type="checkbox" id="sw-daily" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="showSendDailyModal()" style="padding:6px 12px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:20px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">補發</button>
+        <label class="toggle-switch"><input type="checkbox" id="sw-daily" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+      </div>
     </div>
     <div class="notify-row" style="flex-wrap:wrap;gap:8px">
       <div class="notify-info">
@@ -227,7 +230,10 @@
         <div class="notify-name">📈 每週摘要通知</div>
         <div class="notify-desc">每週日發送本週支出摘要</div>
       </div>
-      <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="showSendWeeklyModal()" style="padding:6px 12px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:20px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">補發</button>
+        <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+      </div>
     </div>
   </div>
 
@@ -237,6 +243,33 @@
     <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px;line-height:1.6">房租、網路費、訂閱等每月固定支出，設定後每月到日自動在首頁提醒並可選擇推送 Discord。</div>
     <div id="recurring-list"></div>
     <button onclick="showAddRecurring()" style="width:100%;margin-top:10px;padding:11px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">＋ 新增固定支出</button>
+  </div>
+
+  <!-- 日結算補發 Modal -->
+  <div class="ov" id="send-daily-modal">
+    <div class="sheet"><div class="sh"></div><div class="st">📊 補發日結算通知</div>
+      <div class="fg"><span class="flbl">選擇日期</span>
+        <input type="date" class="fc" id="daily-resend-date">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <button id="btn-send-daily" class="btn btn-p" onclick="sendDailyNow()" style="flex:1">發送</button>
+        <button class="btn btn-s" onclick="closeModal('send-daily-modal')" style="flex:1">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 週報補發 Modal -->
+  <div class="ov" id="send-weekly-modal">
+    <div class="sheet"><div class="sh"></div><div class="st">📈 補發週報通知</div>
+      <div class="fg"><span class="flbl">選擇該週任意一天</span>
+        <input type="date" class="fc" id="weekly-resend-date">
+      </div>
+      <div style="font-size:.78rem;color:var(--t2);margin:4px 0 12px">系統會自動計算該日所在週（週六～週五）的資料</div>
+      <div style="display:flex;gap:8px">
+        <button id="btn-send-weekly" class="btn btn-p" onclick="sendWeeklyNow()" style="flex:1">發送</button>
+        <button class="btn btn-s" onclick="closeModal('send-weekly-modal')" style="flex:1">取消</button>
+      </div>
+    </div>
   </div>
 
   <!-- 新增固定支出 Modal -->
@@ -669,6 +702,73 @@ function saveNotify(){
   fbSyncAppConfig(); // 同步到 Firebase，讓 Google Apps Script 讀到最新設定
   toast('通知設定已儲存並同步');
 }
+function showSendDailyModal(){
+  if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('daily-resend-date').value = today;
+  showModal('send-daily-modal');
+}
+
+async function sendDailyNow(){
+  const btn = document.getElementById('btn-send-daily');
+  const dateVal = document.getElementById('daily-resend-date').value;
+  if(!dateVal){ toast('請選擇日期','err'); return; }
+  const s = new Date(dateVal + 'T00:00:00');
+  const e = new Date(s.getTime() + 864e5);
+  const txList = getTx().filter(t=>{ const d=new Date(t.at); return d>=s && d<e; });
+  if(!txList.length){ toast('該日無記帳資料','err'); return; }
+  btn.disabled=true; btn.textContent='發送中...';
+  try{
+    const total = txList.reduce((s,t)=>s+t.amount,0);
+    const lines = txList.map(t=>`• ${catName(t.cat)}${t.subCat?' › '+t.subCat:''} ${t.detail||''} **$${fmt(t.amount)}** (${t.person})`).join('\n');
+    const label = `${s.getMonth()+1}/${s.getDate()}`;
+    const isToday = dateVal === new Date().toISOString().slice(0,10);
+    await discordSend(`📊 **家庭記帳日結算${isToday?'':'（補發）'}** ${label}\n${lines}\n\n💰 合計：**$${fmt(total)}**`);
+    localStorage.removeItem('discord_daily_'+s.toDateString());
+    toast('✅ 已發送到 Discord！');
+    closeModal('send-daily-modal');
+  }catch(e){ toast('發送失敗：'+e.message,'err'); }
+  finally{ btn.disabled=false; btn.textContent='發送'; }
+}
+
+function showSendWeeklyModal(){
+  if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('weekly-resend-date').value = today;
+  showModal('send-weekly-modal');
+}
+
+async function sendWeeklyNow(){
+  const btn = document.getElementById('btn-send-weekly');
+  const dateVal = document.getElementById('weekly-resend-date').value;
+  if(!dateVal){ toast('請選擇日期','err'); return; }
+  // 計算該日所在週（週六為起點）
+  const picked = new Date(dateVal + 'T00:00:00');
+  const dow = picked.getDay(); // 0=日,6=六
+  const daysSinceSat = dow === 6 ? 0 : dow + 1;
+  const weekStart = new Date(picked.getTime() - daysSinceSat * 864e5);
+  const weekEnd   = new Date(weekStart.getTime() + 7 * 864e5);
+  const txList = getTx().filter(t=>{ const d=new Date(t.at); return d>=weekStart && d<weekEnd; });
+  if(!txList.length){ toast('該週無記帳資料','err'); return; }
+  btn.disabled=true; btn.textContent='發送中...';
+  try{
+    const total = txList.reduce((s,t)=>s+t.amount,0);
+    const kevinTotal = txList.filter(t=>t.person==='宏龍').reduce((s,t)=>s+t.amount,0);
+    const huiTotal   = txList.filter(t=>t.person==='盈慧').reduce((s,t)=>s+t.amount,0);
+    const catMap = {};
+    txList.forEach(t=>{ catMap[t.cat]=(catMap[t.cat]||0)+t.amount; });
+    const catLines = Object.entries(catMap).sort((a,b)=>b[1]-a[1])
+      .map(([id,amt])=>`• ${catName(id)}  $${fmt(amt)}`).join('\n');
+    const startStr = `${weekStart.getMonth()+1}/${weekStart.getDate()}`;
+    const endDate  = new Date(weekEnd.getTime()-1);
+    const endStr   = `${endDate.getMonth()+1}/${endDate.getDate()}`;
+    await discordSend(`📈 **家庭週報（補發）** ${startStr}～${endStr}\n\n💰 總支出：**$${fmt(total)}**（共 ${txList.length} 筆）\n🧑 宏龍：$${fmt(kevinTotal)}　👩 盈慧：$${fmt(huiTotal)}\n\n📂 分類統計\n${catLines}`);
+    toast('✅ 週報已發送到 Discord！');
+    closeModal('send-weekly-modal');
+  }catch(e){ toast('發送失敗：'+e.message,'err'); }
+  finally{ btn.disabled=false; btn.textContent='發送'; }
+}
+
 async function testDiscordBtn(){
   const url=document.getElementById('discord-url').value.trim();
   if(!url){toast('請先填入 Webhook URL','warn');return;}
