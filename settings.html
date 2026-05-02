@@ -501,7 +501,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.02 01:54';
+const APP_VERSION = 'v2026.05.02 08:52';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -773,6 +773,20 @@ async function sendWeeklyNow(){
       .map(([id,v],i)=>`${i+1}. ${catName(id)}  $${fmt(v.total)}（${v.count}筆）`)
       .join('\n');
 
+    // 刷卡逐筆明細
+    const cards = (typeof getCards === 'function') ? getCards() : [];
+    const cardMap = {};
+    cards.forEach(c=>{ cardMap[c.id]=c.name; });
+    const cardTxList = txList.filter(t=>t.pay==='card');
+    const cardLines = cardTxList.length
+      ? cardTxList.map(t=>{
+          const cn = cardMap[t.cardId] ? ` (${cardMap[t.cardId]})` : '';
+          const cp = catName(t.cat) + (t.subCat ? ` › ${t.subCat}` : '');
+          const d  = new Date(t.at);
+          return `• ${d.getMonth()+1}/${d.getDate()} ${t.person}\u3000${cp}${t.detail?' '+t.detail:''}${cn}\u3000**$${fmt(t.amount)}**`;
+        }).join('\n') + `\n合計 **$${fmt(cardTotal)}**`
+      : '本週無刷卡消費';
+
     const startStr = `${weekStart.getMonth()+1}/${weekStart.getDate()}`;
     const endDate  = new Date(weekEnd.getTime()-1);
     const endStr   = `${endDate.getMonth()+1}/${endDate.getDate()}`;
@@ -788,8 +802,11 @@ async function sendWeeklyNow(){
           { name:'🧑 宏龍', value:`$${fmt(kevinTotal)}`, inline:true },
           { name:'👩 盈慧', value:`$${fmt(huiTotal)}`, inline:true },
           { name:'📅 每日平均', value:`$${fmt(dailyAvg)}`, inline:true },
-          { name:'💳 付款方式', value:`💵 現金/悠遊卡：$${fmt(cashTotal)}\n💳 信用卡：$${fmt(cardTotal)}`, inline:false },
-          { name:'🏆 支出分類排行', value:catLines, inline:false }
+          { name:'💵 現金/悠遊卡', value:`$${fmt(cashTotal)}`, inline:true },
+          { name:'💳 信用卡', value:`$${fmt(cardTotal)}`, inline:true },
+          { name:'\u200b', value:'\u200b', inline:true },
+          { name:'🏆 支出分類排行', value:catLines, inline:false },
+          { name:'💳 本週刷卡明細', value:cardLines, inline:false }
         ],
         footer:{ text:'家庭記帳 PWA · 週報統計（手動補發）' },
         timestamp: new Date().toISOString()
@@ -798,6 +815,7 @@ async function sendWeeklyNow(){
 
     const webhook = getWebhook();
     await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(embed1) });
+    await new Promise(r=>setTimeout(r, 2000));
 
     // Claude AI 分析
     btn.textContent='AI 分析中...';
