@@ -25,13 +25,13 @@
 </header>
 
 <div class="w">
-  <div class="mrow">
+  <div class="mrow" id="mrow">
     <button class="mbtn" onclick="prevM()">‹</button>
     <div class="mlbl" id="mlbl"></div>
     <button class="mbtn" onclick="nextM()">›</button>
   </div>
   <div class="hero">
-    <div class="hero-lbl">📅 本月總支出</div>
+    <div class="hero-lbl" id="hero-lbl">📅 本月總支出</div>
     <div class="hero-amt"><span class="cur">$</span><span id="h-t">0</span></div>
     <div class="hero-sub">
       <span>💳 信用卡 <b id="h-cc">0</b></span>
@@ -42,6 +42,11 @@
     <div class="sc g"><div class="sc-lbl">👛 錢包</div><div class="sc-val"><span class="u">$</span><span id="s-w">0</span></div></div>
     <div class="sc b"><div class="sc-lbl">🙋 宏龍</div><div class="sc-val"><span class="u">$</span><span id="s-1">0</span></div></div>
     <div class="sc w"><div class="sc-lbl">🙋‍♀️ 盈慧</div><div class="sc-val"><span class="u">$</span><span id="s-2">0</span></div></div>
+  </div>
+  <!-- 週期切換 -->
+  <div id="cycle-toggle-bar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:var(--card);border-radius:var(--rs);padding:8px 12px;border:1.5px solid var(--border)">
+    <span id="cycle-range-lbl" style="font-size:.8rem;color:var(--t2)"></span>
+    <button onclick="toggleCycleMode()" id="cycle-toggle-btn" style="padding:5px 14px;border-radius:50px;border:1.5px solid var(--p);background:var(--pdim);color:var(--p);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"></button>
   </div>
   <!-- 搜尋框 -->
   <div style="position:relative;margin-bottom:8px">
@@ -59,6 +64,7 @@
     <button class="pill" onclick="setF('card',this)">💳 信用卡</button>
   </div>
   <div id="list"></div>
+  <div style="height:24px"></div>
 </div>
 
 <nav class="nav">
@@ -148,15 +154,42 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/assistant.js"></script>
 <script>
 const CAT_IC={food:'🍜',transport:'🚌',shopping:'🛍️',home:'🏠',medical:'💊',entertain:'🎬',education:'📚',child:'👶',other:'📦'};
 const CAT_CL={food:'',transport:'b',shopping:'w',home:'pk',medical:'pu',entertain:'b',education:'',child:'w',other:''};
 const MN=['一','二','三','四','五','六','七','八','九','十','十一','十二'];
 let cy=new Date().getFullYear(), cm=new Date().getMonth()+1, filt='all';
+let cycleMode=false; // false=標準月, true=週期月
+
+function toggleCycleMode(){
+  cycleMode=!cycleMode;
+  render();
+}
+
+function updateCycleBar(){
+  const btn=document.getElementById('cycle-toggle-btn');
+  const lbl=document.getElementById('cycle-range-lbl');
+  const mrow=document.getElementById('mrow');
+  if(cycleMode){
+    const {start:s,end:e}=getBudgetPeriod();
+    const fmt2=d=>`${d.getMonth()+1}/${d.getDate()}`;
+    lbl.textContent=`📅 週期：${fmt2(s)} ～ ${fmt2(e)}`;
+    btn.textContent='切換標準月';
+    if(mrow) mrow.style.display='none';
+  } else {
+    lbl.textContent=`📅 標準月：${cy} 年 ${MN[cm-1]} 月`;
+    btn.textContent='切換週期月';
+    if(mrow) mrow.style.display='';
+  }
+}
 
 function render() {
   document.getElementById('mlbl').textContent=`${cy} 年 ${MN[cm-1]} 月`;
-  let list=txByMonth(cy,cm); const s=calcStats(list);
+  updateCycleBar();
+  let list = cycleMode ? txByPeriod() : txByMonth(cy,cm);
+  const s=calcStats(list);
+  document.getElementById('hero-lbl').textContent = cycleMode ? '📅 本期總支出' : '📅 本月總支出';
   document.getElementById('h-t').textContent=fmt(s.total);
   document.getElementById('h-cc').textContent=fmt(s.card);
   document.getElementById('h-cs').textContent=fmt(s.cash);
