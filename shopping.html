@@ -601,14 +601,28 @@ function filterStatus(s,el){
 
 // ── Firebase 同步 ─────────────────────────────────────
 async function fbSyncOrders(){
-  try{await getDb().collection('orders').doc(uid()).set({list:getOrders(),updatedAt:Date.now()});}
-  catch(e){console.warn('[FB]orders',e);}
+  try{
+    await getDb().collection('shared').doc('orders').set({list:getOrders(),updatedAt:Date.now()});
+  }catch(e){console.warn('[FB]orders',e);}
 }
 async function fbPullOrders(){
   try{
-    const d=await getDb().collection('orders').doc(uid()).get();
-    if(d.exists&&d.data().list)DB.set('orders',d.data().list);
+    const d=await getDb().collection('shared').doc('orders').get();
+    if(d.exists&&d.data().list){DB.set('orders',d.data().list);}
   }catch(e){}
+}
+let _ordersUnsub=null;
+function fbListenOrders(){
+  if(_ordersUnsub) _ordersUnsub();
+  try{
+    _ordersUnsub=getDb().collection('shared').doc('orders')
+      .onSnapshot(snap=>{
+        if(snap.exists&&snap.data().list){
+          DB.set('orders',snap.data().list);
+          render();
+        }
+      });
+  }catch(e){console.warn('[FB]listen orders',e);}
 }
 
 function showModal(id){document.getElementById(id).classList.add('show');}
@@ -618,7 +632,7 @@ let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2800);}
 
 window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
-  init();fbPullOrders().then(()=>render());
+  init();fbPullOrders().then(()=>{render();fbListenOrders();});
 },150));
 </script>
 </body>

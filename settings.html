@@ -501,7 +501,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.02 08:52';
+const APP_VERSION = 'v2026.05.03 21:58';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -815,44 +815,8 @@ async function sendWeeklyNow(){
 
     const webhook = getWebhook();
     await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(embed1) });
-    await new Promise(r=>setTimeout(r, 2000));
 
-    // Claude AI 分析
-    btn.textContent='AI 分析中...';
-    const claudeKey = localStorage.getItem('claude_api_key') || '';
-    let aiText = 'AI 分析需要設定 Claude API Key';
-    if(claudeKey){
-      const catSummary = catRanking
-        .map(([id,v])=>`${catName(id)}：$${v.total}（${v.count}筆，佔${Math.round(v.total/total*100)}%）`)
-        .join('\n');
-      const txDetail = txList.slice(0,50)
-        .map(t=>`${fmtD(t.at)} ${t.person} ${catName(t.cat)} ${t.detail||''} $${t.amount}`)
-        .join('\n');
-      const prompt = `你是一位親切專業的家庭財務顧問，正在幫助一對台灣夫妻（宏龍和盈慧）分析他們的週度消費。\n\n本週（${weekLabel}）記帳摘要：\n- 總支出：$${total}\n- 宏龍支出：$${kevinTotal}（佔${Math.round(kevinTotal/total*100)}%）\n- 盈慧支出：$${huiTotal}（佔${Math.round(huiTotal/total*100)}%）\n\n分類統計：\n${catSummary}\n\n詳細明細：\n${txDetail}\n\n請用輕鬆親切但內容專業客觀的語氣，從夫妻共同理財的角度，提供以下分析（用繁體中文）：\n\n1. **本週消費概況**（一段話總結整體狀況）\n2. **值得注意的支出**（哪些分類偏高？有沒有異常？）\n3. **兩人消費分配**（比例是否合理？）\n4. **具體改善建議**（3點具體可執行的建議）\n5. **下週小目標**（給夫妻倆一個具體小目標）\n\n語氣像朋友一樣關心，可適當加emoji，總長度控制在500字以內。`;
-      try{
-        const res = await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',
-          headers:{'Content-Type':'application/json','x-api-key':claudeKey,'anthropic-version':'2023-06-01'},
-          body:JSON.stringify({ model:'claude-haiku-4-5', max_tokens:1024, messages:[{role:'user',content:prompt}] })
-        });
-        const data = await res.json();
-        aiText = (data.content && data.content[0]) ? data.content[0].text : 'AI 分析暫時無法取得';
-      }catch(e){ aiText = 'AI 分析發生錯誤：'+e.message; }
-    }
-
-    // embed2：AI 分析
-    const embed2 = {
-      embeds:[{
-        title:'🤖 AI 財務分析建議',
-        color: 0xF59E0B,
-        description: aiText,
-        footer:{ text:'由 Claude AI 分析 · 僅供參考' },
-        timestamp: new Date().toISOString()
-      }]
-    };
-    await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(embed2) });
-
-    toast('✅ 週報＋AI 分析已發送！');
+    toast('✅ 週報已發送！（AI 分析由排程自動發送）');
     closeModal('send-weekly-modal');
   }catch(e){ toast('發送失敗：'+e.message,'err'); }
   finally{ btn.disabled=false; btn.textContent='發送'; }
