@@ -23,6 +23,15 @@
       localStorage.setItem('current_user', name);
       localStorage.setItem('current_email', user.email);
       localStorage.setItem('current_uid', user.uid);
+      // 把自己的 uid 寫到 shared/users，供兩人資料合併使用
+      try {
+        const ref = firebase.firestore().collection('shared').doc('users');
+        ref.get().then(d => {
+          const map = (d.exists && d.data().uids) || {};
+          map[user.email] = user.uid;
+          ref.set({ uids: map, updatedAt: Date.now() });
+        });
+      } catch(e) {}
     }
   });
 })();
