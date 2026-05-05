@@ -62,6 +62,7 @@
     <button class="pill" onclick="setF('盈慧',this)">盈慧</button>
     <button class="pill" onclick="setF('cash',this)">💵 現金</button>
     <button class="pill" onclick="setF('card',this)">💳 信用卡</button>
+    <button class="pill" onclick="setF('icard',this)">🎫 悠遊卡</button>
   </div>
   <div id="list"></div>
   <div style="height:24px"></div>
@@ -199,8 +200,9 @@ function render() {
 
   // 付款方式篩選
   if(filt==='宏龍'||filt==='盈慧') list=list.filter(t=>t.person===filt);
-  else if(filt==='cash') list=list.filter(t=>t.pay==='cash');
-  else if(filt==='card') list=list.filter(t=>t.pay==='card');
+  else if(filt==='cash')  list=list.filter(t=>t.pay==='cash');
+  else if(filt==='card')  list=list.filter(t=>t.pay==='card');
+  else if(filt==='icard') list=list.filter(t=>t.pay==='icard');
 
   // 搜尋篩選
   if(searchQ) {
@@ -246,7 +248,9 @@ function clearSearch() {
 
 function txHTML(t) {
   const ic=CAT_IC[t.cat]||'📦', cl=CAT_CL[t.cat]||'';
-  const pay=t.pay==='cash'?'💵 現金':`💳 ${typeof getCardName==='function'?getCardName(t.cardId):(cardFind(t.cardId)?.name||'信用卡')}`;
+  const pay = t.pay==='cash'  ? '💵 現金'
+           : t.pay==='icard' ? `🎫 ${typeof icardFind==='function'&&icardFind(t.icardId)?icardFind(t.icardId).name:'悠遊卡'}`
+           : `💳 ${typeof getCardName==='function'?getCardName(t.cardId):(cardFind(t.cardId)?.name||'信用卡')}`;
   return `<div class="tx"><div class="tx-ic ${cl}">${ic}</div>
     <div class="tx-body">
       <div class="tx-name">${t.detail||catName(t.cat)}</div>
