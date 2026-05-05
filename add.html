@@ -822,6 +822,8 @@ function submit() {
     })() : new Date().toISOString(),
   };
   addTx(tx); fbAddTx(tx);
+  // 悠遊卡/錢包餘額同步到 Firebase（避免換頁後被舊資料覆蓋）
+  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
   // 預算警示
   if (typeof checkBudgetAlert === 'function') {
     checkBudgetAlert(tx).then(res=>{
