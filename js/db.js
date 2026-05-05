@@ -251,6 +251,7 @@ function icardOut(id,amount,note){
   list[idx].balance=Math.max(0,(list[idx].balance||0)-amount);
   list[idx].history=list[idx].history||[];
   list[idx].history.unshift({type:'out',amount,note,time:new Date().toISOString()});
+  list[idx]._localTs=Date.now();
   DB.set(pKey('icards'),list);
 }
 function icardIn(id,amount,note){
@@ -258,6 +259,7 @@ function icardIn(id,amount,note){
   list[idx].balance=(list[idx].balance||0)+amount;
   list[idx].history=list[idx].history||[];
   list[idx].history.unshift({type:'in',amount,note,time:new Date().toISOString()});
+  list[idx]._localTs=Date.now();
   DB.set(pKey('icards'),list);
 }
 

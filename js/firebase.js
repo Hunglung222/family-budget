@@ -48,7 +48,13 @@ async function fbPullPersonal(){
       DB.set(pKey('wal'), data.wal);
     }
     if(data.cards)  DB.set(pKey('cards'),  data.cards);
-    if(data.icards) DB.set(pKey('icards'), data.icards);
+    // icards 加時間戳記保護：只有雲端比本地新才覆蓋，避免蓋掉剛扣款的新餘額
+    if(data.icards){
+      const localIcards = getIcards();
+      const localTs = Math.max(...localIcards.map(c=>c._localTs||0), 0);
+      const cloudTs = data.syncAt || 0;
+      if(cloudTs >= localTs) DB.set(pKey('icards'), data.icards);
+    }
     if(data.accts)  DB.set(pKey('accts'),  data.accts);
     if(data.bills)  DB.set(pKey('bills'),  data.bills);
   }catch(e){console.warn('[FB]pullPersonal',e);}
