@@ -68,7 +68,7 @@
   <div id="migrate-bar" style="background:#f59e0b22;border:1.5px solid #f59e0b;border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
     <span style="font-size:.8rem;color:#f59e0b;flex:1">首次使用共用網購：請合併兩人舊資料</span>
     <button id="btn-migrate" onclick="migrateOrdersToShared()" style="padding:6px 14px;background:#f59e0b;color:#000;border:none;border-radius:50px;font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;white-space:nowrap">立即合併</button>
-    <button onclick="document.getElementById('migrate-bar').remove()" style="background:none;border:none;color:#f59e0b;font-size:1rem;cursor:pointer;padding:2px 4px">✕</button>
+    <button onclick="dismissMigrateBar()" style="background:none;border:none;color:#f59e0b;font-size:1rem;cursor:pointer;padding:2px 4px">✕</button>
   </div>
   <!-- 篩選平台 -->
   <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px" id="platform-filter">
@@ -607,6 +607,46 @@ async function fbPullOrders(){
     if(d.exists&&d.data().list){DB.set('orders',d.data().list);}
   }catch(e){}
 }
+
+// ── 平台雲端同步 ─────────────────────────────────────
+async function fbSyncPlatforms(){
+  try{
+    await getDb().collection('shared').doc('platforms').set({list:getPlatforms(),updatedAt:Date.now()});
+  }catch(e){}
+}
+async function fbPullPlatforms(){
+  try{
+    const d=await getDb().collection('shared').doc('platforms').get();
+    if(d.exists&&d.data().list&&d.data().list.length){
+      DB.set('platforms',d.data().list);
+    }
+  }catch(e){}
+}
+let _platformsUnsub=null;
+function fbListenPlatforms(){
+  if(_platformsUnsub) _platformsUnsub();
+  try{
+    _platformsUnsub=getDb().collection('shared').doc('platforms')
+      .onSnapshot(snap=>{
+        if(snap.exists&&snap.data().list&&snap.data().list.length){
+          DB.set('platforms',snap.data().list);
+        }
+      });
+  }catch(e){}
+}
+
+// 登入時把自己的 uid 寫到 shared/users，供合併使用
+async function registerUserUid(){
+  try{
+    const myUid=uid();
+    if(!myUid) return;
+    const ref=getDb().collection('shared').doc('users');
+    const d=await ref.get();
+    const map=(d.exists&&d.data().uids)||{};
+    const user=firebase.auth().currentUser;
+    if(user){ map[user.email]=myUid; await ref.set({uids:map,updatedAt:Date.now()}); }
+  }catch(e){}
+}
 let _ordersUnsub=null;
 function fbListenOrders(){
   if(_ordersUnsub) _ordersUnsub();
@@ -658,6 +698,7 @@ function addPlatform() {
   if(list.includes(name)){ toast('平台已存在','warn'); return; }
   list.splice(list.length-1, 0, name); // 插在「其他」前面
   savePlatforms(list);
+  fbSyncPlatforms();
   input.value='';
   renderPlatformChips(name);
   selPlatformName=name;
@@ -668,6 +709,7 @@ function delPlatform(e, name) {
   if(getUsedPlatforms().has(name)){ toast(`「${name}」有訂單記錄，無法刪除`,'warn'); return; }
   if(!confirm(`確定刪除平台「${name}」？`)){ return; }
   savePlatforms(getPlatforms().filter(p=>p!==name));
+  fbSyncPlatforms();
   renderPlatformChips();
   toast(`已刪除「${name}」`);
 }
@@ -685,37 +727,72 @@ let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2800);}
 
 // ── 一次性資料合併（把兩人舊資料搬到 shared/orders）──
+function dismissMigrateBar(){
+  localStorage.setItem('migrate_dismissed','1');
+  document.getElementById('migrate-bar')?.remove();
+}
+
 async function migrateOrdersToShared(){
+  const btn=document.getElementById('btn-migrate');
+  if(btn){ btn.disabled=true; btn.textContent='合併中...'; }
   try{
     const db=getDb(), myUid=uid();
-    // 讀自己的
+    // 讀自己舊資料
     const myDoc=await db.collection('orders').doc(myUid).get();
     const myList=myDoc.exists&&myDoc.data().list?myDoc.data().list:[];
-    // 讀盈慧的（如果知道 uid 則用，否則讀 users 集合找）
+    // 從 shared/users 讀所有已登入過的 uid
     let otherList=[];
     try{
-      const usersSnap=await db.collection('users').get();
-      for(const u of usersSnap.docs){
-        if(u.id!==myUid){
-          const d=await db.collection('orders').doc(u.id).get();
+      const usersDoc=await db.collection('shared').doc('users').get();
+      const uidsMap=(usersDoc.exists&&usersDoc.data().uids)||{};
+      for(const [email,uid2] of Object.entries(uidsMap)){
+        if(uid2!==myUid){
+          const d=await db.collection('orders').doc(uid2).get();
           if(d.exists&&d.data().list) otherList=otherList.concat(d.data().list);
         }
       }
+    }catch(e){ console.warn('讀對方資料失敗',e); }
+    // 也嘗試讀現有 shared/orders（避免蓋掉已同步的）
+    let sharedList=[];
+    try{
+      const sd=await db.collection('shared').doc('orders').get();
+      if(sd.exists&&sd.data().list) sharedList=sd.data().list;
     }catch(e){}
-    // 合併去重（以 id 去重）
+    // 三方合併去重（以 id 為主，沒有 id 的也保留）
     const seen=new Set(); const merged=[];
-    [...myList,...otherList].forEach(o=>{ if(o.id&&!seen.has(o.id)){seen.add(o.id);merged.push(o);} });
-    merged.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt));
+    [...sharedList,...myList,...otherList].forEach(o=>{
+      if(o.id){ if(!seen.has(o.id)){seen.add(o.id);merged.push(o);} }
+      else { merged.push(o); }
+    });
+    merged.sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
     await db.collection('shared').doc('orders').set({list:merged,updatedAt:Date.now()});
     DB.set('orders',merged);
+    localStorage.setItem('orders_migrated','1');
+    localStorage.removeItem('migrate_dismissed');
     render();
     toast(`✅ 合併完成！共 ${merged.length} 筆訂單`);
-    document.getElementById('btn-migrate')?.remove();
-  }catch(e){ toast('合併失敗：'+e.message,'err'); }
+    document.getElementById('migrate-bar')?.remove();
+  }catch(e){
+    toast('合併失敗：'+e.message,'err');
+    if(btn){ btn.disabled=false; btn.textContent='立即合併'; }
+  }
 }
 
-window.addEventListener('DOMContentLoaded',()=>setTimeout(()=>{
-  init();fbPullOrders().then(()=>{render();fbListenOrders();});
+window.addEventListener('DOMContentLoaded',()=>setTimeout(async ()=>{
+  init();
+  // 把自己 uid 寫到 shared/users（供合併使用）
+  await registerUserUid();
+  // 拉平台清單
+  await fbPullPlatforms();
+  fbListenPlatforms();
+  // 拉訂單
+  await fbPullOrders();
+  render();
+  fbListenOrders();
+  // 已合併或已手動關閉則隱藏合併欄
+  if(localStorage.getItem('orders_migrated')||localStorage.getItem('migrate_dismissed')){
+    document.getElementById('migrate-bar')?.remove();
+  }
 },150));
 </script>
 </body>
