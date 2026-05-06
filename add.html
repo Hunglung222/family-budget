@@ -49,8 +49,6 @@
         4. 儲存後等 5 分鐘即可使用
       </div>
     </div>
-    <!-- 快捷範本 -->
-    <div id="shortcuts-bar" style="margin-bottom:10px"></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <button id="calc-toggle" onclick="toggleCalcMode()"
@@ -139,6 +137,8 @@
         <span style="color:var(--t3);font-size:.8rem">✏️ 修改</span>
       </div>
     </div>
+    <!-- 快捷範本（放在日期與分類之間） -->
+    <div id="shortcuts-bar" style="margin-bottom:4px"></div>
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
       <div class="cat-chips" id="cat-chips"></div>
@@ -187,7 +187,7 @@
       <span class="flbl">🏷️ 消費標籤（可略，可複選）</span>
       <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
     </div>
-    <div style="margin-top:18px;padding-bottom:calc(var(--nav) + 24px)">
+    <div style="margin-top:18px;padding-bottom:calc(var(--nav) + 80px)">
       <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
     </div>
   </div>
