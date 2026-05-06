@@ -381,9 +381,11 @@
       <div class="fg"><span class="flbl">範本名稱</span>
         <input type="text" class="fc" id="sc-name" placeholder="例：早餐、公車、Netflix" maxlength="10"></div>
       <div class="fg"><span class="flbl">分類</span>
-        <select class="fc" id="sc-cat"></select></div>
-      <div class="fg"><span class="flbl">子分類（可略）</span>
-        <input type="text" class="fc" id="sc-subcat" placeholder="例：早餐" maxlength="15"></div>
+        <select class="fc" id="sc-cat" onchange="onScCatChange()"></select></div>
+      <div class="fg" id="sc-subcat-fg">
+        <span class="flbl">子分類（可略）</span>
+        <select class="fc" id="sc-subcat"><option value="">（無子分類）</option></select>
+      </div>
       <div class="fg"><span class="flbl">明細（可略）</span>
         <input type="text" class="fc" id="sc-detail" placeholder="例：711咖啡" maxlength="20"></div>
       <div class="fg"><span class="flbl">付款方式</span>
@@ -584,7 +586,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.07 05:20';
+const APP_VERSION = 'v2026.05.07 05:46';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -1433,9 +1435,14 @@ function renderShortcutMgmt() {
           <div style="font-size:.72rem;color:var(--t3);margin-top:2px">${cat.name} ${sc.subCat?'· '+sc.subCat:''} ${sc.detail?'· '+sc.detail:''} ${payIcon(sc.pay)}</div>
         </div>
       </div>
-      <button onclick="delShortcutMgmt('${sc.id}')"
-        style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card2);
-               color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit;flex-shrink:0">刪除</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button onclick="editShortcutMgmt('${sc.id}')"
+          style="padding:5px 12px;border-radius:20px;border:1.5px solid var(--p);background:var(--pdim);
+                 color:var(--p);font-size:.75rem;cursor:pointer;font-family:inherit">編輯</button>
+        <button onclick="delShortcutMgmt('${sc.id}')"
+          style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card2);
+                 color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">刪除</button>
+      </div>
     </div>`;
   }).join('') || '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:10px">尚未設定快捷範本</div>';
 
@@ -1452,16 +1459,21 @@ function showAddShortcutModal() {
   _scEditId = null;
   document.getElementById('sc-modal-title').textContent = '⚡ 新增快捷範本';
   document.getElementById('sc-name').value = '';
-  document.getElementById('sc-subcat').value = '';
   document.getElementById('sc-detail').value = '';
-  // Build category select
   const sel = document.getElementById('sc-cat');
   sel.innerHTML = getCats().map(c => `<option value="${c.id}">${c.name}</option>`).join('');
-  // Reset pay buttons
+  onScCatChange(); // 初始化子分類下拉
   ['cash','card','icard'].forEach(p => {
     document.getElementById('sc-pay-'+p).classList.toggle('on', p==='cash');
   });
   showModal('add-shortcut-modal');
+}
+function onScCatChange(preselect) {
+  const catId = document.getElementById('sc-cat').value;
+  const cat = catFind(catId);
+  const sel = document.getElementById('sc-subcat');
+  sel.innerHTML = '<option value="">（無子分類）</option>' +
+    (cat.sub||[]).map(s => `<option value="${s}" ${s===(preselect||'')?'selected':''}>${s}</option>`).join('');
 }
 function setScPay(p, el) {
   _scPay = p;
@@ -1469,17 +1481,45 @@ function setScPay(p, el) {
   el.classList.add('on');
 }
 function submitAddShortcut() {
-  const name = document.getElementById('sc-name').value.trim();
-  const cat  = document.getElementById('sc-cat').value;
-  const subCat = document.getElementById('sc-subcat').value.trim();
+  const name   = document.getElementById('sc-name').value.trim();
+  const cat    = document.getElementById('sc-cat').value;
+  const subCat = document.getElementById('sc-subcat').value;
   const detail = document.getElementById('sc-detail').value.trim();
   if (!cat) { toast('請選擇分類','warn'); return; }
   const sc = { name, cat, subCat, detail, pay: _scPay, tags: [] };
-  const result = addShortcut(sc);
-  if (!result) { toast('最多只能設定 5 組快捷範本','warn'); return; }
-  renderShortcutMgmt();
-  closeModal('add-shortcut-modal');
-  toast('✅ 已新增快捷範本');
+  if (_scEditId) {
+    // 編輯模式
+    editShortcut(_scEditId, sc);
+    renderShortcutMgmt();
+    closeModal('add-shortcut-modal');
+    toast('✅ 已儲存快捷範本');
+  } else {
+    // 新增模式
+    const result = addShortcut(sc);
+    if (!result) { toast('最多只能設定 5 組快捷範本','warn'); return; }
+    renderShortcutMgmt();
+    closeModal('add-shortcut-modal');
+    toast('✅ 已新增快捷範本');
+  }
+}
+function editShortcutMgmt(id) {
+  const sc = getShortcuts().find(s => s.id === id);
+  if (!sc) return;
+  _scEditId = id;
+  _scPay = sc.pay || 'cash';
+  document.getElementById('sc-modal-title').textContent = '✏️ 編輯快捷範本';
+  document.getElementById('sc-name').value   = sc.name   || '';
+  document.getElementById('sc-detail').value = sc.detail || '';
+  // 建立分類下拉並選中
+  const catSel = document.getElementById('sc-cat');
+  catSel.innerHTML = getCats().map(c => `<option value="${c.id}" ${c.id===sc.cat?'selected':''}>${c.name}</option>`).join('');
+  // 子分類下拉（帶入目前的子分類）
+  onScCatChange(sc.subCat);
+  // 付款方式
+  ['cash','card','icard'].forEach(p => {
+    document.getElementById('sc-pay-'+p).classList.toggle('on', p===_scPay);
+  });
+  showModal('add-shortcut-modal');
 }
 
 </script>
