@@ -65,7 +65,7 @@
   </div>
 
   <!-- 一次性合併按鈕（合併後自動消失）-->
-  <div id="migrate-bar" style="background:#f59e0b22;border:1.5px solid #f59e0b;border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:8px">
+  <div id="migrate-bar" style="background:#f59e0b22;border:1.5px solid #f59e0b;border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px">
     <span style="font-size:.8rem;color:#f59e0b;flex:1">首次使用共用網購：請合併兩人舊資料</span>
     <button id="btn-migrate" onclick="migrateOrdersToShared()" style="padding:6px 14px;background:#f59e0b;color:#000;border:none;border-radius:50px;font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;white-space:nowrap">立即合併</button>
     <button onclick="dismissMigrateBar()" style="background:none;border:none;color:#f59e0b;font-size:1rem;cursor:pointer;padding:2px 4px">✕</button>
@@ -789,9 +789,10 @@ window.addEventListener('DOMContentLoaded',()=>setTimeout(async ()=>{
   await fbPullOrders();
   render();
   fbListenOrders();
-  // 已合併或已手動關閉則隱藏合併欄
-  if(localStorage.getItem('orders_migrated')||localStorage.getItem('migrate_dismissed')){
-    document.getElementById('migrate-bar')?.remove();
+  // 沒有合併記錄且沒有關閉記錄才顯示合併欄
+  if(!localStorage.getItem('orders_migrated') && !localStorage.getItem('migrate_dismissed')){
+    const bar = document.getElementById('migrate-bar');
+    if(bar) bar.style.display = 'flex';
   }
 },150));
 </script>

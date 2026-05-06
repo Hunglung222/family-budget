@@ -518,7 +518,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.05 13:11';
+const APP_VERSION = 'v2026.05.06 17:57';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -575,7 +575,16 @@ function renderLoginInfo(){
   document.getElementById('login-email').textContent=email;
 }
 
-function doLogout(){auth.signOut().then(()=>{localStorage.removeItem('current_user');localStorage.removeItem('current_email');window.location.replace('./login.html');});}
+function doLogout(){
+  const authObj = (typeof firebase!=='undefined') ? firebase.auth() : null;
+  if(!authObj){ localStorage.removeItem('current_user'); localStorage.removeItem('current_email'); window.location.replace('./login.html'); return; }
+  authObj.signOut().then(()=>{
+    localStorage.removeItem('current_user');
+    localStorage.removeItem('current_email');
+    localStorage.removeItem('current_uid');
+    window.location.replace('./login.html');
+  }).catch(e=>{ toast('登出失敗：'+e.message,'err'); });
+}
 
 function renderThemePicker(){
   const p=getPrefs();
