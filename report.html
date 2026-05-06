@@ -42,6 +42,33 @@
     <button class="tab" onclick="sw('cat',this)">🏷️ 分類</button>
     <button class="tab" onclick="sw('mon',this)">📅 月份</button>
     <button class="tab" onclick="sw('bud',this)">🎯 預算</button>
+    <button class="tab" onclick="sw('tag',this)">🔖 標籤</button>
+  </div>
+
+
+  <!-- 本週支出預測 -->
+  <div id="week-pred-card" style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:.88rem;font-weight:900;color:var(--t)">📅 本週支出預測</div>
+      <div id="week-pred-range" style="font-size:.72rem;color:var(--t3)"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div style="background:var(--card2);border-radius:10px;padding:10px 12px">
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px">本週已花</div>
+        <div id="week-spent" style="font-size:1.15rem;font-weight:900;color:var(--danger)">$0</div>
+      </div>
+      <div style="background:var(--card2);border-radius:10px;padding:10px 12px">
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px">預估還會花（<span id="week-days-left">0</span>天）</div>
+        <div id="week-predicted" style="font-size:1.15rem;font-weight:900;color:#f59e0b">$0</div>
+      </div>
+    </div>
+    <div id="week-pred-cats" style="font-size:.8rem;color:var(--t2)"></div>
+    <button onclick="toggleWeekDetail()" id="week-detail-toggle"
+      style="width:100%;margin-top:10px;padding:7px;background:none;border:1px solid var(--border);
+             border-radius:8px;color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">
+      ▸ 分類明細
+    </button>
+    <div id="week-detail-panel" style="display:none;margin-top:8px"></div>
   </div>
 
   <div class="panel on" id="p-ov">
@@ -95,6 +122,18 @@
   </div>
 </div>
 
+
+  <div class="panel" id="p-tag">
+    <div class="chart-card">
+      <div class="ct">🔖 標籤支出分析</div>
+      <div id="tag-analysis-list"></div>
+    </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div class="ct">⚡ 衝動消費分析</div>
+      <div id="impulse-analysis"></div>
+    </div>
+  </div>
+
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni on" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
@@ -118,7 +157,7 @@ Chart.defaults.font.family="'Noto Sans TC',sans-serif";
 const COLS=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
 let pieC=null,barC=null,personC=null,txData=[];
 
-function init(){applyTheme();preset('month');load();}
+function init(){applyTheme();preset('month');load();renderWeekPred();}
 
 function preset(t){
   const now=new Date();let f,e;
@@ -393,12 +432,141 @@ function renderBud(){
 }
 
 function saveBud(id,v){setBudget(id,parseInt(v)||0);renderBud();toast('預算已儲存');}
-function sw(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');el.classList.add('on');}
+function sw(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');el.classList.add('on');if(id==='tag')renderTagAnalysis();}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
 
 init();
+
+// ── 本週支出預測 ──────────────────────────────────────
+let _weekDetailOpen = false;
+function renderWeekPred() {
+  const pred = getWeekPrediction();
+  const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('week-pred-range').textContent =
+    `${fmtDate(pred.weekStart)} 週一 ～ ${fmtDate(pred.weekEnd)} 週日`;
+  document.getElementById('week-spent').textContent = '$' + fmt(pred.totalSpent);
+  document.getElementById('week-predicted').textContent = '$' + fmt(pred.totalPredicted);
+  document.getElementById('week-days-left').textContent = pred.daysLeft;
+
+  // 前3大分類摘要
+  const top = [...pred.catResults].sort((a,b)=>b.total-a.total).slice(0,3);
+  document.getElementById('week-pred-cats').innerHTML = top.length
+    ? top.map(r => `<span style="margin-right:10px">${r.cat.name.slice(0,2)} <b>$${fmt(r.spentThisWeek)}</b>` +
+        (r.predicted > 0 ? ` <span style="color:#f59e0b">+$${fmt(r.predicted)}</span>` : '') + '</span>'
+      ).join('')
+    : '<span style="color:var(--t3)">本週尚無記帳</span>';
+
+  // 詳細分類表（hidden by default）
+  if (_weekDetailOpen) renderWeekDetail(pred);
+}
+function renderWeekDetail(pred) {
+  const rows = [...pred.catResults].sort((a,b)=>b.total-a.total);
+  document.getElementById('week-detail-panel').innerHTML =
+    `<table style="width:100%;border-collapse:collapse;font-size:.8rem">
+      <thead><tr style="color:var(--t3);font-size:.72rem">
+        <th style="text-align:left;padding:4px 0">分類</th>
+        <th style="text-align:right;padding:4px 6px">已花</th>
+        <th style="text-align:right;padding:4px 6px;color:#f59e0b">預估</th>
+        <th style="text-align:right;padding:4px 0">合計</th>
+      </tr></thead>
+      <tbody>${rows.map(r =>
+        `<tr style="border-top:1px solid var(--border)">
+          <td style="padding:6px 0;font-weight:700">${r.cat.name}</td>
+          <td style="text-align:right;padding:6px 6px;color:var(--danger)">$${fmt(r.spentThisWeek)}</td>
+          <td style="text-align:right;padding:6px 6px;color:#f59e0b">${r.predicted>0?'$'+fmt(r.predicted):'-'}</td>
+          <td style="text-align:right;padding:6px 0;font-weight:900">$${fmt(r.total)}</td>
+        </tr>`
+      ).join('')}</tbody>
+    </table>`;
+}
+function toggleWeekDetail() {
+  _weekDetailOpen = !_weekDetailOpen;
+  const panel = document.getElementById('week-detail-panel');
+  const btn = document.getElementById('week-detail-toggle');
+  panel.style.display = _weekDetailOpen ? 'block' : 'none';
+  btn.textContent = (_weekDetailOpen ? '▾' : '▸') + ' 分類明細';
+  if (_weekDetailOpen) renderWeekDetail(getWeekPrediction());
+}
+
+// ── 標籤分析 ──────────────────────────────────────────
+function renderTagAnalysis() {
+  const tags = getTxTags();
+  const stats = calcTagStats(txData);
+  const el = document.getElementById('tag-analysis-list');
+
+  if (!Object.keys(stats).length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無消費標籤記錄</div>';
+  } else {
+    const sorted = Object.entries(stats).sort((a,b)=>b[1].total-a[1].total);
+    const grandTotal = txData.reduce((s,t)=>s+t.amount,0);
+    el.innerHTML = sorted.map(([tagId, data]) => {
+      const tag = getTxTagById(tagId);
+      if (!tag) return '';
+      const pct = grandTotal > 0 ? Math.round(data.total/grandTotal*100) : 0;
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span style="font-size:.88rem;font-weight:700;color:${tag.color}">${tag.label}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:.72rem;color:var(--t3)">${data.count}筆 · ${pct}%</span>
+            <span style="font-weight:900;color:var(--danger)">$${fmt(data.total)}</span>
+          </div>
+        </div>
+        <div style="height:5px;background:var(--border);border-radius:3px">
+          <div style="height:5px;width:${pct}%;background:${tag.color};border-radius:3px;transition:.3s"></div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // 衝動消費分析
+  const impulseEl = document.getElementById('impulse-analysis');
+  const impulseStat = stats['impulse'] || stats[Object.keys(stats).find(id => getTxTagById(id)?.id==='impulse')] || null;
+  const wantStat = stats['want'] || null;
+  const impulseCombined = [
+    ...(stats['impulse']?.list||[]),
+    ...(stats['emotion']?.list||[]),
+    ...(stats['social']?.list||[]),
+  ].filter((t,i,a)=>a.findIndex(x=>x.id===t.id)===i);
+
+  const impulseTotal = impulseCombined.reduce((s,t)=>s+t.amount,0);
+  const dayCount = (() => {
+    const f = document.getElementById('df')?.value;
+    const e = document.getElementById('dt')?.value;
+    if (!f||!e) return 30;
+    return Math.max(1, Math.ceil((new Date(e)-new Date(f))/86400000)+1);
+  })();
+  const savingPotential = impulseTotal;
+
+  if (impulseTotal === 0) {
+    impulseEl.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無衝動/情緒/社交壓力消費 🎉</div>';
+  } else {
+    impulseEl.innerHTML = `
+      <div style="background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:.78rem;color:var(--t3);margin-bottom:4px">⚡衝動 + 😔情緒 + 👥社交壓力 合計</div>
+        <div style="font-size:1.3rem;font-weight:900;color:#f59e0b">$${fmt(impulseTotal)}</div>
+        <div style="font-size:.75rem;color:var(--t3);margin-top:3px">${impulseCombined.length}筆消費</div>
+      </div>
+      <div style="background:rgba(0,229,180,.1);border:1px solid rgba(0,229,180,.2);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+        <div style="font-size:.78rem;color:var(--t3);margin-bottom:4px">💡 如果當初忍住，可以省下</div>
+        <div style="font-size:1.3rem;font-weight:900;color:var(--p)">$${fmt(savingPotential)}</div>
+        <div style="font-size:.75rem;color:var(--t3);margin-top:3px">約 ${Math.round(savingPotential/dayCount)} 元/天</div>
+      </div>
+      <div style="font-size:.78rem;font-weight:700;color:var(--t2);margin-bottom:8px">相關消費明細</div>
+      ${[...impulseCombined].sort((a,b)=>b.amount-a.amount).slice(0,8).map(t=>{
+        const tagLabels = (t.tags||[]).map(id=>{const tg=getTxTagById(id);return tg?tg.label:'';}).filter(Boolean).join(' ');
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-size:.84rem;font-weight:600">${t.detail||catName(t.cat)}</div>
+            <div style="font-size:.68rem;color:var(--t3);margin-top:2px">${fmtD(t.at)} · ${t.person} · ${tagLabels}</div>
+          </div>
+          <div style="font-size:.9rem;font-weight:900;color:#f59e0b">$${fmt(t.amount)}</div>
+        </div>`;
+      }).join('')}`;
+  }
+}
+
 </script>
 </body>
 </html>

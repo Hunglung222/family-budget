@@ -335,6 +335,70 @@
 
   <!-- 各分類預算上限 -->
   <div id="budget-list"></div>
+  <!-- 消費標籤管理 -->
+  <div class="sec-t">🔖 消費標籤管理</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px;line-height:1.6">記帳時可複選的消費標籤，用於分析衝動消費、想要 vs 需要。</div>
+    <div id="tag-mgmt-list"></div>
+    <button onclick="showAddTagModal()" style="width:100%;margin-top:10px;padding:11px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">＋ 新增自訂標籤</button>
+  </div>
+
+  <!-- 快捷記帳範本管理 -->
+  <div class="sec-t">⚡ 快捷記帳範本</div>
+  <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px;line-height:1.6">設定最多 5 組常用記帳範本，記帳頁一鍵套用分類與付款方式，金額仍需手動輸入。</div>
+    <div id="shortcut-mgmt-list"></div>
+    <button onclick="showAddShortcutModal()" id="add-shortcut-btn" style="width:100%;margin-top:10px;padding:11px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit">＋ 新增快捷範本</button>
+  </div>
+
+  <!-- 新增標籤 Modal -->
+  <div class="ov" id="add-tag-modal">
+    <div class="sheet"><div class="sh"></div><div class="st">🔖 新增自訂標籤</div>
+      <div class="fg"><span class="flbl">標籤名稱（含emoji）</span>
+        <input type="text" class="fc" id="tag-name" placeholder="例：🌟 值得花" maxlength="12"></div>
+      <div class="fg"><span class="flbl">顏色</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px" id="tag-color-picks">
+          <div onclick="pickTagColor('#10b981',this)" style="width:28px;height:28px;border-radius:50%;background:#10b981;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#4f8ef7',this)" style="width:28px;height:28px;border-radius:50%;background:#4f8ef7;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#f59e0b',this)" style="width:28px;height:28px;border-radius:50%;background:#f59e0b;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#ec4899',this)" style="width:28px;height:28px;border-radius:50%;background:#ec4899;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#8b5cf6',this)" style="width:28px;height:28px;border-radius:50%;background:#8b5cf6;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#06b6d4',this)" style="width:28px;height:28px;border-radius:50%;background:#06b6d4;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#84cc16',this)" style="width:28px;height:28px;border-radius:50%;background:#84cc16;cursor:pointer;border:2px solid transparent"></div>
+          <div onclick="pickTagColor('#f97316',this)" style="width:28px;height:28px;border-radius:50%;background:#f97316;cursor:pointer;border:2px solid transparent"></div>
+        </div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="closeModal('add-tag-modal')">取消</button>
+        <button class="btn btn-p" onclick="submitAddTag()">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增快捷範本 Modal -->
+  <div class="ov" id="add-shortcut-modal">
+    <div class="sheet"><div class="sh"></div><div class="st" id="sc-modal-title">⚡ 新增快捷範本</div>
+      <div class="fg"><span class="flbl">範本名稱</span>
+        <input type="text" class="fc" id="sc-name" placeholder="例：早餐、公車、Netflix" maxlength="10"></div>
+      <div class="fg"><span class="flbl">分類</span>
+        <select class="fc" id="sc-cat"></select></div>
+      <div class="fg"><span class="flbl">子分類（可略）</span>
+        <input type="text" class="fc" id="sc-subcat" placeholder="例：早餐" maxlength="15"></div>
+      <div class="fg"><span class="flbl">明細（可略）</span>
+        <input type="text" class="fc" id="sc-detail" placeholder="例：711咖啡" maxlength="20"></div>
+      <div class="fg"><span class="flbl">付款方式</span>
+        <div class="tg" style="flex-wrap:wrap;gap:8px">
+          <button class="tb on" id="sc-pay-cash"  onclick="setScPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
+          <button class="tb"    id="sc-pay-card"  onclick="setScPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
+          <button class="tb"    id="sc-pay-icard" onclick="setScPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+        </div></div>
+      <div class="btn-row">
+        <button class="btn btn-s" onclick="closeModal('add-shortcut-modal')">取消</button>
+        <button class="btn btn-p" onclick="submitAddShortcut()">儲存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 分類管理 -->
   <div class="sec-t">🏷️ 分類管理</div>
   <div style="margin-bottom:8px">
@@ -510,6 +574,8 @@ function init(){
   renderBudgets();
   renderNotifySettings();
   renderRecurring();
+  renderTagMgmt();
+  renderShortcutMgmt();
   renderStat();
   renderCats();
   renderSubCatSel();
@@ -518,7 +584,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.06 17:57';
+const APP_VERSION = 'v2026.05.07 05:20';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -1296,6 +1362,126 @@ window.addEventListener("DOMContentLoaded", ()=>setTimeout(async ()=>{
   await restoreMascotChar(); // 先從 Firebase 還原角色設定
   buildCharGrid();
 }, 150));
+
+// ── 標籤管理 ──────────────────────────────────────────
+let _selTagColor = '#10b981';
+function renderTagMgmt() {
+  const tags = getTxTags();
+  const el = document.getElementById('tag-mgmt-list');
+  if (!el) return;
+  el.innerHTML = tags.map(tag => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:10px;height:10px;border-radius:50%;background:${tag.color};flex-shrink:0"></div>
+        <span style="font-size:.88rem;font-weight:700">${tag.label}</span>
+      </div>
+      <button onclick="delTagMgmt('${tag.id}')"
+        style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card2);
+               color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">刪除</button>
+    </div>
+  `).join('') || '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:10px">尚未設定標籤</div>';
+}
+function delTagMgmt(id) {
+  delTxTag(id);
+  renderTagMgmt();
+  if(typeof fbSyncTxTags==='function') fbSyncTxTags();
+  toast('已刪除標籤');
+}
+function showAddTagModal() {
+  _selTagColor = '#10b981';
+  document.getElementById('tag-name').value = '';
+  // reset color picks
+  document.querySelectorAll('#tag-color-picks div').forEach(d => {
+    d.style.border = d.style.background === _selTagColor ? '2px solid white' : '2px solid transparent';
+  });
+  // Set first one as selected
+  const firstPick = document.querySelector('#tag-color-picks div');
+  if (firstPick) firstPick.style.border = '2px solid white';
+  showModal('add-tag-modal');
+}
+function pickTagColor(color, el) {
+  _selTagColor = color;
+  document.querySelectorAll('#tag-color-picks div').forEach(d => d.style.border='2px solid transparent');
+  el.style.border = '2px solid white';
+}
+function submitAddTag() {
+  const name = document.getElementById('tag-name').value.trim();
+  if (!name) { toast('請輸入標籤名稱','warn'); return; }
+  addTxTag(name, _selTagColor);
+  renderTagMgmt();
+  if(typeof fbSyncTxTags==='function') fbSyncTxTags();
+  closeModal('add-tag-modal');
+  toast('✅ 已新增標籤');
+}
+
+// ── 快捷範本管理 ──────────────────────────────────────
+let _scPay = 'cash';
+let _scEditId = null;
+function renderShortcutMgmt() {
+  const list = getShortcuts();
+  const el = document.getElementById('shortcut-mgmt-list');
+  if (!el) return;
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
+  el.innerHTML = list.map(sc => {
+    const cat = catFind(sc.cat);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:9px;background:${cat.color||'var(--card2)'};
+                    display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0">${cat.name.slice(0,2)}</div>
+        <div>
+          <div style="font-size:.88rem;font-weight:700">${sc.name||cat.name.slice(2).trim()}</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-top:2px">${cat.name} ${sc.subCat?'· '+sc.subCat:''} ${sc.detail?'· '+sc.detail:''} ${payIcon(sc.pay)}</div>
+        </div>
+      </div>
+      <button onclick="delShortcutMgmt('${sc.id}')"
+        style="padding:5px 12px;border-radius:20px;border:1px solid var(--border);background:var(--card2);
+               color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit;flex-shrink:0">刪除</button>
+    </div>`;
+  }).join('') || '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:10px">尚未設定快捷範本</div>';
+
+  const addBtn = document.getElementById('add-shortcut-btn');
+  if (addBtn) addBtn.style.display = list.length >= 5 ? 'none' : 'block';
+}
+function delShortcutMgmt(id) {
+  delShortcut(id);
+  renderShortcutMgmt();
+  toast('已刪除快捷範本');
+}
+function showAddShortcutModal() {
+  _scPay = 'cash';
+  _scEditId = null;
+  document.getElementById('sc-modal-title').textContent = '⚡ 新增快捷範本';
+  document.getElementById('sc-name').value = '';
+  document.getElementById('sc-subcat').value = '';
+  document.getElementById('sc-detail').value = '';
+  // Build category select
+  const sel = document.getElementById('sc-cat');
+  sel.innerHTML = getCats().map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+  // Reset pay buttons
+  ['cash','card','icard'].forEach(p => {
+    document.getElementById('sc-pay-'+p).classList.toggle('on', p==='cash');
+  });
+  showModal('add-shortcut-modal');
+}
+function setScPay(p, el) {
+  _scPay = p;
+  ['cash','card','icard'].forEach(k => document.getElementById('sc-pay-'+k).classList.remove('on'));
+  el.classList.add('on');
+}
+function submitAddShortcut() {
+  const name = document.getElementById('sc-name').value.trim();
+  const cat  = document.getElementById('sc-cat').value;
+  const subCat = document.getElementById('sc-subcat').value.trim();
+  const detail = document.getElementById('sc-detail').value.trim();
+  if (!cat) { toast('請選擇分類','warn'); return; }
+  const sc = { name, cat, subCat, detail, pay: _scPay, tags: [] };
+  const result = addShortcut(sc);
+  if (!result) { toast('最多只能設定 5 組快捷範本','warn'); return; }
+  renderShortcutMgmt();
+  closeModal('add-shortcut-modal');
+  toast('✅ 已新增快捷範本');
+}
+
 </script>
 </body>
 </html>

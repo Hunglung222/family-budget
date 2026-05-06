@@ -49,6 +49,8 @@
         4. 儲存後等 5 分鐘即可使用
       </div>
     </div>
+    <!-- 快捷範本 -->
+    <div id="shortcuts-bar" style="margin-bottom:10px"></div>
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
       <div style="flex:1;height:1px;background:var(--border)"></div>
       <button id="calc-toggle" onclick="toggleCalcMode()"
@@ -180,6 +182,11 @@
       <div class="card-chips" id="icard-chips"></div>
       <div id="no-icard-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定悠遊卡，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
     </div>
+    <!-- 消費標籤（可略，可複選） -->
+    <div class="fg" id="tags-fg">
+      <span class="flbl">🏷️ 消費標籤（可略，可複選）</span>
+      <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+    </div>
     <div style="margin-top:18px;padding-bottom:calc(var(--nav) + 24px)">
       <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
     </div>
@@ -194,6 +201,65 @@
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
+
+<!-- 多筆記帳確認 Modal -->
+<div class="ov" id="multi-confirm-modal">
+  <div class="sheet" style="max-height:85vh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st">📋 確認記帳清單</div>
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:14px">AI 已解析以下記帳，請確認後儲存。點任一筆可編輯。</div>
+    <div id="multi-items-list"></div>
+    <div class="btn-row" style="margin-top:16px;position:sticky;bottom:0;background:var(--card);padding:8px 0 4px">
+      <button class="btn btn-s" onclick="closeMultiModal()">取消</button>
+      <button class="btn btn-p" id="multi-confirm-btn" onclick="confirmMultiTx()">✅ 全部記帳</button>
+    </div>
+  </div>
+</div>
+
+<!-- 單筆編輯 Modal（多筆確認用） -->
+<div class="ov" id="multi-edit-modal" style="z-index:600">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">✏️ 編輯這筆記帳</div>
+    <div class="fg">
+      <span class="flbl">💰 金額</span>
+      <input type="number" class="fc" id="me-amt" inputmode="numeric">
+    </div>
+    <div class="fg">
+      <span class="flbl">🏷️ 分類</span>
+      <select class="fc" id="me-cat" onchange="onMeCatChange()"></select>
+    </div>
+    <div class="fg" id="me-subcat-fg">
+      <span class="flbl">📂 子分類（可略）</span>
+      <select class="fc" id="me-subcat"></select>
+    </div>
+    <div class="fg">
+      <span class="flbl">📝 明細（可略）</span>
+      <input type="text" class="fc" id="me-detail" maxlength="30">
+    </div>
+    <div class="fg">
+      <span class="flbl">💳 付款方式</span>
+      <div class="tg" style="flex-wrap:wrap;gap:8px">
+        <button class="tb on" id="me-pay-cash"  onclick="setMePay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
+        <button class="tb"    id="me-pay-card"  onclick="setMePay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
+        <button class="tb"    id="me-pay-icard" onclick="setMePay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+      </div>
+    </div>
+    <div class="fg" id="me-card-fg" style="display:none">
+      <span class="flbl">🃏 選擇信用卡</span>
+      <select class="fc" id="me-card-sel"></select>
+    </div>
+    <div class="fg" id="me-icard-fg" style="display:none">
+      <span class="flbl">🎫 選擇悠遊卡</span>
+      <select class="fc" id="me-icard-sel"></select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeMeModal()">取消</button>
+      <button class="btn btn-p" onclick="saveMeEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
 <div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 70px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:auto" onclick="closeMascot()">
   <div style="display:flex;align-items:flex-end;gap:10px;max-width:480px;margin:0 auto">
     <div id="mascot-icon" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,229,180,.3)">🐨</div>
@@ -280,7 +346,7 @@ async function callClaude(text) {
   const icardList = getAllAvailableIcards().map(ic=>`${ic.id}:${ic.name}[${ic._owner||'我'}]`).join(',') || '無';
   const tomStr    = fmtD(new Date(today.getTime()+864e5).toISOString());
 
-  const prompt = `你是記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
+  const prompt = `你是記帳助理。從這段文字提取所有記帳資訊並回傳純 JSON 陣列（不要 markdown）。
 【重要】所有文字欄位必須使用台灣繁體中文，不可使用簡體中文字。
 今天:${todayStr} 昨天:${yestStr} 明天:${tomStr}
 可用分類(id:名稱): ${cats}
@@ -293,7 +359,8 @@ async function callClaude(text) {
 3.信用卡：提到卡名或末4碼就選對應cardId，否則選第一張
 4.悠遊卡：提到悠遊卡名就選對應icardId，否則選第一張
 5.子分類：盡量推測（早餐/午餐/晚餐/宵夜等）
-回傳純JSON:{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}`;
+6.多筆記帳：文字中若有多筆消費，每筆各產生一個物件放入陣列；只有一筆也要用陣列包起來
+回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}, ...]`;
 
   const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Claude API Key');
@@ -328,15 +395,14 @@ if (clean.includes('```json')) {
 }
 
 clean = clean.trim();
-  // 防禦性解析：AI 回傳格式不正確時不崩潰
+  // 防禦性解析：支援陣列或單物件，統一回傳陣列
   try {
-    return JSON.parse(clean);
+    const parsed = JSON.parse(clean);
+    return Array.isArray(parsed) ? parsed : [parsed];
   } catch(parseErr) {
-    console.warn('[Gemini] JSON parse failed:', clean);
+    console.warn('[Claude] JSON parse failed:', clean);
     throw new Error('AI 回傳格式錯誤，請再試一次');
   }
-
-  
 }
 
 // ── 語音輸入 ─────────────────────────────────────────
@@ -412,80 +478,19 @@ async function submitAI() {
   const btn = document.getElementById('ai-btn');
   btn.textContent = '解析中...'; btn.disabled = true;
   try {
-    const r = await callClaude(text);
-    // 填金額
-    if (r.amount > 0) { astr = String(Math.round(r.amount)).slice(0,7); refreshAmt(); }
-    // 填分類
-    if (r.cat) {
-      const el = document.querySelector(`#cat-chips .cchip[data-id="${r.cat}"]`);
-      if (el) { selC(r.cat, el); }
-    }
-    // 填子分類
-    if (r.subCat) {
-      const ss = document.getElementById('sub-sel');
-      for (let i=0; i<ss.options.length; i++) {
-        if (ss.options[i].text === r.subCat) { ss.selectedIndex=i; break; }
-      }
-    }
-    // 填明細（直接設值，避免觸發任何選單）
-    if (r.detail) {
-      const detailEl = document.getElementById('tx-detail');
-      detailEl.setAttribute('readonly','');
-      detailEl.value = r.detail;
-      detailEl.blur();
-      // 短暫後恢復可輸入
-      setTimeout(()=>detailEl.removeAttribute('readonly'), 300);
-    }
-    // 填日期（iOS Safari 相容版本）
-    if (r.date) {
-      try {
-        // 統一轉成 YYYY-MM-DD，支援 / . - 各種分隔符
-        const dateStr = String(r.date).replace(/[\/\.]/g,'-').trim();
-        const parts = dateStr.split('-');
-        if (parts.length === 3) {
-          const yyyy = parts[0].padStart(4,'0');
-          const mm   = parts[1].padStart(2,'0');
-          const dd   = parts[2].padStart(2,'0');
-          const now  = new Date();
-          const hh   = String(now.getHours()).padStart(2,'0');
-          const min  = String(now.getMinutes()).padStart(2,'0');
-          // iOS Safari 需要完整 YYYY-MM-DDTHH:MM 格式
-          document.getElementById('tx-dt-raw').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-          refreshDtDisp();
-        }
-      } catch(dateErr) {
-        console.warn('[Date] 日期解析失敗:', r.date, dateErr);
-        // 日期解析失敗就用今天，不影響其他欄位
-      }
-    }
-    // 填付款方式
-    if (r.pay === 'card') {
-      const el=document.getElementById('pay-card'); if(el) setPay('card',el);
-      // 自動選對應信用卡
-      if (r.cardId) {
-        setTimeout(()=>{
-          const chip=document.querySelector(`#card-chips [data-id="${r.cardId}"]`);
-          if(chip) selCC(r.cardId, chip);
-        }, 100);
-      }
-    } else if (r.pay === 'icard') {
-      const el=document.getElementById('pay-icard'); if(el) setPay('icard',el);
-      // 自動選對應悠遊卡
-      if (r.icardId) {
-        setTimeout(()=>{
-          const chip=document.querySelector(`#icard-chips [data-id="${r.icardId}"]`);
-          if(chip) selIC(r.icardId, chip);
-        }, 100);
-      }
+    const results = await callClaude(text);
+    if (!results || !results.length) throw new Error('AI 未回傳任何記帳資料');
+
+    if (results.length === 1) {
+      // 單筆：沿用原本流程（填入表單 → Step 2）
+      applySingleResult(results[0]);
     } else {
-      const el=document.getElementById('pay-cash'); if(el) setPay('cash',el);
+      // 多筆：開啟確認清單 Modal
+      openMultiConfirmModal(results);
     }
-    // 跳到詳情
-    if (r.amount > 0) goStep2();
-    toast('✅ AI 解析完成，請確認', 'info');
     document.getElementById('ai-input').value = '';
   } catch(e) {
-    console.warn('[Gemini]', e);
+    console.warn('[Claude]', e);
     const msg = e.message||'';
     if(msg.includes('429')){
       toast('⏳ AI 使用頻繁，請稍待 1 分鐘再試（HTTP 429）', 'warn');
@@ -493,9 +498,9 @@ async function submitAI() {
       toast('Claude API Key 需要設定，請在設定頁填入', 'err');
       document.getElementById('api-hint').style.display='block';
     } else if(msg.includes('503')||msg.includes('overloaded')||msg.includes('Service Unavailable')){
-      toast('⚠️ Gemini 伺服器忙碌中（503），請再試一次', 'warn');
+      toast('⚠️ AI 伺服器忙碌中（503），請再試一次', 'warn');
     } else if(msg.includes('500')){
-      toast('⚠️ Gemini 伺服器錯誤（500），請再試一次', 'warn');
+      toast('⚠️ AI 伺服器錯誤（500），請再試一次', 'warn');
     } else {
       toast('AI 解析失敗：'+msg, 'err');
     }
@@ -504,13 +509,62 @@ async function submitAI() {
   }
 }
 
+// 單筆結果套入表單（原本 submitAI 的邏輯）
+function applySingleResult(r) {
+  if (r.amount > 0) { astr = String(Math.round(r.amount)).slice(0,7); refreshAmt(); }
+  if (r.cat) {
+    const el = document.querySelector(`#cat-chips .cchip[data-id="${r.cat}"]`);
+    if (el) { selC(r.cat, el); }
+  }
+  if (r.subCat) {
+    const ss = document.getElementById('sub-sel');
+    for (let i=0; i<ss.options.length; i++) {
+      if (ss.options[i].text === r.subCat) { ss.selectedIndex=i; break; }
+    }
+  }
+  if (r.detail) {
+    const detailEl = document.getElementById('tx-detail');
+    detailEl.setAttribute('readonly','');
+    detailEl.value = r.detail;
+    detailEl.blur();
+    setTimeout(()=>detailEl.removeAttribute('readonly'), 300);
+  }
+  if (r.date) {
+    try {
+      const dateStr = String(r.date).replace(/[\/\.]/g,'-').trim();
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const yyyy = parts[0].padStart(4,'0');
+        const mm   = parts[1].padStart(2,'0');
+        const dd   = parts[2].padStart(2,'0');
+        const now  = new Date();
+        const hh   = String(now.getHours()).padStart(2,'0');
+        const min  = String(now.getMinutes()).padStart(2,'0');
+        document.getElementById('tx-dt-raw').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+        refreshDtDisp();
+      }
+    } catch(dateErr) { console.warn('[Date]', r.date, dateErr); }
+  }
+  if (r.pay === 'card') {
+    const el=document.getElementById('pay-card'); if(el) setPay('card',el);
+    if (r.cardId) { setTimeout(()=>{ const chip=document.querySelector(`#card-chips [data-id="${r.cardId}"]`); if(chip) selCC(r.cardId, chip); }, 100); }
+  } else if (r.pay === 'icard') {
+    const el=document.getElementById('pay-icard'); if(el) setPay('icard',el);
+    if (r.icardId) { setTimeout(()=>{ const chip=document.querySelector(`#icard-chips [data-id="${r.icardId}"]`); if(chip) selIC(r.icardId, chip); }, 100); }
+  } else {
+    const el=document.getElementById('pay-cash'); if(el) setPay('cash',el);
+  }
+  if (r.amount > 0) goStep2();
+  toast('✅ AI 解析完成，請確認', 'info');
+}
+
 // 允許按 Enter 觸發 AI 解析
 document.getElementById('ai-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') submitAI();
 });
 
 // ── 主邏輯 ──────────────────────────────────────────
-let astr='', selCat='', selCard='', selIcard='', pay='cash', person='宏龍';
+let astr='', selCat='', selCard='', selIcard='', pay='cash', person='宏龍', selTags=[];
 
 function init() {
   applyTheme();
@@ -534,6 +588,8 @@ function init() {
   if (payBtn) payBtn.classList.add('on');
   if (pay==='card')  document.getElementById('card-fg').style.display='block';
   if (pay==='icard') document.getElementById('icard-fg').style.display='block';
+  buildShortcutsBar();
+  buildTagChips();
   // 建立分類、卡片
   buildCatChips();
   buildCardChips();
@@ -813,6 +869,7 @@ function submit() {
     person, pay,
     cardId:  pay==='card'  ? selCard  : null,
     icardId: pay==='icard' ? selIcard : null,
+    tags: [...selTags],
     // iOS Safari 相容：dtv 格式是 "YYYY-MM-DDTHH:MM"，需明確解析避免時區問題
     at: dtv ? (()=>{
       const [datePart, timePart] = dtv.split('T');
@@ -847,7 +904,7 @@ function submit() {
 }
 
 function resetForm() {
-  astr=''; selCat='';
+  astr=''; selCat=''; selTags=[];
   document.getElementById('aval').textContent = '0';
   document.getElementById('adisp').classList.remove('has-val');
   document.getElementById('s1').style.display = 'block';
@@ -889,6 +946,286 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // 稍等確保所有 script 都載入
   setTimeout(init, 100);
 });
+
+// ── 快捷範本 ─────────────────────────────────────────
+function buildShortcutsBar() {
+  const list = getShortcuts();
+  const el = document.getElementById('shortcuts-bar');
+  if (!list.length) { el.innerHTML=''; return; }
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
+  el.innerHTML = `<div style="font-size:.72rem;color:var(--t3);margin-bottom:6px">⚡ 快捷記帳</div>`
+    + `<div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none">`
+    + list.map(sc => {
+        const cat = catFind(sc.cat);
+        return `<button onclick="applyShortcut('${sc.id}')"
+          style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:4px;
+                 background:var(--card);border:1.5px solid var(--border);border-radius:12px;
+                 padding:10px 14px;cursor:pointer;font-family:inherit;min-width:70px;transition:.15s"
+          onmouseenter="this.style.borderColor='var(--p)'" onmouseleave="this.style.borderColor='var(--border)'">
+          <span style="font-size:1.1rem">${cat.name.slice(0,2)}</span>
+          <span style="font-size:.72rem;font-weight:700;color:var(--t);white-space:nowrap;max-width:72px;overflow:hidden;text-overflow:ellipsis">${sc.name||cat.name.slice(2).trim()}</span>
+          <span style="font-size:.68rem;color:var(--t3)">${payIcon(sc.pay)}</span>
+        </button>`;
+      }).join('')
+    + `</div>`;
+}
+function applyShortcut(id) {
+  const sc = getShortcuts().find(s=>s.id===id);
+  if (!sc) return;
+  // 設定分類
+  selCat = sc.cat;
+  document.querySelectorAll('#cat-chips .cchip').forEach(c=>c.classList.remove('on'));
+  const chip = document.querySelector(`#cat-chips .cchip[data-id="${sc.cat}"]`);
+  if (chip) chip.classList.add('on');
+  triggerCatSub(sc.cat);
+  // 設定付款方式
+  const payEl = document.getElementById('pay-'+sc.pay);
+  if (payEl) setPay(sc.pay, payEl);
+  // 設定明細
+  if (sc.detail) {
+    const el = document.getElementById('tx-detail');
+    el.value = sc.detail;
+  }
+  // 標籤
+  if (sc.tags && sc.tags.length) {
+    selTags = [...sc.tags];
+    renderTagChips();
+  }
+  // 聚焦提示：閃動金額區塊，引導用戶輸入金額
+  const adisp = document.getElementById('adisp');
+  adisp.style.transition = 'box-shadow .2s';
+  adisp.style.boxShadow = '0 0 0 3px var(--p)';
+  setTimeout(() => { adisp.style.boxShadow = ''; }, 800);
+  toast('✅ 已套用範本，請輸入金額', 'info');
+}
+
+// ── 消費標籤 ─────────────────────────────────────────
+function buildTagChips() {
+  selTags = [];
+  renderTagChips();
+}
+function renderTagChips() {
+  const tags = getTxTags();
+  const el = document.getElementById('tag-chips');
+  el.innerHTML = tags.map(tag => {
+    const on = selTags.includes(tag.id);
+    return `<button onclick="toggleTag('${tag.id}',this)"
+      style="padding:7px 12px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;
+             font-family:inherit;transition:.15s;border:1.5px solid ${on ? tag.color : 'var(--border)'};
+             background:${on ? tag.color+'26' : 'var(--card)'};color:${on ? tag.color : 'var(--t3)'}"
+      data-tag-id="${tag.id}">${tag.label}</button>`;
+  }).join('');
+}
+function toggleTag(id, el) {
+  const idx = selTags.indexOf(id);
+  if (idx >= 0) { selTags.splice(idx,1); }
+  else          { selTags.push(id); }
+  renderTagChips();
+}
+
+
+// ══════════════════════════════════════════════════
+//  多筆 AI 記帳確認 Modal
+// ══════════════════════════════════════════════════
+let _multiItems = []; // 待確認的記帳陣列（可被編輯）
+let _meEditIdx  = -1; // 正在編輯的索引
+let _mePay      = 'cash';
+
+const PAY_ICON = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
+const PAY_LABEL= p => p==='card'?'信用卡':p==='icard'?'悠遊卡':'現金';
+
+function openMultiConfirmModal(items) {
+  _multiItems = items.map(r => ({
+    amount:  r.amount || 0,
+    cat:     r.cat    || (getCats()[0]?.id || 'other'),
+    subCat:  r.subCat || '',
+    detail:  r.detail || '',
+    pay:     r.pay    || 'cash',
+    cardId:  r.cardId  || null,
+    icardId: r.icardId || null,
+  }));
+  renderMultiList();
+  document.getElementById('multi-confirm-modal').classList.add('show');
+}
+
+function renderMultiList() {
+  const el = document.getElementById('multi-items-list');
+  const btn = document.getElementById('multi-confirm-btn');
+  const valid = _multiItems.filter(it => it.amount > 0);
+  btn.textContent = `✅ 全部記帳 ${valid.length} 筆`;
+
+  el.innerHTML = _multiItems.map((it, i) => {
+    const cat = catFind(it.cat);
+    const hasError = !it.amount || it.amount <= 0;
+    return `<div style="background:var(--card2);border-radius:12px;padding:12px 14px;margin-bottom:10px;
+                        border:1.5px solid ${hasError ? 'var(--danger)' : 'var(--border)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;border-radius:8px;background:${cat.color||'var(--card)'};
+                      display:flex;align-items:center;justify-content:center;font-size:.9rem">${cat.name.slice(0,2)}</div>
+          <div>
+            <div style="font-size:.88rem;font-weight:700">${cat.name.slice(2).trim()}${it.subCat?' › '+it.subCat:''}</div>
+            <div style="font-size:.72rem;color:var(--t3)">${it.detail||'（無明細）'} · ${PAY_ICON(it.pay)} ${PAY_LABEL(it.pay)}</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+          <div style="font-size:1.05rem;font-weight:900;color:var(--danger)">$${fmt(it.amount)}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="openMeEdit(${i})"
+          style="flex:1;padding:7px 0;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);
+                 border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">✏️ 編輯</button>
+        <button onclick="deleteMultiItem(${i})"
+          style="padding:7px 14px;background:rgba(244,63,94,.1);color:var(--danger);border:1.5px solid rgba(244,63,94,.3);
+                 border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">✕ 移除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function deleteMultiItem(i) {
+  _multiItems.splice(i, 1);
+  if (_multiItems.length === 0) { closeMultiModal(); return; }
+  renderMultiList();
+}
+
+function closeMultiModal() {
+  document.getElementById('multi-confirm-modal').classList.remove('show');
+  _multiItems = [];
+}
+
+async function confirmMultiTx() {
+  const valid = _multiItems.filter(it => it.amount > 0);
+  if (!valid.length) { toast('沒有有效的記帳項目', 'warn'); return; }
+
+  const btn = document.getElementById('multi-confirm-btn');
+  btn.disabled = true; btn.textContent = '記帳中...';
+
+  let saved = 0;
+  for (let i = 0; i < valid.length; i++) {
+    const it = valid[i];
+    // 每筆時間戳錯開 1 秒，確保排序正確
+    const at = new Date(Date.now() - (valid.length - 1 - i) * 1000).toISOString();
+    const tx = {
+      amount:  it.amount,
+      cat:     it.cat,
+      subCat:  it.subCat || '',
+      detail:  it.detail || '',
+      person,
+      pay:     it.pay,
+      cardId:  it.pay === 'card'  ? (it.cardId || null)  : null,
+      icardId: it.pay === 'icard' ? (it.icardId || null) : null,
+      tags:    it.tags || [],
+      at,
+    };
+    addTx(tx);
+    await fbAddTx(tx);
+    // 預算警示（靜默，不逐筆 toast）
+    if (typeof checkBudgetAlert === 'function') {
+      checkBudgetAlert(tx).then(res => {
+        if (!res) return;
+        if (res.pct >= 100) toast(`🚨 ${catName(tx.cat)} 已超支！`, 'err');
+        else if (res.pct >= (getDiscord().budgetPct || 80)) toast(`⚠️ ${catName(tx.cat)} 已用 ${Math.round(res.pct)}%`, 'warn');
+      });
+    }
+    saved++;
+  }
+
+  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+
+  // Discord 通知（多筆合併成一則）
+  const cfg = getDiscord();
+  if (cfg.onAdd && getWebhook && getWebhook()) {
+    const lines = valid.map(it => {
+      const payLabel = it.pay==='cash'?'💵現金':it.pay==='icard'?'🎫悠遊卡':'💳信用卡';
+      return `• ${catName(it.cat)}${it.subCat?' › '+it.subCat:''} ${it.detail?'「'+it.detail+'」':''} **$${fmt(it.amount)}** ${payLabel}`;
+    }).join('\n');
+    if (typeof discordSend === 'function') {
+      discordSend(`📋 **${person}** 多筆記帳（${valid.length}筆）\n${lines}\n💰 合計：**$${fmt(valid.reduce((s,it)=>s+it.amount,0))}**`).catch(()=>{});
+    }
+  }
+
+  closeMultiModal();
+  const sov = document.getElementById('sov');
+  sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
+  toast(`✅ 已記帳 ${saved} 筆！`);
+}
+
+// ── 單筆編輯 Modal ──────────────────────────────────
+function openMeEdit(i) {
+  _meEditIdx = i;
+  const it = _multiItems[i];
+  _mePay = it.pay || 'cash';
+
+  document.getElementById('me-amt').value = it.amount || '';
+  // 分類
+  const catSel = document.getElementById('me-cat');
+  catSel.innerHTML = getCats().map(c => `<option value="${c.id}" ${c.id===it.cat?'selected':''}>${c.name}</option>`).join('');
+  onMeCatChange(it.subCat); // 填子分類
+  document.getElementById('me-detail').value = it.detail || '';
+  // 付款方式
+  ['cash','card','icard'].forEach(p => document.getElementById('me-pay-'+p).classList.toggle('on', p===_mePay));
+  document.getElementById('me-card-fg').style.display  = _mePay==='card'  ? 'block' : 'none';
+  document.getElementById('me-icard-fg').style.display = _mePay==='icard' ? 'block' : 'none';
+  // 信用卡/悠遊卡選單
+  const allCards = typeof getAllAvailableCards==='function' ? getAllAvailableCards() : [];
+  document.getElementById('me-card-sel').innerHTML = allCards.map(c =>
+    `<option value="${c.id}" ${c.id===it.cardId?'selected':''}>${c.name} ···${c.last4||''}</option>`
+  ).join('') || '<option value="">尚無信用卡</option>';
+  const allIcards = typeof getAllAvailableIcards==='function' ? getAllAvailableIcards() : [];
+  document.getElementById('me-icard-sel').innerHTML = allIcards.map(c =>
+    `<option value="${c.id}" ${c.id===it.icardId?'selected':''}>${c.name}</option>`
+  ).join('') || '<option value="">尚無悠遊卡</option>';
+
+  document.getElementById('multi-edit-modal').classList.add('show');
+}
+
+function onMeCatChange(preselect) {
+  const catId = document.getElementById('me-cat').value;
+  const cat = catFind(catId);
+  const fg  = document.getElementById('me-subcat-fg');
+  const sel = document.getElementById('me-subcat');
+  if (cat.sub && cat.sub.length) {
+    fg.style.display = 'block';
+    sel.innerHTML = '<option value="">（可略）</option>' +
+      cat.sub.map(s => `<option value="${s}" ${s===(preselect||'')?'selected':''}>${s}</option>`).join('');
+  } else {
+    fg.style.display = 'none';
+    sel.innerHTML = '';
+  }
+}
+
+function setMePay(p, el) {
+  _mePay = p;
+  ['cash','card','icard'].forEach(k => document.getElementById('me-pay-'+k).classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('me-card-fg').style.display  = p==='card'  ? 'block' : 'none';
+  document.getElementById('me-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+}
+
+function saveMeEdit() {
+  const amt = parseInt(document.getElementById('me-amt').value) || 0;
+  if (!amt) { toast('金額不可為 0', 'warn'); return; }
+  _multiItems[_meEditIdx] = {
+    ..._multiItems[_meEditIdx],
+    amount:  amt,
+    cat:     document.getElementById('me-cat').value,
+    subCat:  document.getElementById('me-subcat').value,
+    detail:  document.getElementById('me-detail').value.trim(),
+    pay:     _mePay,
+    cardId:  _mePay==='card'  ? document.getElementById('me-card-sel').value  : null,
+    icardId: _mePay==='icard' ? document.getElementById('me-icard-sel').value : null,
+  };
+  closeMeModal();
+  renderMultiList();
+}
+
+function closeMeModal() {
+  document.getElementById('multi-edit-modal').classList.remove('show');
+  _meEditIdx = -1;
+}
+
 </script>
 </body>
 </html>
