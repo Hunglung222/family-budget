@@ -1,7 +1,8 @@
 'use strict';
 // ═══════════════════════════════════════════════════
-//  db.js v7 — 完整個人財務資料層
+//  db.js v8 — 完整個人財務資料層
 //  支援：個人帳戶、共用帳戶、錢包、悠遊卡、信用卡帳單
+//  v8 新增：消費標籤(tags)、快捷範本(shortcuts)
 //  資料依登入者隔離，共用記帳與家用帳戶除外
 // ═══════════════════════════════════════════════════
 
@@ -12,11 +13,9 @@ const DB = {
 };
 
 // 取得目前登入者 uid
-// 統一用 email 前綴，確保手機/電腦/不同裝置都一致
 function uid() {
   const e = localStorage.getItem('current_email') || '';
   if (e) return e.split('@')[0].replace(/[^a-z0-9]/gi,'_');
-  // 最後 fallback
   return localStorage.getItem('current_uid') || 'user';
 }
 
@@ -35,6 +34,18 @@ const DEF_CATS = [
   {id:'other',     name:'📦 其他',  color:'#94a3b8', sub:['禮金','捐款','雜費']},
 ];
 
+// ── 預設消費標籤 ───────────────────────────────────
+const DEF_TX_TAGS = [
+  {id:'need',     label:'🧠 需要',    color:'#10b981'},
+  {id:'want',     label:'💝 想要',    color:'#4f8ef7'},
+  {id:'impulse',  label:'⚡ 衝動消費', color:'#f59e0b'},
+  {id:'planned',  label:'📋 計畫中',  color:'#8b5cf6'},
+  {id:'routine',  label:'🔄 例行支出', color:'#06b6d4'},
+  {id:'reward',   label:'🎁 犒賞自己', color:'#ec4899'},
+  {id:'social',   label:'👥 社交壓力', color:'#84cc16'},
+  {id:'emotion',  label:'😔 情緒消費', color:'#f97316'},
+];
+
 function initDB() {
   // 共用資料
   if (!DB.get('cats'))    DB.set('cats',    DEF_CATS);
@@ -46,13 +57,15 @@ function initDB() {
     onBudget:true, budgetPct:80, onWeekly:false,
   });
   if (!DB.get('prefs'))   DB.set('prefs',   {theme:'dark', accent:'teal', lastCat:'', lastPay:'cash'});
+  if (!DB.get('tx_tags')) DB.set('tx_tags', DEF_TX_TAGS);
 
   // 個人資料（依登入者隔離）
-  if (!DB.get(pKey('wal')))    DB.set(pKey('wal'),    {balance:0, history:[], updatedAt:0});
-  if (!DB.get(pKey('cards')))  DB.set(pKey('cards'),  []);
-  if (!DB.get(pKey('icards'))) DB.set(pKey('icards'), []);
-  if (!DB.get(pKey('accts')))  DB.set(pKey('accts'),  []); // 銀行帳戶
-  if (!DB.get(pKey('bills')))  DB.set(pKey('bills'),  []); // 信用卡帳單
+  if (!DB.get(pKey('wal')))       DB.set(pKey('wal'),       {balance:0, history:[], updatedAt:0});
+  if (!DB.get(pKey('cards')))     DB.set(pKey('cards'),     []);
+  if (!DB.get(pKey('icards')))    DB.set(pKey('icards'),    []);
+  if (!DB.get(pKey('accts')))     DB.set(pKey('accts'),     []);
+  if (!DB.get(pKey('bills')))     DB.set(pKey('bills'),     []);
+  if (!DB.get(pKey('shortcuts'))) DB.set(pKey('shortcuts'), []); // 快捷範本（個人）
 
   // 共用帳戶（家用）
   if (!DB.get('shared_accts')) DB.set('shared_accts', []);
@@ -65,6 +78,7 @@ function addTx(tx) {
   tx.id  = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
   tx.at  = tx.at || new Date().toISOString();
   tx.uid = uid();
+  if (!tx.tags) tx.tags = [];
   list.unshift(tx); DB.set('tx', list);
   // 自動扣款
   if (tx.pay === 'cash')  walOut(tx.amount, tx.detail || catName(tx.cat));
@@ -95,8 +109,38 @@ function txByPeriod() {
   return getTx().filter(t => { const d=new Date(t.at); return d>=start && d<=end; });
 }
 
+// ── 消費標籤 CRUD ─────────────────────────────────────
+function getTxTags() { return DB.get('tx_tags') || DEF_TX_TAGS; }
+function saveTxTags(tags) { DB.set('tx_tags', tags); }
+function addTxTag(label, color) {
+  const tags = getTxTags();
+  const id = 'tag_' + Date.now().toString(36);
+  tags.push({id, label, color: color || '#94a3b8'});
+  saveTxTags(tags); return id;
+}
+function delTxTag(id) {
+  saveTxTags(getTxTags().filter(t => t.id !== id));
+}
+function getTxTagById(id) {
+  return getTxTags().find(t => t.id === id) || null;
+}
+
+// ── 快捷範本 CRUD（個人） ─────────────────────────────
+function getShortcuts()   { return DB.get(pKey('shortcuts')) || []; }
+function saveShortcuts(s) { DB.set(pKey('shortcuts'), s); }
+function addShortcut(sc) {
+  const list = getShortcuts();
+  if (list.length >= 5) { return false; } // 最多 5 組
+  sc.id = 'sc_' + Date.now().toString(36);
+  list.push(sc);
+  saveShortcuts(list); return sc.id;
+}
+function delShortcut(id) { saveShortcuts(getShortcuts().filter(s => s.id !== id)); }
+function editShortcut(id, updates) {
+  saveShortcuts(getShortcuts().map(s => s.id === id ? {...s, ...updates} : s));
+}
+
 // ── 個人錢包 ─────────────────────────────────────────
-// 用時間戳記防止 Firebase 舊資料覆蓋新資料
 function getWal() {
   return DB.get(pKey('wal')) || {balance:0, history:[], updatedAt:0};
 }
@@ -116,7 +160,6 @@ function walOut(n, note) {
   w.history.unshift({type:'out', amount:n, note, time:new Date().toISOString()});
   _saveWal(w);
 }
-// 從帳戶提領到錢包
 function walWithdraw(acctId, amount, note) {
   const isShared = acctId.startsWith('shared_');
   if (isShared) {
@@ -130,10 +173,8 @@ function walWithdraw(acctId, amount, note) {
 // ── 信用卡（個人） ────────────────────────────────────
 function getCards()   { return DB.get(pKey('cards')) || []; }
 function cardFind(id) {
-  // 先找自己的卡
   const mine = getCards().find(c=>c.id===id);
   if (mine) return mine;
-  // 再找對方共用的卡
   const shared = getSharedCards();
   return shared.find(c=>c.id===id) || null;
 }
@@ -144,28 +185,19 @@ function editCard(id, updates) {
 }
 function delCard(id)  { DB.set(pKey('cards'), getCards().filter(c=>c.id!==id)); }
 
-// 取得對方共用給自己的信用卡
-function getSharedCards() {
-  return DB.get('shared_cards') || [];
-}
-// 取得自己標記為共用的信用卡（給 Firebase 同步用）
-function getMySharedCards() {
-  return getCards().filter(c => c.shared === true);
-}
-// 取得記帳用的全部可用信用卡（自己的 + 對方共用的），標記來源
+function getSharedCards()    { return DB.get('shared_cards') || []; }
+function getMySharedCards()  { return getCards().filter(c => c.shared === true); }
 function getAllAvailableCards() {
   const mine   = getCards().map(c => ({...c, _owner: '我的'}));
   const shared = getSharedCards().map(c => ({...c, _owner: c.ownerName || '對方'}));
   return [...mine, ...shared];
 }
 
-// 信用卡帳單邏輯
 function getCardBills() { return DB.get(pKey('bills')) || []; }
 function cardAddBill(cardId, amount, note, at) {
   const bills = getCardBills();
   const card  = cardFind(cardId); if (!card) return;
-  // 找本期帳單（依信用卡結帳日分期）
-  const cutDay = card.cutDay || 25; // 預設每月25日結帳
+  const cutDay = card.cutDay || 25;
   const now    = new Date(at || new Date());
   let billMonth = now.getMonth()+1, billYear = now.getFullYear();
   if (now.getDate() > cutDay) { billMonth++; if (billMonth>12){billMonth=1;billYear++;} }
@@ -222,15 +254,8 @@ function editIcard(id, updates) {
 }
 function delIcard(id)  { DB.set(pKey('icards'), getIcards().filter(c=>c.id!==id)); }
 
-// 取得對方共用給自己的悠遊卡
-function getSharedIcards() {
-  return DB.get('shared_icards') || [];
-}
-// 取得自己標記為共用的悠遊卡
-function getMySharedIcards() {
-  return getIcards().filter(c => c.shared === true);
-}
-// 取得記帳用的全部可用悠遊卡（自己的 + 對方共用的），標記來源
+function getSharedIcards()   { return DB.get('shared_icards') || []; }
+function getMySharedIcards() { return getIcards().filter(c => c.shared === true); }
 function getAllAvailableIcards() {
   const mine   = getIcards().map(c => ({...c, _owner: '我的'}));
   const shared = getSharedIcards().map(c => ({...c, _owner: c.ownerName || '對方'}));
@@ -300,11 +325,7 @@ function acctOut(id, amount, note, shared=false) {
 function getCats()   { return DB.get('cats') || DEF_CATS; }
 function catFind(id) { return getCats().find(c=>c.id===id) || {name:id,color:'#94a3b8',sub:[]}; }
 
-// ── 子分類維護 ────────────────────────────────────────
-function getSubCats(catId) {
-  const cat = catFind(catId);
-  return cat.sub || [];
-}
+function getSubCats(catId) { return catFind(catId).sub || []; }
 function addSubCat(catId, subName) {
   const cats = getCats();
   const cat = cats.find(c=>c.id===catId);
@@ -341,7 +362,6 @@ function addPrivTx(tx) {
   const list = getPrivTx();
   tx.id = 'priv_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
   tx.private = true;
-  // 防止重複寫入
   if (list.find(t=>t.id===tx.id)) return tx;
   list.unshift(tx);
   DB.set(pPrivKey('tx'), list);
@@ -353,7 +373,6 @@ function editPrivTx(id, updates) {
   DB.set(pPrivKey('tx'), list);
 }
 
-// ── 一次性去重修復（在設定頁或 console 手動呼叫）──
 function fixDuplicates() {
   const txRaw = DB.get(pPrivKey('tx')) || [];
   const txMap = new Map(); txRaw.forEach(t=>{ if(!txMap.has(t.id)) txMap.set(t.id,t); });
@@ -367,7 +386,6 @@ function fixDuplicates() {
   return { txBefore: txRaw.length, txAfter: txMap.size, memoBefore: memoRaw.length, memoAfter: memoMap.size };
 }
 
-
 function getMemos() {
   const raw = DB.get(pPrivKey('memos')) || [];
   const map = new Map(); raw.forEach(m=>{ if(!map.has(m.id)) map.set(m.id,m); });
@@ -377,7 +395,6 @@ function addMemo(m) {
   const list = getMemos();
   m.id  = 'memo_'+Date.now().toString(36);
   m.at  = new Date().toISOString();
-  // 防止重複寫入
   if (list.find(x=>x.id===m.id)) return m;
   list.unshift(m);
   DB.set(pPrivKey('memos'), list);
@@ -453,6 +470,82 @@ function calcStats(list) {
   return {total,cash,card,icard,byCat,byCard,byIcard,byPerson};
 }
 
+// ── 標籤統計 ─────────────────────────────────────────
+function calcTagStats(list) {
+  const byTag = {};
+  list.forEach(tx => {
+    (tx.tags||[]).forEach(tagId => {
+      if (!byTag[tagId]) byTag[tagId] = {total:0, count:0, list:[]};
+      byTag[tagId].total += tx.amount;
+      byTag[tagId].count++;
+      byTag[tagId].list.push(tx);
+    });
+  });
+  return byTag;
+}
+
+// ── 本週支出預測（週一～週日）────────────────────────
+function getWeekPrediction() {
+  const now = new Date();
+  // 本週起始（週一）
+  const dow = now.getDay(); // 0=日,1=週一...
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() + mondayOffset);
+  weekStart.setHours(0,0,0,0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  weekEnd.setHours(23,59,59,999);
+
+  // 本週已花費（依分類）
+  const allTx = getTx();
+  const thisWeekTx = allTx.filter(t => {
+    const d = new Date(t.at);
+    return d >= weekStart && d <= weekEnd;
+  });
+
+  // 今天是週幾（週一=1, 週日=7）
+  const todayDow = dow === 0 ? 7 : dow;
+  const daysElapsed = todayDow; // 已過天數（含今天）
+  const daysLeft = 7 - daysElapsed; // 剩餘天數
+
+  // 歷史日均（取過去所有 tx，計算日均支出）
+  // 只取今天以前的完整日期（排除今天避免偏差）
+  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+  const histTx = allTx.filter(t => new Date(t.at) < todayStart);
+
+  // 找最早一筆記帳日期
+  let histDays = 0;
+  if (histTx.length > 0) {
+    const oldest = new Date(Math.min(...histTx.map(t => new Date(t.at))));
+    const diffMs = todayStart - oldest;
+    histDays = Math.max(1, Math.ceil(diffMs / 86400000));
+  }
+
+  // 依分類計算
+  const cats = getCats();
+  const catResults = cats.map(cat => {
+    const spentThisWeek = thisWeekTx.filter(t=>t.cat===cat.id).reduce((s,t)=>s+t.amount,0);
+    let predicted = 0;
+    if (histTx.length > 0 && histDays > 0) {
+      const histTotal = histTx.filter(t=>t.cat===cat.id).reduce((s,t)=>s+t.amount,0);
+      const dailyAvg = histTotal / histDays;
+      predicted = Math.round(dailyAvg * daysLeft);
+    }
+    return {cat, spentThisWeek, predicted, total: spentThisWeek + predicted};
+  }).filter(r => r.spentThisWeek > 0 || r.predicted > 0);
+
+  const totalSpent = thisWeekTx.reduce((s,t)=>s+t.amount,0);
+  const totalPredicted = catResults.reduce((s,r)=>s+r.predicted,0);
+
+  return {
+    weekStart, weekEnd, daysElapsed, daysLeft,
+    totalSpent, totalPredicted,
+    catResults,
+    thisWeekTx,
+  };
+}
+
 // ── 資產總覽 ─────────────────────────────────────────
 function calcNetWorth() {
   const wal = getWal().balance;
@@ -469,9 +562,7 @@ function fmt(n)  { return Number(n||0).toLocaleString('zh-TW'); }
 function fmtT(s) { const d=new Date(s); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtD(s) {
   try {
-    // ISO string: "2026-04-22T16:42:00.000Z" 或 "2026-04-22T16:42:00"
     const str = String(s);
-    // 取日期部分（T 之前）
     const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
     const [yyyy, mo, dd] = datePart.split('-');
     return `${yyyy}/${parseInt(mo)}/${parseInt(dd)}`;
@@ -488,7 +579,7 @@ function groupDay(list) {
 // ── 清除 ─────────────────────────────────────────────
 function clearAll() {
   const keys = Object.keys(localStorage).filter(k =>
-    k.startsWith(uid()+'_') || ['tx','cats','budgets','hints','discord','prefs','shared_accts'].includes(k)
+    k.startsWith(uid()+'_') || ['tx','cats','budgets','hints','discord','prefs','shared_accts','tx_tags'].includes(k)
   );
   keys.forEach(k => localStorage.removeItem(k));
 }

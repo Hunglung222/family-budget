@@ -125,6 +125,8 @@ async function fbPullAll(){
     // 分類 & 預算
     const cd = await db.collection('shared').doc('cats').get();
     if(cd.exists && cd.data().list) DB.set('cats', cd.data().list);
+    // 消費標籤定義
+    await fbPullTxTags();
     const bd = await db.collection('shared').doc('budgets').get();
     if(bd.exists) DB.set('budgets', bd.data());
     // App 共用設定（webhook、claude key）
@@ -320,6 +322,19 @@ async function fbPullSharedCardList() {
     }
   } catch(e) { console.warn('[FB]pullSharedCardList', e); }
 }
+
+async function fbSyncTxTags(){
+  try{
+    await getDb().collection('shared').doc('tx_tags').set({list:getTxTags(),updatedAt:Date.now()});
+  }catch(e){console.warn('[FB]syncTxTags',e);}
+}
+async function fbPullTxTags(){
+  try{
+    const d=await getDb().collection('shared').doc('tx_tags').get();
+    if(d.exists&&d.data().list) DB.set('tx_tags',d.data().list);
+  }catch(e){console.warn('[FB]pullTxTags',e);}
+}
+
 async function fbSyncCats(){
   try{
     await getDb().collection('shared').doc('cats').set({list:getCats(),updatedAt:Date.now()});
