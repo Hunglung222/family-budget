@@ -1000,12 +1000,7 @@ function applyShortcut(id) {
     selTags = [...sc.tags];
     renderTagChips();
   }
-  // 聚焦提示：閃動金額區塊，引導用戶輸入金額
-  const adisp = document.getElementById('adisp');
-  adisp.style.transition = 'box-shadow .2s';
-  adisp.style.boxShadow = '0 0 0 3px var(--p)';
-  setTimeout(() => { adisp.style.boxShadow = ''; }, 800);
-  toast('✅ 已套用範本，請輸入金額', 'info');
+  toast('✅ 已套用快捷範本', 'info');
 }
 
 // ── 消費標籤 ─────────────────────────────────────────

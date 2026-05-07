@@ -63,10 +63,10 @@
       </div>
     </div>
     <div id="week-pred-cats" style="font-size:.8rem;color:var(--t2)"></div>
-    <button onclick="toggleWeekDetail()" id="week-detail-toggle"
+    <button id="week-detail-toggle" type="button"
       style="width:100%;margin-top:10px;padding:7px;background:none;border:1px solid var(--border);
              border-radius:8px;color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">
-      ▸ 分類明細
+      <span style="pointer-events:none">▸ 分類明細</span>
     </button>
     <div id="week-detail-panel" style="display:none;margin-top:8px"></div>
   </div>
@@ -441,7 +441,7 @@ function toast(msg,type=''){const el=document.getElementById('toast');el.textCon
 init();
 
 // ── 本週支出預測 ──────────────────────────────────────
-let _weekDetailOpen = false;
+window._weekDetailOpen = false;
 function renderWeekPred() {
   const pred = getWeekPrediction();
   const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
@@ -460,7 +460,7 @@ function renderWeekPred() {
     : '<span style="color:var(--t3)">本週尚無記帳</span>';
 
   // 詳細分類表（hidden by default）
-  if (_weekDetailOpen) renderWeekDetail(pred);
+  if (window._weekDetailOpen) renderWeekDetail(pred);
 }
 function renderWeekDetail(pred) {
   const rows = [...pred.catResults].sort((a,b)=>b.total-a.total);
@@ -488,13 +488,35 @@ function renderWeekDetail(pred) {
     </table>`;
 }
 function toggleWeekDetail() {
-  _weekDetailOpen = !_weekDetailOpen;
+  window._weekDetailOpen = !window._weekDetailOpen;
   const panel = document.getElementById('week-detail-panel');
   const btn = document.getElementById('week-detail-toggle');
-  panel.style.display = _weekDetailOpen ? 'block' : 'none';
-  btn.textContent = (_weekDetailOpen ? '▾' : '▸') + ' 分類明細';
-  if (_weekDetailOpen) renderWeekDetail(getWeekPrediction());
+  if (!panel || !btn) return;
+  panel.style.display = window._weekDetailOpen ? 'block' : 'none';
+  // 更新內部 span 文字（避免覆蓋 pointer-events:none 設定）
+  const span = btn.querySelector('span') || btn;
+  span.textContent = (window._weekDetailOpen ? '▾' : '▸') + ' 分類明細';
+  if (window._weekDetailOpen) renderWeekDetail(getWeekPrediction());
 }
+// 綁定 toggle button click（避免內聯 onclick 在手機失效）
+(function bindWeekDetailToggle() {
+  const tryBind = () => {
+    const btn = document.getElementById('week-detail-toggle');
+    if (btn && !btn._bound) {
+      btn._bound = true;
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleWeekDetail();
+      });
+    }
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', tryBind);
+  } else {
+    tryBind();
+  }
+})();
 
 // ── 標籤分析 ──────────────────────────────────────────
 function renderTagAnalysis() {
