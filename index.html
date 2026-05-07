@@ -64,20 +64,6 @@
     <button class="pill" onclick="setF('card',this)">💳 信用卡</button>
     <button class="pill" onclick="setF('icard',this)">🎫 悠遊卡</button>
   </div>
-  <!-- 標籤篩選（預設收合） -->
-  <div id="tag-filter-bar" style="margin-bottom:8px">
-    <button id="tag-filter-toggle" type="button"
-      style="width:100%;display:flex;align-items:center;justify-content:space-between;
-             padding:9px 14px;background:var(--card);border:1.5px solid var(--border);
-             border-radius:var(--rs);color:var(--t3);font-size:.8rem;font-weight:700;
-             cursor:pointer;font-family:inherit">
-      <span style="pointer-events:none">🏷️ 標籤篩選</span>
-      <span id="tag-filter-arrow" style="transition:.2s;pointer-events:none">▸</span>
-    </button>
-    <div id="tag-filter-panel" style="display:none;padding:10px 0 4px">
-      <div id="tag-filter-chips" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 6px"></div>
-    </div>
-  </div>
   <div id="list"></div>
   <div style="height:24px"></div>
 </div>
@@ -178,7 +164,7 @@
 const CAT_IC={food:'🍜',transport:'🚌',shopping:'🛍️',home:'🏠',medical:'💊',entertain:'🎬',education:'📚',child:'👶',other:'📦'};
 const CAT_CL={food:'',transport:'b',shopping:'w',home:'pk',medical:'pu',entertain:'b',education:'',child:'w',other:''};
 const MN=['一','二','三','四','五','六','七','八','九','十','十一','十二'];
-let cy=new Date().getFullYear(), cm=new Date().getMonth()+1, filt='all', filtTag='';
+let cy=new Date().getFullYear(), cm=new Date().getMonth()+1, filt='all';
 let cycleMode=false; // false=標準月, true=週期月
 
 function toggleCycleMode(){
@@ -222,8 +208,6 @@ function render() {
   else if(filt==='card')  list=list.filter(t=>t.pay==='card');
   else if(filt==='icard') list=list.filter(t=>t.pay==='icard');
 
-  // 標籤篩選
-  if(filtTag) list=list.filter(t=>(t.tags||[]).includes(filtTag));
   // 搜尋篩選
   if(searchQ) {
     const q = searchQ.toLowerCase();
@@ -256,7 +240,6 @@ function onSearch() {
   document.getElementById('search-clear').style.display = searchQ ? 'block' : 'none';
   // 搜尋時隱藏篩選 pills（避免干擾）
   document.getElementById('filter-pills').style.display = searchQ ? 'none' : 'flex';
-  document.getElementById('tag-filter-bar').style.display = searchQ ? 'none' : 'block';
   render();
 }
 function clearSearch() {
@@ -264,7 +247,6 @@ function clearSearch() {
   searchQ = '';
   document.getElementById('search-clear').style.display = 'none';
   document.getElementById('filter-pills').style.display = 'flex';
-  document.getElementById('tag-filter-bar').style.display = 'block';
   render();
 }
 
@@ -499,59 +481,7 @@ fbListenWal(()=>render());
 scheduleDailyDiscord();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
-// ── 標籤篩選 ──────────────────────────────────────────
-window._tagFilterOpen = false;
-function toggleTagFilter() {
-  window._tagFilterOpen = !window._tagFilterOpen;
-  const panel = document.getElementById('tag-filter-panel');
-  const arrow = document.getElementById('tag-filter-arrow');
-  if (!panel || !arrow) return;
-  panel.style.display = window._tagFilterOpen ? 'block' : 'none';
-  arrow.textContent = window._tagFilterOpen ? '▾' : '▸';
-  if (window._tagFilterOpen) buildTagFilterChips();
-}
-function buildTagFilterChips() {
-  const tags = getTxTags();
-  const el = document.getElementById('tag-filter-chips');
-  if (!el) return;
-  el.innerHTML = `<button type="button" onclick="setTagF('',this);event.stopPropagation();return false;"
-    style="padding:7px 12px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;
-           font-family:inherit;border:1.5px solid ${filtTag===''?'var(--p)':'var(--border)'};
-           background:${filtTag===''?'var(--pdim)':'var(--card)'};color:${filtTag===''?'var(--p)':'var(--t3)'}"
-    >全部</button>` +
-    tags.map(tag => {
-      const on = filtTag === tag.id;
-      return `<button type="button" onclick="setTagF('${tag.id}',this);event.stopPropagation();return false;"
-        style="padding:7px 12px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;
-               font-family:inherit;border:1.5px solid ${on ? tag.color : 'var(--border)'};
-               background:${on ? tag.color+'22' : 'var(--card)'};color:${on ? tag.color : 'var(--t3)'}"
-        >${tag.label}</button>`;
-    }).join('');
-}
-function setTagF(tagId, el) {
-  filtTag = tagId;
-  buildTagFilterChips();
-  render();
-}
-// 用 addEventListener 綁定 toggle 按鈕，避免內聯 onclick 在某些手機環境失效
-(function bindTagFilterToggle() {
-  const tryBind = () => {
-    const btn = document.getElementById('tag-filter-toggle');
-    if (btn && !btn._bound) {
-      btn._bound = true;
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleTagFilter();
-      });
-    }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryBind);
-  } else {
-    tryBind();
-  }
-})();
+
 
 
 // ── 編輯標籤 ─────────────────────────────────────────
