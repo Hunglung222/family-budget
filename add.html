@@ -973,8 +973,7 @@ function submit() {
   addTx(tx); fbAddTx(tx);
   // 悠遊卡/錢包餘額同步到 Firebase（避免換頁後被舊資料覆蓋）
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
-  // 若本批次有新增子分類，同步到 Firebase
-  if (newSubCatsAdded > 0 && typeof fbSyncCats === 'function') fbSyncCats();
+  // 若有子分類同步需求（confirmNewSubCat 會在需要時呼叫 fbSyncCats）
   // 預算警示
   if (typeof checkBudgetAlert === 'function') {
     checkBudgetAlert(tx).then(res=>{
@@ -1247,8 +1246,7 @@ async function confirmMultiTx() {
   }
 
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
-  // 若本批次有新增子分類，同步到 Firebase
-  if (newSubCatsAdded > 0 && typeof fbSyncCats === 'function') fbSyncCats();
+  // 若有子分類同步需求（confirmNewSubCat 會在需要時呼叫 fbSyncCats）
 
   // Discord 通知（多筆合併成一則）
   const cfg = getDiscord();
