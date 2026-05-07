@@ -74,7 +74,7 @@
       <span>🏷️ 標籤篩選</span>
       <span id="tag-filter-arrow" style="transition:.2s">▸</span>
     </button>
-    <div id="tag-filter-panel" style="display:none;padding:10px 0 4px">
+    <div id="tag-filter-panel" style="display:none;padding:10px 0 4px" onclick="event.stopPropagation()">
       <div id="tag-filter-chips" style="display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 6px"></div>
     </div>
   </div>
@@ -512,14 +512,14 @@ function toggleTagFilter() {
 function buildTagFilterChips() {
   const tags = getTxTags();
   const el = document.getElementById('tag-filter-chips');
-  el.innerHTML = `<button onclick="setTagF('',this)"
+  el.innerHTML = `<button onclick="event.stopPropagation();setTagF('',this)"
     style="padding:7px 12px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;
            font-family:inherit;border:1.5px solid ${filtTag===''?'var(--p)':'var(--border)'};
            background:${filtTag===''?'var(--pdim)':'var(--card)'};color:${filtTag===''?'var(--p)':'var(--t3)'}"
     >全部</button>` +
     tags.map(tag => {
       const on = filtTag === tag.id;
-      return `<button onclick="setTagF('${tag.id}',this)"
+      return `<button onclick="event.stopPropagation();setTagF('${tag.id}',this)"
         style="padding:7px 12px;border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;
                font-family:inherit;border:1.5px solid ${on ? tag.color : 'var(--border)'};
                background:${on ? tag.color+'22' : 'var(--card)'};color:${on ? tag.color : 'var(--t3)'}"

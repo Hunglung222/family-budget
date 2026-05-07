@@ -978,6 +978,15 @@ function applyShortcut(id) {
   const chip = document.querySelector(`#cat-chips .cchip[data-id="${sc.cat}"]`);
   if (chip) chip.classList.add('on');
   triggerCatSub(sc.cat);
+  // 子分類預選
+  if (sc.subCat) {
+    const ss = document.getElementById('sub-sel');
+    for (let i = 0; i < ss.options.length; i++) {
+      if (ss.options[i].value === sc.subCat || ss.options[i].text === sc.subCat) {
+        ss.selectedIndex = i; break;
+      }
+    }
+  }
   // 設定付款方式
   const payEl = document.getElementById('pay-'+sc.pay);
   if (payEl) setPay(sc.pay, payEl);

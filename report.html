@@ -70,6 +70,7 @@
     </button>
     <div id="week-detail-panel" style="display:none;margin-top:8px"></div>
   </div>
+  <div style="height:8px"></div>
 
   <div class="panel on" id="p-ov">
     <div class="sg4">
@@ -463,6 +464,11 @@ function renderWeekPred() {
 }
 function renderWeekDetail(pred) {
   const rows = [...pred.catResults].sort((a,b)=>b.total-a.total);
+  if (!rows.length) {
+    document.getElementById('week-detail-panel').innerHTML =
+      '<div style="color:var(--t3);font-size:.82rem;text-align:center;padding:10px 0">本週尚無記帳資料</div>';
+    return;
+  }
   document.getElementById('week-detail-panel').innerHTML =
     `<table style="width:100%;border-collapse:collapse;font-size:.8rem">
       <thead><tr style="color:var(--t3);font-size:.72rem">
