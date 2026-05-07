@@ -202,6 +202,27 @@
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
 
+<!-- 新增子分類確認 Modal（單筆 AI 記帳用） -->
+<div class="ov" id="newsubcat-modal" style="z-index:600">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">💡 建議新增子分類</div>
+    <div style="background:var(--card2);border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:.78rem;color:var(--t3);margin-bottom:8px">AI 找不到完全匹配的子分類，建議新增：</div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:.95rem">
+        <span id="nsc-cat-name" style="font-weight:700;color:var(--t)"></span>
+        <span style="color:var(--t3)">›</span>
+        <span id="nsc-subcat-name" style="font-weight:900;color:var(--p)"></span>
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:8px">確認後此子分類會永久加入分類清單，下次可直接選用。</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="rejectNewSubCat()">✏️ 我自己選</button>
+      <button class="btn btn-p" onclick="confirmNewSubCat()">✅ 確認新增</button>
+    </div>
+  </div>
+</div>
+
 <!-- 多筆記帳確認 Modal -->
 <div class="ov" id="multi-confirm-modal">
   <div class="sheet" style="max-height:85vh;overflow-y:auto">
@@ -337,7 +358,10 @@ async function waitGeminiCooldown() {
 
 async function callClaude(text) {
   await waitGeminiCooldown();
-  const cats = getCats().map(c=>`${c.id}(${c.name})`).join(', ');
+  const cats = getCats().map(c=>{
+    const subStr = c.sub&&c.sub.length ? ' ['+c.sub.join('/')+']' : '';
+    return `${c.id}(${c.name}${subStr})`;
+  }).join(', ');
   const today = new Date();
   const todayStr = fmtD(today.toISOString());
   const yestStr  = fmtD(new Date(today.getTime()-864e5).toISOString());
@@ -346,21 +370,30 @@ async function callClaude(text) {
   const icardList = getAllAvailableIcards().map(ic=>`${ic.id}:${ic.name}[${ic._owner||'我'}]`).join(',') || '無';
   const tomStr    = fmtD(new Date(today.getTime()+864e5).toISOString());
 
-  const prompt = `你是記帳助理。從這段文字提取所有記帳資訊並回傳純 JSON 陣列（不要 markdown）。
+  const prompt = `你是台灣記帳助理。從這段文字提取所有記帳資訊並回傳純 JSON 陣列（不要 markdown）。
 【重要】所有文字欄位必須使用台灣繁體中文，不可使用簡體中文字。
 今天:${todayStr} 昨天:${yestStr} 明天:${tomStr}
-可用分類(id:名稱): ${cats}
+可用分類(id:名稱[已知子分類清單]): ${cats}
 信用卡清單(id:名稱末4碼): ${cardList}
 悠遊卡清單(id:名稱): ${icardList}
 文字:「${text}」
+
 辨識規則:
 1.日期：昨天/前天/今天/明天都能辨識，沒提到用今天
 2.付款：刷卡/信用卡→card，悠遊卡/感應→icard，其他→cash
 3.信用卡：提到卡名或末4碼就選對應cardId，否則選第一張
 4.悠遊卡：提到悠遊卡名就選對應icardId，否則選第一張
-5.子分類：盡量推測（早餐/午餐/晚餐/宵夜等）
-6.多筆記帳：文字中若有多筆消費，每筆各產生一個物件放入陣列；只有一筆也要用陣列包起來
-回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}, ...]`;
+5.多筆記帳：文字中若有多筆消費，每筆各產生一個物件放入陣列；只有一筆也要用陣列包起來
+
+【分類選擇邏輯（重要）】
+A. 大分類（cat 欄位）：必須從上方「可用分類」清單中選一個 id。如果都不適合，一律歸類到「other」（其他），不要自己編造新的 cat id。
+B. 子分類處理：
+   - 步驟一：先嘗試從該分類的「已知子分類清單」中找最匹配的（包含同義詞）。例如：「煤氣費」=「瓦斯」、「Uber」=「計程車」、「7-11買飲料」=「飲料」。寬鬆匹配，意思相近就用現有的，避免重複建立同一件事的不同名稱。
+   - 步驟二：如果完全找不到合適的現有子分類，建議新增一個簡短（2~6字）的子分類名稱，並把 newSubCat 設為 true。例如「換手錶電池」→ 新增子分類「手錶電池」歸到「其他」(other)。
+   - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
+C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如輸入「換手錶電池200元」→ detail:「換手錶電池」。
+
+回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}, ...]`;
 
   const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Claude API Key');
@@ -517,6 +550,16 @@ function applySingleResult(r) {
     if (el) { selC(r.cat, el); }
   }
   if (r.subCat) {
+    if (r.newSubCat === true) {
+      // 暫存資料，等使用者決定後再應用
+      window._pendingNewSubCat = { cat: r.cat, subCat: r.subCat, fullResult: r };
+      document.getElementById('nsc-cat-name').textContent = catName(r.cat);
+      document.getElementById('nsc-subcat-name').textContent = r.subCat;
+      document.getElementById('newsubcat-modal').classList.add('show');
+      // 注意：應用後續邏輯（goStep2 等）會由 confirmNewSubCat / rejectNewSubCat 處理
+      return;
+    }
+    // 直接套用現有子分類
     const ss = document.getElementById('sub-sel');
     for (let i=0; i<ss.options.length; i++) {
       if (ss.options[i].text === r.subCat) { ss.selectedIndex=i; break; }
@@ -556,6 +599,39 @@ function applySingleResult(r) {
   }
   if (r.amount > 0) goStep2();
   toast('✅ AI 解析完成，請確認', 'info');
+}
+
+// 確認新增子分類，套用到表單
+function confirmNewSubCat() {
+  const p = window._pendingNewSubCat;
+  if (!p) return;
+  // 永久新增到 cats 資料
+  addSubCat(p.cat, p.subCat);
+  // 同步到 Firebase（讓對方也看得到）
+  if (typeof fbSyncCats === 'function') fbSyncCats();
+  // 重新建構 sub-sel（因為剛新增）
+  triggerCatSub(p.cat);
+  // 套到下拉選單
+  setTimeout(() => {
+    const ss = document.getElementById('sub-sel');
+    for (let i = 0; i < ss.options.length; i++) {
+      if (ss.options[i].text === p.subCat) { ss.selectedIndex = i; break; }
+    }
+  }, 50);
+  document.getElementById('newsubcat-modal').classList.remove('show');
+  if (p.fullResult.amount > 0) goStep2();
+  toast(`✅ 已新增子分類「${p.subCat}」`, 'info');
+  window._pendingNewSubCat = null;
+}
+
+// 不新增，子分類留空讓使用者手動選
+function rejectNewSubCat() {
+  const p = window._pendingNewSubCat;
+  if (!p) return;
+  document.getElementById('newsubcat-modal').classList.remove('show');
+  if (p.fullResult.amount > 0) goStep2();
+  toast('已略過子分類，請手動選擇', 'info');
+  window._pendingNewSubCat = null;
 }
 
 // 允許按 Enter 觸發 AI 解析
@@ -881,6 +957,8 @@ function submit() {
   addTx(tx); fbAddTx(tx);
   // 悠遊卡/錢包餘額同步到 Firebase（避免換頁後被舊資料覆蓋）
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+  // 若本批次有新增子分類，同步到 Firebase
+  if (newSubCatsAdded > 0 && typeof fbSyncCats === 'function') fbSyncCats();
   // 預算警示
   if (typeof checkBudgetAlert === 'function') {
     checkBudgetAlert(tx).then(res=>{
@@ -1040,13 +1118,14 @@ const PAY_LABEL= p => p==='card'?'信用卡':p==='icard'?'悠遊卡':'現金';
 
 function openMultiConfirmModal(items) {
   _multiItems = items.map(r => ({
-    amount:  r.amount || 0,
-    cat:     r.cat    || (getCats()[0]?.id || 'other'),
-    subCat:  r.subCat || '',
-    detail:  r.detail || '',
-    pay:     r.pay    || 'cash',
-    cardId:  r.cardId  || null,
-    icardId: r.icardId || null,
+    amount:    r.amount || 0,
+    cat:       r.cat    || (getCats()[0]?.id || 'other'),
+    subCat:    r.subCat || '',
+    newSubCat: r.newSubCat === true,
+    detail:    r.detail || '',
+    pay:       r.pay    || 'cash',
+    cardId:    r.cardId  || null,
+    icardId:   r.icardId || null,
   }));
   renderMultiList();
   document.getElementById('multi-confirm-modal').classList.add('show');
@@ -1061,6 +1140,10 @@ function renderMultiList() {
   el.innerHTML = _multiItems.map((it, i) => {
     const cat = catFind(it.cat);
     const hasError = !it.amount || it.amount <= 0;
+    const newSubCatHint = it.newSubCat ?
+      `<div style="margin-top:6px;padding:6px 10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:.7rem;color:#f59e0b;font-weight:700">
+        💡 將新增子分類：${it.subCat}
+      </div>` : '';
     return `<div style="background:var(--card2);border-radius:12px;padding:12px 14px;margin-bottom:10px;
                         border:1.5px solid ${hasError ? 'var(--danger)' : 'var(--border)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
@@ -1076,7 +1159,8 @@ function renderMultiList() {
           <div style="font-size:1.05rem;font-weight:900;color:var(--danger)">$${fmt(it.amount)}</div>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
+      ${newSubCatHint}
+      <div style="display:flex;gap:8px;margin-top:8px">
         <button onclick="openMeEdit(${i})"
           style="flex:1;padding:7px 0;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);
                  border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">✏️ 編輯</button>
@@ -1107,8 +1191,18 @@ async function confirmMultiTx() {
   btn.disabled = true; btn.textContent = '記帳中...';
 
   let saved = 0;
+  let newSubCatsAdded = 0;
   for (let i = 0; i < valid.length; i++) {
     const it = valid[i];
+    // 若標記為新增子分類，先把它加到 cats 資料
+    if (it.newSubCat && it.subCat) {
+      const cat = catFind(it.cat);
+      // 防止重複（例如已存在的子分類，或同批次已新增過的）
+      if (cat && cat.sub && !cat.sub.includes(it.subCat)) {
+        addSubCat(it.cat, it.subCat);
+        newSubCatsAdded++;
+      }
+    }
     // 每筆時間戳錯開 1 秒，確保排序正確
     const at = new Date(Date.now() - (valid.length - 1 - i) * 1000).toISOString();
     const tx = {
@@ -1137,6 +1231,8 @@ async function confirmMultiTx() {
   }
 
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+  // 若本批次有新增子分類，同步到 Firebase
+  if (newSubCatsAdded > 0 && typeof fbSyncCats === 'function') fbSyncCats();
 
   // Discord 通知（多筆合併成一則）
   const cfg = getDiscord();
@@ -1213,13 +1309,14 @@ function saveMeEdit() {
   if (!amt) { toast('金額不可為 0', 'warn'); return; }
   _multiItems[_meEditIdx] = {
     ..._multiItems[_meEditIdx],
-    amount:  amt,
-    cat:     document.getElementById('me-cat').value,
-    subCat:  document.getElementById('me-subcat').value,
-    detail:  document.getElementById('me-detail').value.trim(),
-    pay:     _mePay,
-    cardId:  _mePay==='card'  ? document.getElementById('me-card-sel').value  : null,
-    icardId: _mePay==='icard' ? document.getElementById('me-icard-sel').value : null,
+    amount:    amt,
+    cat:       document.getElementById('me-cat').value,
+    subCat:    document.getElementById('me-subcat').value,
+    newSubCat: false,
+    detail:    document.getElementById('me-detail').value.trim(),
+    pay:       _mePay,
+    cardId:    _mePay==='card'  ? document.getElementById('me-card-sel').value  : null,
+    icardId:   _mePay==='icard' ? document.getElementById('me-icard-sel').value : null,
   };
   closeMeModal();
   renderMultiList();
