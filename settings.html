@@ -515,6 +515,19 @@
     </div>
   </div>
 
+  <!-- 錢包維護 -->
+  <div class="sec-t">🛠️ 錢包維護</div>
+  <div class="set-card">
+    <div class="srow" onclick="cleanWalletHistory()">
+      <div class="sico" style="background:rgba(245,158,11,.12)">🧹</div>
+      <div class="sinfo">
+        <div class="sname">清除異常錢包記錄</div>
+        <div class="sdesc">移除「刪除還原」等異常流入，保留正常支出記錄，餘額歸零</div>
+      </div>
+      <span class="sarr">›</span>
+    </div>
+  </div>
+
   <!-- 危險區 -->
   <div class="sec-t">⚠️ 危險操作</div>
   <div class="set-card">
@@ -586,7 +599,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.07 17:35';
+const APP_VERSION = 'v2026.05.08 09:29';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -1260,6 +1273,19 @@ function importData(inp){
     }catch(err){console.error(err);toast('格式錯誤，請確認檔案','err');}
   };
   r.readAsText(f);inp.value='';
+}
+
+function cleanWalletHistory() {
+  const w = getWal();
+  const before = w.history.length;
+  // 移除所有「流入」記錄（刪除還原、加值、提領等都是 type:'in'）
+  // 只保留 type:'out'（真實消費扣款）
+  w.history = w.history.filter(h => h.type === 'out');
+  w.balance = 0;
+  const after = w.history.length;
+  DB.set(pKey('wal'), w);
+  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+  toast(`✅ 已清除 ${before - after} 筆異常記錄，餘額歸零`);
 }
 
 function confirmReset(){
