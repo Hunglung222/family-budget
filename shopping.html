@@ -53,7 +53,10 @@
 <body>
 <header class="hdr">
   <div><h1>🛒 網購管理</h1><div class="hdr-sub" id="order-count">載入中...</div></div>
-  <a href="./settings.html" class="hdr-btn">⚙️</a>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button onclick="showAddOrder()" class="hdr-btn" style="background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">＋</button>
+    <a href="./settings.html" class="hdr-btn">⚙️</a>
+  </div>
 </header>
 
 <div class="w">
@@ -204,8 +207,7 @@
   </div>
 </div>
 
-<!-- FAB 新增按鈕 -->
-<button onclick="showAddOrder()" style="position:fixed;bottom:calc(var(--nav)+16px);right:18px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:1.5rem;border:none;cursor:pointer;z-index:100;box-shadow:0 4px 18px rgba(0,0,0,.3);display:flex;align-items:center;justify-content:center">＋</button>
+<!-- FAB 已移至右上角 header -->
 
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
@@ -278,7 +280,7 @@ function render() {
 
   const el = document.getElementById('order-list');
   if (!list.length) {
-    el.innerHTML='<div class="empty"><div class="ei">🛒</div><p>尚無訂單<br>點右下角 ＋ 新增</p></div>';
+    el.innerHTML='<div class="empty"><div class="ei">🛒</div><p>尚無訂單<br>點右上角 ＋ 新增</p></div>';
     return;
   }
   el.innerHTML = list.map(o=>orderHTML(o)).join('');
