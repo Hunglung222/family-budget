@@ -432,4 +432,7 @@ function scheduleNotifications(){
   },target-now);
 }
 
+// alias：index.html 呼叫 scheduleDailyDiscord()，確保兩個名稱都能用
+const scheduleDailyDiscord = scheduleNotifications;
+
 getDb();

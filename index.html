@@ -99,9 +99,9 @@
       <span class="flbl">🏷️ 分類</span>
       <select class="fc" id="e-cat"></select>
     </div>
-    <div class="fg">
+    <div class="fg" id="e-subcat-fg">
       <span class="flbl">📂 子分類（可略）</span>
-      <input type="text" class="fc" id="e-subcat" placeholder="例：早餐">
+      <select class="fc" id="e-subcat"></select>
     </div>
     <div class="fg">
       <span class="flbl">📝 明細（可略）</span>
@@ -306,8 +306,9 @@ function askEdit(id, e) {
   catSel.innerHTML = getCats().map(c =>
     `<option value="${c.id}" ${c.id===tx.cat?'selected':''}>${c.name}</option>`
   ).join('');
+  catSel.onchange = () => buildEditSubCatSel(catSel.value, '');
   // 子分類、明細
-  document.getElementById('e-subcat').value = tx.subCat || '';
+  buildEditSubCatSel(tx.cat, tx.subCat || '');
   document.getElementById('e-detail').value = tx.detail || '';
   // 記帳人
   editPerson = tx.person || '宏龍';
@@ -385,7 +386,7 @@ async function submitEdit() {
     ...old,
     amount:  amt,
     cat:     document.getElementById('e-cat').value,
-    subCat:  document.getElementById('e-subcat').value.trim(),
+    subCat:  document.getElementById('e-subcat').value,
     detail:  document.getElementById('e-detail').value.trim(),
     person:  editPerson,
     pay:     newPay,
@@ -484,6 +485,19 @@ if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch
 
 
 
+
+// ── 編輯子分類下拉 ────────────────────────────────────
+function buildEditSubCatSel(catId, currentVal) {
+  const cat = catFind(catId);
+  const fg  = document.getElementById('e-subcat-fg');
+  const sel = document.getElementById('e-subcat');
+  if (!cat.sub || !cat.sub.length) {
+    sel.innerHTML = '<option value="">（無子分類）</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">（可略）</option>' +
+    cat.sub.map(s => `<option value="${s}" ${s===currentVal?'selected':''}>${s}</option>`).join('');
+}
 
 // ── 編輯標籤 ─────────────────────────────────────────
 function renderEditTagChips() {
