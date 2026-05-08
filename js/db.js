@@ -84,6 +84,10 @@ function addTx(tx) {
   if (tx.pay === 'cash')  walOut(tx.amount, tx.detail || catName(tx.cat));
   if (tx.pay === 'icard' && tx.icardId) icardOut(tx.icardId, tx.amount, tx.detail || catName(tx.cat));
   if (tx.pay === 'card'  && tx.cardId)  cardAddBill(tx.cardId, tx.amount, tx.detail || catName(tx.cat), tx.at);
+  if (tx.pay === 'acct'  && tx.acctId) {
+    const isShared = tx.acctId.startsWith('shared_');
+    acctOut(isShared ? tx.acctId.replace('shared_','') : tx.acctId, tx.amount, tx.detail || catName(tx.cat), isShared);
+  }
   rememberHint(tx.cat, tx.subCat, tx.detail);
   const p = getPrefs(); p.lastCat = tx.cat; p.lastPay = tx.pay; DB.set('prefs', p);
   return tx;
@@ -95,6 +99,10 @@ function delTx(id) {
     if (tx.pay === 'cash')  walIn(tx.amount, '刪除還原');
     if (tx.pay === 'icard' && tx.icardId) icardIn(tx.icardId, tx.amount, '刪除還原');
     if (tx.pay === 'card'  && tx.cardId)  cardVoidBill(tx.cardId, tx.amount, tx.id);
+    if (tx.pay === 'acct'  && tx.acctId) {
+      const isShared = tx.acctId.startsWith('shared_');
+      acctIn(isShared ? tx.acctId.replace('shared_','') : tx.acctId, tx.amount, '刪除還原', isShared);
+    }
   }
 }
 function txByMonth(y, m) {

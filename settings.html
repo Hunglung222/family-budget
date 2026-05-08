@@ -526,6 +526,14 @@
       </div>
       <span class="sarr">›</span>
     </div>
+    <div class="srow" onclick="resetWalletHistory()">
+      <div class="sico" style="background:rgba(244,63,94,.12)">🗑️</div>
+      <div class="sinfo">
+        <div class="sname" style="color:var(--danger)">清空所有錢包歷史</div>
+        <div class="sdesc">流水帳記錄全部清空、餘額歸零，不影響記帳資料</div>
+      </div>
+      <span class="sarr">›</span>
+    </div>
   </div>
 
   <!-- 危險區 -->
@@ -599,7 +607,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.08 09:29';
+const APP_VERSION = 'v2026.05.08 09:52';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -1275,6 +1283,16 @@ function importData(inp){
   r.readAsText(f);inp.value='';
 }
 
+function resetWalletHistory() {
+  const w = getWal();
+  const count = w.history.length;
+  w.history = [];
+  w.balance = 0;
+  DB.set(pKey('wal'), w);
+  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+  toast(`✅ 已清空 ${count} 筆錢包歷史，餘額歸零`);
+}
+
 function cleanWalletHistory() {
   const w = getWal();
   const before = w.history.length;
@@ -1449,7 +1467,7 @@ function renderShortcutMgmt() {
   const list = getShortcuts();
   const el = document.getElementById('shortcut-mgmt-list');
   if (!el) return;
-  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
   el.innerHTML = list.map(sc => {
     const cat = catFind(sc.cat);
     return `<div style="display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)">
@@ -1542,7 +1560,7 @@ function editShortcutMgmt(id) {
   // 子分類下拉（帶入目前的子分類）
   onScCatChange(sc.subCat);
   // 付款方式
-  ['cash','card','icard'].forEach(p => {
+  ['cash','card','icard','acct'].forEach(p => {
     document.getElementById('sc-pay-'+p).classList.toggle('on', p===_scPay);
   });
   showModal('add-shortcut-modal');

@@ -170,6 +170,7 @@
         <button class="tb" id="pay-cash"  onclick="setPay('cash',this)"  style="flex:none;padding:12px 16px">💵 現金</button>
         <button class="tb" id="pay-card"  onclick="setPay('card',this)"  style="flex:none;padding:12px 16px">💳 信用卡</button>
         <button class="tb" id="pay-icard" onclick="setPay('icard',this)" style="flex:none;padding:12px 16px">🎫 悠遊卡</button>
+        <button class="tb" id="pay-acct"  onclick="setPay('acct',this)"  style="flex:none;padding:12px 16px">🏦 帳戶</button>
       </div>
     </div>
     <div class="fg" id="card-fg" style="display:none">
@@ -181,6 +182,11 @@
       <span class="flbl">🎫 選擇悠遊卡</span>
       <div class="card-chips" id="icard-chips"></div>
       <div id="no-icard-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定悠遊卡，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
+    </div>
+    <div class="fg" id="acct-fg" style="display:none">
+      <span class="flbl">🏦 選擇帳戶</span>
+      <div class="card-chips" id="acct-chips"></div>
+      <div id="no-acct-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定銀行帳戶，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
     </div>
     <!-- 消費標籤（可略，可複選） -->
     <div class="fg" id="tags-fg">
@@ -275,6 +281,10 @@
     <div class="fg" id="me-icard-fg" style="display:none">
       <span class="flbl">🎫 選擇悠遊卡</span>
       <select class="fc" id="me-icard-sel"></select>
+    </div>
+    <div class="fg" id="me-acct-fg" style="display:none">
+      <span class="flbl">🏦 選擇帳戶</span>
+      <select class="fc" id="me-acct-sel"></select>
     </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeMeModal()">取消</button>
@@ -382,7 +392,7 @@ async function callClaude(text) {
 
 辨識規則:
 1.日期：昨天/前天/今天/明天都能辨識，沒提到用今天
-2.付款：刷卡/信用卡→card，悠遊卡/感應→icard，其他→cash
+2.付款：刷卡/信用卡→card，悠遊卡/感應→icard，街口/LinePay/台灣Pay/銀行轉帳/帳戶扣款→acct，其他→cash
 3.信用卡：提到卡名或末4碼就選對應cardId，否則選第一張
 4.悠遊卡：提到悠遊卡名就選對應icardId，否則選第一張
 5.多筆記帳：文字中若有多筆消費，每筆各產生一個物件放入陣列；只有一筆也要用陣列包起來
@@ -395,7 +405,7 @@ B. 子分類處理：
    - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
 C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如輸入「換手錶電池200元」→ detail:「換手錶電池」。
 
-回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null"}, ...]`;
+回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}, ...]`;
 
   const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Claude API Key');
@@ -601,6 +611,11 @@ function applySingleResult(r) {
   } else if (r.pay === 'icard') {
     const el=document.getElementById('pay-icard'); if(el) setPay('icard',el);
     if (r.icardId) { setTimeout(()=>{ const chip=document.querySelector(`#icard-chips [data-id="${r.icardId}"]`); if(chip) selIC(r.icardId, chip); }, 100); }
+  } else if (r.pay === 'acct') {
+    const el=document.getElementById('pay-acct'); if(el) setPay('acct',el);
+    if (r.acctId) {
+      setTimeout(()=>{ const chip=document.querySelector(`#acct-chips [data-id="${r.acctId}"]`); if(chip) selAC(r.acctId, chip); }, 100);
+    }
   } else {
     const el=document.getElementById('pay-cash'); if(el) setPay('cash',el);
   }
@@ -656,7 +671,7 @@ document.getElementById('ai-input').addEventListener('keydown', e => {
 });
 
 // ── 主邏輯 ──────────────────────────────────────────
-let astr='', selCat='', selCard='', selIcard='', pay='cash', person='宏龍', selTags=[];
+let astr='', selCat='', selCard='', selIcard='', selAcct='', pay='cash', person='宏龍', selTags=[];
 
 function init() {
   applyTheme();
@@ -680,6 +695,8 @@ function init() {
   if (payBtn) payBtn.classList.add('on');
   if (pay==='card')  document.getElementById('card-fg').style.display='block';
   if (pay==='icard') document.getElementById('icard-fg').style.display='block';
+  if (pay==='acct')  document.getElementById('acct-fg').style.display='block';
+  buildAcctChips();
   buildShortcutsBar();
   buildTagChips();
   // 建立分類、卡片
@@ -740,6 +757,26 @@ function buildIcardChips() {
   selIcard = allIcards[0].id;
   el.querySelector('.cc').classList.add('on');
 }
+
+function buildAcctChips() {
+  const personal = getAccts(false).map(a => ({...a, _shared: false}));
+  const shared   = getAccts(true).map(a => ({...a, _shared: true, id: 'shared_'+a.id}));
+  const all = [...personal, ...shared];
+  const el   = document.getElementById('acct-chips');
+  const hint = document.getElementById('no-acct-hint');
+  if (!all.length) { el.innerHTML=''; hint.style.display='block'; selAcct=''; return; }
+  hint.style.display = 'none';
+  el.innerHTML = all.map(a => {
+    const sharedTag = a._shared
+      ? `<span style="font-size:.6rem;background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:10px;padding:1px 5px;margin-left:3px">家用</span>`
+      : '';
+    const balTag = `<span style="font-size:.75rem;opacity:.7"> $${fmt(a.balance||0)}</span>`;
+    return `<button class="cc" data-id="${a.id}" onclick="selAC('${a.id}',this)">${a.name}${balTag}${sharedTag}</button>`;
+  }).join('');
+  selAcct = all[0].id;
+  el.querySelector('.cc').classList.add('on');
+}
+function selAC(id, el) { selAcct=id; document.querySelectorAll('#acct-chips .cc').forEach(c=>c.classList.remove('on')); el.classList.add('on'); }
 
 // ── 記帳夥伴角色資料 ─────────────────────────────────
 const CHARACTERS = [
@@ -926,10 +963,11 @@ function selC(id, el) {
 function onSubChange() { }
 function setPay(p, el) {
   pay = p;
-  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard,#pay-acct').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('card-fg').style.display  = p==='card'  ? 'block' : 'none';
   document.getElementById('icard-fg').style.display = p==='icard' ? 'block' : 'none';
+  document.getElementById('acct-fg').style.display  = p==='acct'  ? 'block' : 'none';
 }
 function setP(p, el) {
   person = p;
@@ -952,6 +990,7 @@ function submit() {
   if (!selCat)                   { toast('請選擇分類','warn');               return; }
   if (pay==='card'  && !selCard) { toast('請先至錢包頁新增信用卡','warn');    return; }
   if (pay==='icard' && !selIcard){ toast('請先至錢包頁新增悠遊卡','warn');    return; }
+  if (pay==='acct'  && !selAcct) { toast('請先至錢包頁新增銀行帳戶','warn');   return; }
 
   const dtv = document.getElementById('tx-dt-raw').value;
   const tx = {
@@ -961,6 +1000,7 @@ function submit() {
     person, pay,
     cardId:  pay==='card'  ? selCard  : null,
     icardId: pay==='icard' ? selIcard : null,
+    acctId:  pay==='acct'  ? selAcct  : null,
     tags: [...selTags],
     // iOS Safari 相容：dtv 格式是 "YYYY-MM-DDTHH:MM"，需明確解析避免時區問題
     at: dtv ? (()=>{
@@ -997,7 +1037,7 @@ function submit() {
 }
 
 function resetForm() {
-  astr=''; selCat=''; selTags=[];
+  astr=''; selCat=''; selAcct=''; selTags=[];
   document.getElementById('aval').textContent = '0';
   document.getElementById('adisp').classList.remove('has-val');
   document.getElementById('s1').style.display = 'block';
@@ -1128,8 +1168,8 @@ let _multiItems = []; // 待確認的記帳陣列（可被編輯）
 let _meEditIdx  = -1; // 正在編輯的索引
 let _mePay      = 'cash';
 
-const PAY_ICON = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
-const PAY_LABEL= p => p==='card'?'信用卡':p==='icard'?'悠遊卡':'現金';
+const PAY_ICON = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
+const PAY_LABEL= p => p==='card'?'信用卡':p==='icard'?'悠遊卡':p==='acct'?'帳戶':'現金';
 
 function openMultiConfirmModal(items) {
   _multiItems = items.map(r => ({
@@ -1282,6 +1322,7 @@ function openMeEdit(i) {
   ['cash','card','icard'].forEach(p => document.getElementById('me-pay-'+p).classList.toggle('on', p===_mePay));
   document.getElementById('me-card-fg').style.display  = _mePay==='card'  ? 'block' : 'none';
   document.getElementById('me-icard-fg').style.display = _mePay==='icard' ? 'block' : 'none';
+  document.getElementById('me-acct-fg').style.display  = _mePay==='acct'  ? 'block' : 'none';
   // 信用卡/悠遊卡選單
   const allCards = typeof getAllAvailableCards==='function' ? getAllAvailableCards() : [];
   document.getElementById('me-card-sel').innerHTML = allCards.map(c =>
@@ -1291,6 +1332,13 @@ function openMeEdit(i) {
   document.getElementById('me-icard-sel').innerHTML = allIcards.map(c =>
     `<option value="${c.id}" ${c.id===it.icardId?'selected':''}>${c.name}</option>`
   ).join('') || '<option value="">尚無悠遊卡</option>';
+  const allAccts = [
+    ...getAccts(false).map(a=>({...a, _shared:false})),
+    ...getAccts(true).map(a=>({...a, _shared:true, id:'shared_'+a.id}))
+  ];
+  document.getElementById('me-acct-sel').innerHTML = allAccts.map(a =>
+    `<option value="${a.id}" ${a.id===it.acctId?'selected':''}>${a.name} $${fmt(a.balance||0)}${a._shared?' (家用)':''}</option>`
+  ).join('') || '<option value="">尚無帳戶</option>';
 
   document.getElementById('multi-edit-modal').classList.add('show');
 }
@@ -1312,10 +1360,11 @@ function onMeCatChange(preselect) {
 
 function setMePay(p, el) {
   _mePay = p;
-  ['cash','card','icard'].forEach(k => document.getElementById('me-pay-'+k).classList.remove('on'));
+  ['cash','card','icard','acct'].forEach(k => document.getElementById('me-pay-'+k).classList.remove('on'));
   el.classList.add('on');
   document.getElementById('me-card-fg').style.display  = p==='card'  ? 'block' : 'none';
   document.getElementById('me-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+  document.getElementById('me-acct-fg').style.display  = p==='acct'  ? 'block' : 'none';
 }
 
 function saveMeEdit() {
