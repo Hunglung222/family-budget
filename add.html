@@ -840,6 +840,28 @@ async function getFunnyComment(tx) {
   } catch(e){ console.warn('[mascot]',e.message); }
 }
 
+async function getFunnyCommentMulti(tx) {
+  const key = localStorage.getItem('claude_api_key')||'';
+  if (!key) return;
+  const char = getChar();
+  const listStr = tx._multiSummary || '';
+  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這次一口氣記了 ${tx._multiCount} 筆：${listStr}\n用你的個性說一句話（15~30字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
+    });
+    if(!res.ok) return;
+    const d = await res.json();
+    const t = (d.content?.[0]?.text||'').trim();
+    if(!t) return;
+    const char2 = getChar();
+    showMascot(char2.name + '：' + t);
+    if (typeof discordOnAddWithComment === 'function') discordOnAddWithComment(tx, t, char2.name);
+  } catch(e){ console.warn('[mascot-multi]',e.message); }
+}
+
 // ── 計算機模式 ────────────────────────────────────────
 let calcMode = false;
 let calcExpr = '';
@@ -1304,6 +1326,21 @@ async function confirmMultiTx() {
   const sov = document.getElementById('sov');
   sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
   toast(`✅ 已記帳 ${saved} 筆！`);
+
+  // 記帳夥伴回應（取最後一筆，或金額最大的那筆）
+  const hasKey = !!localStorage.getItem('claude_api_key');
+  if (hasKey && valid.length) {
+    const featured = [...valid].sort((a,b)=>b.amount-a.amount)[0];
+    // 多筆時給 AI 完整清單資訊
+    const multiTx = {
+      ...featured,
+      _multiSummary: valid.map(it=>`${catName(it.cat)}${it.subCat?' › '+it.subCat:''} $${it.amount}`).join('、'),
+      _multiCount: valid.length,
+    };
+    getFunnyCommentMulti(multiTx);
+  } else if (!hasKey && valid.length) {
+    if (typeof discordOnAdd === 'function') discordOnAdd({...valid[0], person});
+  }
 }
 
 // ── 單筆編輯 Modal ──────────────────────────────────

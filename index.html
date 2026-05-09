@@ -208,6 +208,7 @@ function render() {
   else if(filt==='cash')  list=list.filter(t=>t.pay==='cash');
   else if(filt==='card')  list=list.filter(t=>t.pay==='card');
   else if(filt==='icard') list=list.filter(t=>t.pay==='icard');
+  else if(filt==='acct')  list=list.filter(t=>t.pay==='acct');
 
   // 搜尋篩選
   if(searchQ) {
