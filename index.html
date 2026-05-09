@@ -124,6 +124,7 @@
         <button class="tb" id="e-pay-cash"  onclick="setEPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
         <button class="tb" id="e-pay-card"  onclick="setEPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
         <button class="tb" id="e-pay-icard" onclick="setEPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+        <button class="tb" id="e-pay-acct"  onclick="setEPay('acct',this)"  style="flex:none;padding:10px 14px">🏦 帳戶</button>
       </div>
     </div>
     <div class="fg" id="e-card-fg" style="display:none">
@@ -254,8 +255,16 @@ function clearSearch() {
 
 function txHTML(t) {
   const ic=CAT_IC[t.cat]||'📦', cl=CAT_CL[t.cat]||'';
+  let _acctName = '帳戶';
+  if (t.pay==='acct' && t.acctId) {
+    const _aid = t.acctId.startsWith('shared_') ? t.acctId.replace('shared_','') : t.acctId;
+    const _isSh = t.acctId.startsWith('shared_');
+    const _ac = acctFind(_aid, _isSh);
+    if (_ac) _acctName = _ac.name;
+  }
   const pay = t.pay==='cash'  ? '💵 現金'
            : t.pay==='icard' ? `🎫 ${typeof icardFind==='function'&&icardFind(t.icardId)?icardFind(t.icardId).name:'悠遊卡'}`
+           : t.pay==='acct'  ? `🏦 ${_acctName}`
            : `💳 ${typeof getCardName==='function'?getCardName(t.cardId):(cardFind(t.cardId)?.name||'信用卡')}`;
   const tagBadges = (t.tags&&t.tags.length)
     ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${
@@ -318,7 +327,7 @@ function askEdit(id, e) {
 
   // 付款方式
   editPay = tx.pay || 'cash';
-  ['cash','card','icard'].forEach(p => {
+  ['cash','card','icard','acct'].forEach(p => {
     document.getElementById('e-pay-'+p).classList.toggle('on', editPay===p);
   });
   // 信用卡下拉
@@ -336,6 +345,15 @@ function askEdit(id, e) {
   // 顯示對應卡片選單
   document.getElementById('e-card-fg').style.display  = editPay==='card'  ? 'block' : 'none';
   document.getElementById('e-icard-fg').style.display = editPay==='icard' ? 'block' : 'none';
+  document.getElementById('e-acct-fg').style.display  = editPay==='acct'  ? 'block' : 'none';
+  // 帳戶選單
+  const allAccts = [
+    ...getAccts(false).map(a=>({...a, _shared:false})),
+    ...getAccts(true).map(a=>({...a, _shared:true, id:'shared_'+a.id}))
+  ];
+  document.getElementById('e-acct-sel').innerHTML = allAccts.map(a =>
+    `<option value="${a.id}" ${a.id===(tx.acctId||'')?'selected':''}>${a.name} $${fmt(a.balance||0)}${a._shared?' (家用)':''}</option>`
+  ).join('') || '<option value="">尚無帳戶</option>';
 
   // 標籤
   editTags = [...(tx.tags||[])];
@@ -351,10 +369,11 @@ function setEP(p, el) {
 
 function setEPay(p, el) {
   editPay = p;
-  document.querySelectorAll('#e-pay-cash,#e-pay-card,#e-pay-icard').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#e-pay-cash,#e-pay-card,#e-pay-icard,#e-pay-acct').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('e-card-fg').style.display  = p==='card'  ? 'block' : 'none';
   document.getElementById('e-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+  document.getElementById('e-acct-fg').style.display  = p==='acct'  ? 'block' : 'none';
 }
 
 function closeEdit() {
@@ -393,6 +412,7 @@ async function submitEdit() {
     pay:     newPay,
     cardId:  newCardId,
     icardId: newIcardId,
+    acctId:  editPay==='acct' ? document.getElementById('e-acct-sel').value : null,
     at:      dtv ? new Date(dtv).toISOString() : old.at,
     editedAt: new Date().toISOString(),
     tags:    [...editTags],
