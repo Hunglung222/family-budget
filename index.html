@@ -135,6 +135,10 @@
       <span class="flbl">🎫 選擇悠遊卡</span>
       <select class="fc" id="e-icard-sel"></select>
     </div>
+    <div class="fg" id="e-acct-fg" style="display:none">
+      <span class="flbl">🏦 選擇帳戶</span>
+      <select class="fc" id="e-acct-sel"></select>
+    </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeEdit()">取消</button>
       <button class="btn btn-p" onclick="submitEdit()">💾 儲存</button>
@@ -328,7 +332,8 @@ function askEdit(id, e) {
   // 付款方式
   editPay = tx.pay || 'cash';
   ['cash','card','icard','acct'].forEach(p => {
-    document.getElementById('e-pay-'+p).classList.toggle('on', editPay===p);
+    const btn = document.getElementById('e-pay-'+p);
+    if (btn) btn.classList.toggle('on', editPay===p);
   });
   // 信用卡下拉
   const cardSel = document.getElementById('e-card-sel');
