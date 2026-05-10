@@ -1203,6 +1203,7 @@ function openMultiConfirmModal(items) {
     pay:       r.pay    || 'cash',
     cardId:    r.cardId  || null,
     icardId:   r.icardId || null,
+    date:      r.date   || null,
   }));
   renderMultiList();
   document.getElementById('multi-confirm-modal').classList.add('show');
@@ -1280,8 +1281,20 @@ async function confirmMultiTx() {
         newSubCatsAdded++;
       }
     }
-    // 每筆時間戳錯開 1 秒，確保排序正確
-    const at = new Date(Date.now() - (valid.length - 1 - i) * 1000).toISOString();
+    // 每筆時間戳：AI 有指定日期就用指定日期，否則錯開 1 秒
+    let at;
+    if (it.date) {
+      try {
+        const dateStr = String(it.date).replace(/[\/\.]/g,'-').trim();
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          const now2 = new Date();
+          at = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]),
+                        now2.getHours(), now2.getMinutes(), now2.getSeconds() - i).toISOString();
+        }
+      } catch(e) {}
+    }
+    if (!at) at = new Date(Date.now() - (valid.length - 1 - i) * 1000).toISOString();
     const tx = {
       amount:  it.amount,
       cat:     it.cat,

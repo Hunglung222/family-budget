@@ -105,6 +105,7 @@
     </div>
     <div class="sec-t">💳 待繳信用卡帳單</div>
     <div id="pending-bills"></div>
+    <div style="height:80px"></div>
   </div>
 
   <!-- 錢包 -->
@@ -115,7 +116,7 @@
         <div class="acct-bal"><span class="u">$</span><span id="wal-bal">0</span></div>
       </div>
       <div class="acct-actions">
-        <button class="acct-btn in" onclick="showModal('withdraw-modal')">💵 從帳戶提領</button>
+        <button class="acct-btn in" onclick="showWithdrawSelect()">💵 從帳戶提領</button>
         <button class="acct-btn out" onclick="showModal('walout-modal')">➕ 手動調整</button>
       </div>
     </div>
@@ -162,8 +163,16 @@
 <!-- 從帳戶提領至錢包 -->
 <div class="ov" id="withdraw-modal">
   <div class="sheet"><div class="sh"></div><div class="st">💵 提領現金至錢包</div>
-    <div class="fg"><span class="flbl">選擇帳戶</span>
-      <select class="fc" id="wd-acct"></select></div>
+    <div class="fg" id="wd-acct-sel-fg" style="display:none">
+      <span class="flbl">選擇帳戶</span>
+      <select class="fc" id="wd-acct-sel"></select>
+    </div>
+    <div class="fg" id="wd-acct-name-fg">
+      <span class="flbl">帳戶</span>
+      <div class="fc" id="wd-acct-name" style="cursor:default;opacity:.9"></div>
+    </div>
+    <input type="hidden" id="wd-acct-id">
+    <input type="hidden" id="wd-acct-shared">
     <div class="fg"><span class="flbl">提領金額</span>
       <input type="number" class="fc" id="wd-amt" placeholder="例：5000" inputmode="numeric"></div>
     <div class="fg"><span class="flbl">備註</span>
@@ -496,24 +505,21 @@ function renderWallet() {
 
 // 從帳戶提領
 function showModal(id) {
-  if (id==='withdraw-modal') {
-    const sel = document.getElementById('wd-acct');
-    const opts = [...getAccts(false),...getAccts(true)].map(a=>`<option value="${a.id}_${a.id.startsWith('shared')?'1':'0'}">${a.name} ($${fmt(a.balance)})</option>`).join('');
-    sel.innerHTML = opts || '<option>尚無帳戶</option>';
-  }
+
   if (id==='pay-acct-fg') return;
   document.getElementById(id).classList.add('show');
 }
 function closeModal(id) { document.getElementById(id).classList.remove('show'); }
 
 function submitWithdraw() {
-  const val = document.getElementById('wd-acct').value;
-  const amt = parseInt(document.getElementById('wd-amt').value)||0;
+  const acctId  = document.getElementById('wd-acct-id').value;
+  const isShared = document.getElementById('wd-acct-shared').value;
+  const amt  = parseInt(document.getElementById('wd-amt').value)||0;
   const note = document.getElementById('wd-note').value||'ATM 提款';
-  if (!val||!amt) { toast('請填寫完整','warn'); return; }
-  const [acctId, isShared] = val.split('_');
+  if (!acctId||!amt) { toast('請填寫完整','warn'); return; }
   walWithdraw(isShared==='1'?'shared_'+acctId:acctId, amt, note);
   fbSyncPersonal(); if(isShared==='1') fbSyncSharedAccts();
+  document.getElementById('wd-acct-id').value='';
   closeModal('withdraw-modal'); render(); toast(`已提領 $${fmt(amt)}`);
   document.getElementById('wd-amt').value=''; document.getElementById('wd-note').value='';
 }
@@ -595,10 +601,43 @@ function submitAcctTx() {
   closeModal('acct-tx-modal'); renderAccounts(); renderOverview();
   toast(`已${acctTxType==='in'?'入帳':'出帳'} $${fmt(amt)}`);
 }
+function showWithdrawSelect() {
+  // 從錢包頁「從帳戶提領」進來：顯示帳戶下拉選單
+  const all = [
+    ...getAccts(false).map(a=>({...a,_sh:'0'})),
+    ...getAccts(true).map(a=>({...a,_sh:'1'}))
+  ];
+  if (!all.length) { toast('尚未設定銀行帳戶','warn'); return; }
+  const sel = document.getElementById('wd-acct-sel');
+  sel.innerHTML = all.map(a=>`<option value="${a.id}|||${a._sh}">${a.name} ($${fmt(a.balance||0)})</option>`).join('');
+  // 顯示選單，隱藏固定帳戶名稱
+  document.getElementById('wd-acct-sel-fg').style.display = 'block';
+  document.getElementById('wd-acct-name-fg').style.display = 'none';
+  // 預填第一個
+  const first = all[0];
+  document.getElementById('wd-acct-id').value = first.id;
+  document.getElementById('wd-acct-shared').value = first._sh;
+  // 下拉切換時更新 hidden 欄位
+  sel.onchange = function() {
+    const [aid, ash] = this.value.split('|||');
+    document.getElementById('wd-acct-id').value = aid;
+    document.getElementById('wd-acct-shared').value = ash;
+  };
+  document.getElementById('wd-amt').value='';
+  document.getElementById('wd-note').value='';
+  showModal('withdraw-modal');
+}
+
 function showWithdrawFrom(id, shared) {
   const a = acctFind(id, shared);
-  document.getElementById('wd-acct').innerHTML = `<option value="${id}_${shared?1:0}">${a?.name||'帳戶'} ($${fmt(a?.balance||0)})</option>`;
-  document.getElementById('wd-amt').value=''; document.getElementById('wd-note').value='';
+  // 隱藏下拉選單，顯示固定帳戶名稱
+  document.getElementById('wd-acct-sel-fg').style.display = 'none';
+  document.getElementById('wd-acct-name-fg').style.display = 'block';
+  document.getElementById('wd-acct-name').textContent = `${a?.name||'帳戶'}（餘額 $${fmt(a?.balance||0)}）`;
+  document.getElementById('wd-acct-id').value = id;
+  document.getElementById('wd-acct-shared').value = shared ? '1' : '0';
+  document.getElementById('wd-amt').value='';
+  document.getElementById('wd-note').value='';
   showModal('withdraw-modal');
 }
 function confirmDelAcct(id, shared) {

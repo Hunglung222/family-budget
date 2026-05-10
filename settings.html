@@ -199,6 +199,7 @@
         <div class="notify-desc">幾點發送當日結算</div>
       </div>
       <select class="fc" id="daily-hour" onchange="saveNotify()" style="width:100px;padding:8px 10px;font-size:.88rem">
+        <option value="19">19:00</option>
         <option value="20">20:00</option>
         <option value="21">21:00</option>
         <option value="22">22:00</option>
@@ -607,7 +608,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.09 17:41';
+const APP_VERSION = 'v2026.05.10 10:00';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
