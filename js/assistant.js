@@ -53,9 +53,9 @@ function getKey() { return localStorage.getItem('claude_api_key') || ''; }
 const DATA_LEVELS = {
   L1: { days: 0,   maxTx: 0   },
   L2: { days: 7,   maxTx: 50  },
-  L3: { days: 45,  maxTx: 150 },
-  L4: { days: 90,  maxTx: 300 },
-  L5: { days: 180, maxTx: 500 },
+  L3: { days: 45,  maxTx: 300 },
+  L4: { days: 90,  maxTx: 500 },
+  L5: { days: 180, maxTx: 800 },
 };
 
 function classifyDataLevel(msg) {
@@ -68,8 +68,8 @@ function classifyDataLevel(msg) {
   const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
   if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
 
-  // L5：長期分析關鍵字
-  if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產/.test(m)) return 'L5';
+  // L5：長期或完整分析關鍵字
+  if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
 
   // L4：跨月比較
   if (/上個月|上月|前兩個月|兩個月|三個月|季度|季|比較|趨勢|變化|增加|減少|上升|下降/.test(m)) return 'L4';
@@ -112,25 +112,28 @@ async function getTxDataFirebase(level) {
   const lv = DATA_LEVELS[level || 'L3'];
   try {
     const db = (typeof getDb === 'function') ? getDb() : null;
-    if (!db) return getTxDataLocal(level); // Firebase 不可用時 fallback
+    if (!db) return getTxDataLocal(level);
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - lv.days);
+    const cutoffISO = cutoff.toISOString();
+    // 正確做法：先用 where 過濾日期範圍，再 orderBy，最後才 limit
+    // 這樣 limit 才是在日期範圍內的筆數限制，不會遺漏資料
     const snap = await db.collection('transactions')
+      .where('at', '>=', cutoffISO)
       .orderBy('at', 'desc')
-      .limit(lv.maxTx * 2) // 多拉一些，過濾後取 maxTx
+      .limit(lv.maxTx)
       .get();
     const result = [];
     snap.forEach(doc => {
       const t = doc.data();
       if (t.private) return;
-      if (new Date(t.at) < cutoff) return;
-      if (result.length >= lv.maxTx) return;
       result.push(_formatTx(t));
     });
+    console.log(`[AI助理] Firebase 查詢 ${lv.days}天 → ${result.length} 筆`);
     return result;
   } catch (e) {
     console.warn('[AI助理] Firebase 查詢失敗，改用 localStorage:', e.message);
-    return getTxDataLocal(level); // fallback
+    return getTxDataLocal(level);
   }
 }
 
