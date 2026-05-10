@@ -183,11 +183,11 @@ function updateCycleBar(){
   const lbl=document.getElementById('cycle-range-lbl');
   const mrow=document.getElementById('mrow');
   if(cycleMode){
-    const {start:s,end:e}=getBudgetPeriod();
-    const fmt2=d=>`${d.getMonth()+1}/${d.getDate()}`;
+    const {start:s,end:e}=getCycleForMonth(cy,cm);
+    const fmt2=d=>`${d.getFullYear()!==cy?d.getFullYear()+'/':''}${d.getMonth()+1}/${d.getDate()}`;
     lbl.textContent=`📅 週期：${fmt2(s)} ～ ${fmt2(e)}`;
     btn.textContent='切換標準月';
-    if(mrow) mrow.style.display='none';
+    if(mrow) mrow.style.display='flex';  // 週期月也顯示月份切換列
   } else {
     lbl.textContent=`📅 標準月：${cy} 年 ${MN[cm-1]} 月`;
     btn.textContent='切換週期月';
@@ -195,12 +195,33 @@ function updateCycleBar(){
   }
 }
 
+
+// 取指定年月的週期起訖（週期月模式用）
+function getCycleForMonth(y, m) {
+  const sd = getBudgetStartDay();
+  // 用該月 startDay 這天來計算週期
+  const refDate = new Date(y, m-1, sd);
+  return getBudgetPeriod(refDate);
+}
 function render() {
   document.getElementById('mlbl').textContent=`${cy} 年 ${MN[cm-1]} 月`;
   updateCycleBar();
-  let list = cycleMode ? txByPeriod() : txByMonth(cy,cm);
+  let list;
+  if (cycleMode) {
+    const {start, end} = getCycleForMonth(cy, cm);
+    list = txByRange(start.toISOString().slice(0,10), end.toISOString().slice(0,10));
+  } else {
+    list = txByMonth(cy, cm);
+  }
   const s=calcStats(list);
-  document.getElementById('hero-lbl').textContent = cycleMode ? '📅 本期總支出' : '📅 本月總支出';
+  if (cycleMode) {
+    const now = new Date();
+    const {start:cs, end:ce} = getCycleForMonth(cy, cm);
+    const isCurrent = now >= cs && now <= ce;
+    document.getElementById('hero-lbl').textContent = isCurrent ? '📅 本期總支出' : `📅 ${cs.getMonth()+1}/${cs.getDate()}～${ce.getMonth()+1}/${ce.getDate()} 支出`;
+  } else {
+    document.getElementById('hero-lbl').textContent = '📅 本月總支出';
+  }
   document.getElementById('h-t').textContent=fmt(s.total);
   document.getElementById('h-cc').textContent=fmt(s.card);
   document.getElementById('h-cs').textContent=fmt(s.cash);
