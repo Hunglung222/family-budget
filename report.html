@@ -262,20 +262,56 @@ function toggleSubCatInline(catId, rowEl) {
   });
   const subEnts = Object.entries(subMap).sort((a,b)=>b[1].total-a[1].total);
   const cat = catFind(catId);
+  // 把子分類 list 存到 expand，方便第三層查詢
+  expand._txData = txData.filter(t => t.cat === catId);
+  expand._catId  = catId;
   expand.innerHTML = subEnts.map(([sub,data])=>{
     const pct = total>0 ? Math.round(data.total/total*100) : 0;
-    return `<div style="display:flex;align-items:center;justify-content:space-between;
-                        padding:7px 10px;margin-bottom:4px;border-radius:8px;
-                        background:var(--card);border-left:3px solid ${cat.color||'var(--p)'}">
-      <div>
-        <span style="font-size:.84rem;font-weight:700">${sub}</span>
-        <span style="font-size:.7rem;color:var(--t3);margin-left:6px">${data.count}筆 · ${pct}%</span>
+    const escapedSub = sub.replace(/'/g,"\\'");
+    return `<div class="sub-item" data-sub="${escapedSub}" data-cat="${catId}"
+      onclick="toggleTxDetail(this,'${catId}','${escapedSub}')"
+      style="margin-bottom:6px;border-radius:8px;background:var(--card);
+             border-left:3px solid ${cat.color||'var(--p)'};cursor:pointer;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px">
+        <div>
+          <span style="font-size:.84rem;font-weight:700">${sub}</span>
+          <span style="font-size:.7rem;color:var(--t3);margin-left:6px">${data.count}筆 · ${pct}%</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-weight:900;color:var(--danger);font-size:.88rem">$${fmt(data.total)}</span>
+          <span class="tx-arrow" style="font-size:.75rem;color:var(--t3);transition:.2s">▸</span>
+        </div>
       </div>
-      <span style="font-weight:900;color:var(--danger);font-size:.88rem">$${fmt(data.total)}</span>
+      <div class="tx-detail-expand" style="display:none;padding:0 10px 8px"></div>
     </div>`;
   }).join('');
   expand.style.display = 'block';
   arrow.textContent = '▾';
+}
+
+function toggleTxDetail(itemEl, catId, subName) {
+  const detailEl = itemEl.querySelector('.tx-detail-expand');
+  const arrowEl  = itemEl.querySelector('.tx-arrow');
+  const isOpen = detailEl.style.display !== 'none';
+  // 關閉同層其他子分類的明細
+  itemEl.parentElement.querySelectorAll('.tx-detail-expand').forEach(el => { el.style.display='none'; });
+  itemEl.parentElement.querySelectorAll('.tx-arrow').forEach(el => { el.textContent='▸'; });
+  if (isOpen) return;
+  // 渲染明細
+  const txs = txData.filter(t => t.cat===catId && (subName==='（未分類）' ? !t.subCat : t.subCat===subName));
+  const sorted = [...txs].sort((a,b)=>new Date(b.at)-new Date(a.at));
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
+  detailEl.innerHTML = sorted.map(t=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:7px 0;border-top:1px solid var(--border)">
+      <div>
+        <div style="font-size:.82rem;font-weight:600">${t.detail||subName}</div>
+        <div style="font-size:.68rem;color:var(--t3);margin-top:2px">${fmtD(t.at)} · ${t.person} · ${payIcon(t.pay)}</div>
+      </div>
+      <span style="font-weight:900;color:var(--danger);font-size:.85rem">$${fmt(t.amount)}</span>
+    </div>`).join('');
+  detailEl.style.display = 'block';
+  arrowEl.textContent = '▾';
 }
 
 // ── 分類下鑽明細 ──────────────────────────────────────
