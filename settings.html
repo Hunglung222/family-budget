@@ -236,6 +236,52 @@
         <label class="toggle-switch"><input type="checkbox" id="sw-weekly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
       </div>
     </div>
+    <div class="notify-row">
+      <div class="notify-info">
+        <div class="notify-name">📅 月結算報告</div>
+        <div class="notify-desc">每月固定發送週期月財務分析報告（含 AI 建議）</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onclick="sendMonthlyNow()" style="padding:6px 12px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:20px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">補發</button>
+        <label class="toggle-switch"><input type="checkbox" id="sw-monthly" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
+      <div class="notify-info">
+        <div class="notify-name">📆 月報發送日</div>
+        <div class="notify-desc">每月幾日 13:00 發送（週期月結算後）</div>
+      </div>
+      <select class="fc" id="monthly-day" onchange="saveNotify()" style="width:80px;padding:8px 10px;font-size:.88rem">
+        <option value="1">1 日</option>
+        <option value="2">2 日</option>
+        <option value="3">3 日</option>
+        <option value="4">4 日</option>
+        <option value="5">5 日</option>
+        <option value="6">6 日</option>
+        <option value="7">7 日</option>
+        <option value="8">8 日</option>
+        <option value="9">9 日</option>
+        <option value="10">10 日</option>
+        <option value="11">11 日</option>
+        <option value="12">12 日</option>
+        <option value="13">13 日</option>
+        <option value="14">14 日</option>
+        <option value="15">15 日</option>
+        <option value="16">16 日</option>
+        <option value="17">17 日</option>
+        <option value="18">18 日</option>
+        <option value="19">19 日</option>
+        <option value="20">20 日</option>
+        <option value="21">21 日</option>
+        <option value="22">22 日</option>
+        <option value="23">23 日</option>
+        <option value="24">24 日</option>
+        <option value="25">25 日</option>
+        <option value="26">26 日</option>
+        <option value="27">27 日</option>
+        <option value="28">28 日</option>
+      </select>
+    </div>
   </div>
 
   <!-- 固定支出提醒 -->
@@ -608,7 +654,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.10 15:08';
+const APP_VERSION = 'v2026.05.10 23:17';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -755,6 +801,8 @@ function renderNotifySettings(){
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
   document.getElementById('sw-budget').checked=cfg.onBudget!==false;
   document.getElementById('sw-weekly').checked=cfg.onWeekly===true;
+  document.getElementById('sw-monthly').checked=cfg.onMonthly===true;
+  document.getElementById('monthly-day').value=cfg.monthlyDay||11;
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
 }
@@ -807,17 +855,63 @@ function saveDiscordUrl(){
 }
 function saveNotify(){
   saveDiscord({
-    onAdd:    document.getElementById('sw-add').checked,
-    onDaily:  document.getElementById('sw-daily').checked,
-    onBudget: document.getElementById('sw-budget').checked,
-    onWeekly: document.getElementById('sw-weekly').checked,
-    dailyHour:parseInt(document.getElementById('daily-hour').value)||21,
-    weeklyHour:parseInt(document.getElementById('weekly-hour')?.value)||8,
-    budgetPct:parseInt(document.getElementById('budget-pct').value)||80,
+    onAdd:      document.getElementById('sw-add').checked,
+    onDaily:    document.getElementById('sw-daily').checked,
+    onBudget:   document.getElementById('sw-budget').checked,
+    onWeekly:   document.getElementById('sw-weekly').checked,
+    onMonthly:  document.getElementById('sw-monthly').checked,
+    monthlyDay: parseInt(document.getElementById('monthly-day').value)||11,
+    dailyHour:  parseInt(document.getElementById('daily-hour').value)||21,
+    weeklyHour: parseInt(document.getElementById('weekly-hour')?.value)||8,
+    budgetPct:  parseInt(document.getElementById('budget-pct').value)||80,
   });
   fbSyncAppConfig(); // 同步到 Firebase，讓 Google Apps Script 讀到最新設定
   toast('通知設定已儲存並同步');
 }
+async function sendMonthlyNow() {
+  if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
+  toast('📅 月報發送中，請稍候...','info');
+  // 計算當前週期月範圍（根據 budgetStartDay）
+  const sd = getBudgetStartDay();
+  const now = new Date();
+  const {start, end} = getBudgetPeriod();
+  // 取前一個週期
+  const prevEnd = new Date(start); prevEnd.setDate(prevEnd.getDate()-1);
+  const prevStart = new Date(start); prevStart.setMonth(prevStart.getMonth()-1);
+  const txList = getTx().filter(t => {
+    const d = new Date(t.at); return d >= start && d <= end;
+  });
+  if(!txList.length){ toast('本期尚無記帳資料','warn'); return; }
+  // 存月度摘要到 Firebase
+  await saveMonthSummaryToFB(start, end, txList);
+  toast('✅ 月報已補發，請查看 Discord');
+}
+
+async function saveMonthSummaryToFB(start, end, txList) {
+  try {
+    const monthKey = `${start.getFullYear()}-${String(start.getMonth()+1).padStart(2,'0')}`;
+    const total = txList.reduce((s,t)=>s+t.amount,0);
+    const byCat = {};
+    txList.forEach(t=>{ byCat[catName(t.cat)]=(byCat[catName(t.cat)]||0)+t.amount; });
+    const topItems = [...txList].sort((a,b)=>b.amount-a.amount).slice(0,5).map(t=>({
+      detail:t.detail||catName(t.cat), amount:t.amount, cat:catName(t.cat), person:t.person
+    }));
+    const summary = {
+      month: monthKey,
+      start: start.toISOString().slice(0,10),
+      end:   end.toISOString().slice(0,10),
+      total, byCat, topItems,
+      count: txList.length,
+      updatedAt: Date.now()
+    };
+    if(typeof getDb==='function') {
+      await getDb().collection('shared').doc('monthly_summaries').collection('months').doc(monthKey).set(summary);
+    }
+    DB.set(`monthly_summary_${monthKey}`, summary);
+    return summary;
+  } catch(e) { console.warn('saveMonthSummary error:', e); return null; }
+}
+
 function showSendDailyModal(){
   if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
   const today = new Date().toISOString().slice(0,10);

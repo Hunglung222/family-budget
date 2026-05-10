@@ -215,14 +215,17 @@
     <div class="st">💡 建議新增子分類</div>
     <div style="background:var(--card2);border-radius:10px;padding:14px;margin-bottom:14px">
       <div style="font-size:.78rem;color:var(--t3);margin-bottom:8px">AI 找不到完全匹配的子分類，建議新增：</div>
-      <div style="display:flex;align-items:center;gap:10px;font-size:.95rem;margin-bottom:10px">
-        <span id="nsc-cat-name" style="font-weight:700;color:var(--t)"></span>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+        <span id="nsc-cat-name" style="font-weight:700;color:var(--t);white-space:nowrap"></span>
         <span style="color:var(--t3)">›</span>
-        <span id="nsc-subcat-name" style="font-weight:900;color:var(--p)"></span>
+        <input type="text" class="fc" id="nsc-subcat-input"
+          style="flex:1;padding:7px 10px;font-weight:900;color:var(--p);background:var(--card);
+                 border:1.5px solid var(--p);border-radius:8px;font-size:.95rem;font-family:inherit"
+          maxlength="15">
       </div>
       <div style="font-size:.78rem;color:var(--t2);margin-bottom:6px">想歸到不同大分類？可在這裡調整：</div>
       <select class="fc" id="nsc-cat-sel" style="margin-bottom:0"></select>
-      <div style="font-size:.72rem;color:var(--t3);margin-top:10px">確認後此子分類會永久加入分類清單，下次可直接選用。</div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:10px">可直接修改上方名稱，確認後永久加入分類清單。</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-s" onclick="rejectNewSubCat()">✏️ 我自己選</button>
@@ -566,7 +569,7 @@ function applySingleResult(r) {
       // 暫存資料，等使用者決定後再應用
       window._pendingNewSubCat = { cat: r.cat, subCat: r.subCat, fullResult: r };
       document.getElementById('nsc-cat-name').textContent = catName(r.cat);
-      document.getElementById('nsc-subcat-name').textContent = r.subCat;
+      document.getElementById('nsc-subcat-input').value = r.subCat;
       // 填入大分類下拉，預設 AI 建議的分類
       const nscSel = document.getElementById('nsc-cat-sel');
       nscSel.innerHTML = getCats().map(c =>
@@ -627,12 +630,16 @@ function applySingleResult(r) {
 function confirmNewSubCat() {
   const p = window._pendingNewSubCat;
   if (!p) return;
+  // 取使用者修改後的子分類名稱
+  const inputEl = document.getElementById('nsc-subcat-input');
+  const finalSubCat = (inputEl ? inputEl.value.trim() : '') || p.subCat;
+  p.subCat = finalSubCat;
   // 取使用者在下拉選單選定的大分類（可能跟 AI 建議的不同）
   const nscSel = document.getElementById('nsc-cat-sel');
   const finalCat = nscSel ? nscSel.value : p.cat;
-  p.cat = finalCat; // 更新以便後續 triggerCatSub 用正確分類
+  p.cat = finalCat;
   // 永久新增到 cats 資料
-  addSubCat(finalCat, p.subCat);
+  addSubCat(finalCat, finalSubCat);
   // 同步到 Firebase（讓對方也看得到）
   if (typeof fbSyncCats === 'function') fbSyncCats();
   // 更新分類 chip 選中狀態
@@ -651,7 +658,7 @@ function confirmNewSubCat() {
   }, 50);
   document.getElementById('newsubcat-modal').classList.remove('show');
   if (p.fullResult.amount > 0) goStep2();
-  toast(`✅ 已新增子分類「${p.subCat}」`, 'info');
+  toast(`✅ 已新增子分類「${finalSubCat}」`, 'info');
   window._pendingNewSubCat = null;
 }
 
@@ -1352,7 +1359,7 @@ async function confirmMultiTx() {
     };
     getFunnyCommentMulti(multiTx);
   } else if (!hasKey && valid.length) {
-    if (typeof discordOnAdd === 'function') discordOnAdd({...valid[0], person});
+    if (typeof discordOnAdd === 'function') discordOnAdd({...valid[0], person, at: new Date().toISOString()});
   }
 }
 
