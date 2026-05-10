@@ -298,8 +298,7 @@ async function callClaude(userMsg) {
           const data2 = await res2.json();
           const cont = (data2.content?.[0]?.text || '').trim();
           if (cont) {
-            reply = reply + '
-' + cont;
+            reply = reply + '\n' + cont;
             chatHistory[chatHistory.length - 1].content = reply;
           }
         }
