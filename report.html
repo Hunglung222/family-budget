@@ -227,14 +227,55 @@ function renderPie(){
     options:{cutout:'58%',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(s.total||1)*100)}%)`}}}}});
   document.getElementById('pie-leg').innerHTML=ent.map(([id,amt],i)=>{
     const pct=s.total>0?Math.round(amt/s.total*100):0;
-    return `<div class="li" onclick="drillCat('${id}')" style="cursor:pointer;transition:.15s" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
-      <div class="ldot" style="background:${cols[i]}"></div>
-      <span class="lname">${catName(id)}</span>
-      <span class="lpct">${pct}%</span>
-      <span class="lamt">$${fmt(amt)}</span>
-      <span style="color:var(--t3);margin-left:4px;font-size:.8rem">›</span>
+    return `<div>
+      <div class="li" onclick="toggleSubCatInline('${id}',this)" style="cursor:pointer;transition:.15s" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
+        <div class="ldot" style="background:${cols[i]}"></div>
+        <span class="lname">${catName(id)}</span>
+        <span class="lpct">${pct}%</span>
+        <span class="lamt">$${fmt(amt)}</span>
+        <span class="sub-arrow" style="color:var(--t3);margin-left:4px;font-size:.8rem;transition:.2s">▸</span>
+      </div>
+      <div class="sub-expand" style="display:none;padding:6px 0 6px 16px"></div>
     </div>`;
   }).join('');
+}
+
+// ── 子分類內嵌展開 ──────────────────────────────────────
+function toggleSubCatInline(catId, rowEl) {
+  const container = rowEl.parentElement;
+  const expand = container.querySelector('.sub-expand');
+  const arrow  = rowEl.querySelector('.sub-arrow');
+  const isOpen = expand.style.display !== 'none';
+  // 關閉所有其他展開
+  document.querySelectorAll('#pie-leg .sub-expand').forEach(el => { el.style.display='none'; });
+  document.querySelectorAll('#pie-leg .sub-arrow').forEach(el => { el.textContent='▸'; });
+  if (isOpen) return; // 原本開著就關掉
+  // 渲染子分類
+  const txs = txData.filter(t => t.cat === catId);
+  const total = txs.reduce((s,t)=>s+t.amount,0);
+  const subMap = {};
+  txs.forEach(t=>{
+    const k = t.subCat||'（未分類）';
+    if(!subMap[k]) subMap[k]={total:0,count:0};
+    subMap[k].total += t.amount;
+    subMap[k].count++;
+  });
+  const subEnts = Object.entries(subMap).sort((a,b)=>b[1].total-a[1].total);
+  const cat = catFind(catId);
+  expand.innerHTML = subEnts.map(([sub,data])=>{
+    const pct = total>0 ? Math.round(data.total/total*100) : 0;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;
+                        padding:7px 10px;margin-bottom:4px;border-radius:8px;
+                        background:var(--card);border-left:3px solid ${cat.color||'var(--p)'}">
+      <div>
+        <span style="font-size:.84rem;font-weight:700">${sub}</span>
+        <span style="font-size:.7rem;color:var(--t3);margin-left:6px">${data.count}筆 · ${pct}%</span>
+      </div>
+      <span style="font-weight:900;color:var(--danger);font-size:.88rem">$${fmt(data.total)}</span>
+    </div>`;
+  }).join('');
+  expand.style.display = 'block';
+  arrow.textContent = '▾';
 }
 
 // ── 分類下鑽明細 ──────────────────────────────────────

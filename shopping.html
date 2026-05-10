@@ -113,7 +113,8 @@
     </div>
     <div class="fg">
       <span class="flbl">賣家 / 團主（可略）</span>
-      <input type="text" class="fc" id="om-seller" placeholder="例：媽媽群-阿花團購" maxlength="30">
+      <input type="text" class="fc" id="om-seller" placeholder="例：媽媽群-阿花團購" maxlength="30" list="seller-hints" autocomplete="off">
+      <datalist id="seller-hints"></datalist>
     </div>
     <div class="fg">
       <span class="flbl">金額（可略）</span>
@@ -129,6 +130,7 @@
         <option value="pickup">超商取貨</option>
         <option value="home">宅配到府</option>
         <option value="group">團購自取</option>
+        <option value="onsite">現場取貨</option>
         <option value="other">其他</option>
       </select>
     </div>
@@ -240,7 +242,7 @@ const STATUS_MAP = {
   cancel:   { label:'已取消', cls:'s-cancel',   icon:'❌' },
 };
 const STEPS = ['pending','paid','shipping','arrive','done'];
-const DELIVERY_MAP = {pickup:'超商取貨', home:'宅配到府', group:'團購自取', other:'其他'};
+const DELIVERY_MAP = {pickup:'超商取貨', home:'宅配到府', group:'團購自取', onsite:'現場取貨', other:'其他'};
 
 let filterPlat='', filterStat='', editOrderId='', selPlatformName='';
 let bmPay='cash', bmOrderId='';
