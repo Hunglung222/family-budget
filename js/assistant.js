@@ -256,7 +256,7 @@ async function callClaude(userMsg) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 4096,
+        max_tokens: 8192,
         system: await buildSystemPrompt(dataLevel),
         messages: chatHistory
       })
@@ -270,8 +270,40 @@ async function callClaude(userMsg) {
     }
 
     const data  = await res.json();
-    const reply = (data.content?.[0]?.text || '').trim();
-    chatHistory.push({ role: 'assistant', content: reply });
+    let reply = (data.content?.[0]?.text || '').trim();
+
+    // 若因 max_tokens 截斷，自動繼續請求
+    if (data.stop_reason === 'max_tokens') {
+      chatHistory.push({ role: 'assistant', content: reply });
+      try {
+        const res2 = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5',
+            max_tokens: 4096,
+            system: await buildSystemPrompt(dataLevel),
+            messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
+          })
+        });
+        if (res2.ok) {
+          const data2 = await res2.json();
+          const cont = (data2.content?.[0]?.text || '').trim();
+          if (cont) {
+            reply = reply + '
+' + cont;
+            chatHistory[chatHistory.length - 1].content = reply;
+          }
+        }
+      } catch(e2) { console.warn('[AI助理] 續接失敗:', e2.message); }
+    } else {
+      chatHistory.push({ role: 'assistant', content: reply });
+    }
     return reply;
   } catch(e) {
     chatHistory.pop(); // 移除失敗的 user message
@@ -418,7 +450,7 @@ async function saveChatLog(userMsg, assistantMsg) {
     const person  = localStorage.getItem('current_user') || '';
 
     // Discord 2000 字元限制，超過自動分段
-    const MAX = 1800;
+    const MAX = 3800; // Discord embed description 上限約 4096
     const sendChunk = async (text, title) => {
       await fetch(CHAT_LOG_WEBHOOK, {
         method: 'POST',
@@ -450,7 +482,7 @@ async function saveChatLog(userMsg, assistantMsg) {
         remaining = remaining.slice(MAX);
         await sendChunk(chunk, remaining.length > 0 ? `${title}（續${part}）` : `${title}（完）`);
         part++;
-        if (part > 5) break; // 最多5段保護
+        if (part > 15) break; // 最多15段保護
       }
     }
   } catch(e) {
