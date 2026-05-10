@@ -440,7 +440,7 @@ function fmtPeriod() {
 
 // ── Discord 設定 ─────────────────────────────────────
 function getDiscord() {
-  return DB.get('discord') || {webhook:'',onAdd:true,onDaily:true,dailyHour:21,onBudget:true,budgetPct:80,onWeekly:false};
+  return DB.get('discord') || {webhook:'',onAdd:true,onDaily:true,dailyHour:21,onBudget:true,budgetPct:80,onWeekly:false,onMonthly:false,monthlyDay:11};
 }
 function saveDiscord(cfg) { DB.set('discord', {...getDiscord(),...cfg}); }
 

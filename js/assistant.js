@@ -44,24 +44,102 @@ function today() {
 
 function getKey() { return localStorage.getItem('claude_api_key') || ''; }
 
-// ── 取得記帳資料（最近 90 天）────────────────────────────────
-function getTxData() {
+// ── 智慧分級：根據問題決定資料範圍 ────────────────────────
+// L1: 記帳模式      → 不帶歷史資料（0筆）
+// L2: 今日/昨日     → 7天 / 50筆
+// L3: 本週/本月     → 45天 / 150筆（預設）
+// L4: 跨月比較      → 90天 / 300筆
+// L5: 長期分析報告  → 180天 / 500筆
+const DATA_LEVELS = {
+  L1: { days: 0,   maxTx: 0   },
+  L2: { days: 7,   maxTx: 50  },
+  L3: { days: 45,  maxTx: 150 },
+  L4: { days: 90,  maxTx: 300 },
+  L5: { days: 180, maxTx: 500 },
+};
+
+function classifyDataLevel(msg) {
+  if (!msg) return 'L3';
+  const m = msg.toLowerCase();
+
+  // L1：明確記帳意圖（有金額數字 或 記帳關鍵字）
+  const hasAmount = /\d+\s*(元|塊|円|$|USD)?/.test(msg) &&
+    !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢/.test(m);
+  const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
+  if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
+
+  // L5：長期分析關鍵字
+  if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產/.test(m)) return 'L5';
+
+  // L4：跨月比較
+  if (/上個月|上月|前兩個月|兩個月|三個月|季度|季|比較|趨勢|變化|增加|減少|上升|下降/.test(m)) return 'L4';
+
+  // L2：今日/昨日
+  if (/今天|今日|昨天|昨日|剛才|剛剛|今晚|今早|今午|最近一兩天/.test(m)) return 'L2';
+
+  // 預設 L3（本週/本月查詢）
+  return 'L3';
+}
+
+// 將原始 tx 物件轉成 AI 助理用的格式
+function _formatTx(t) {
+  const d = new Date(t.at);
+  const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+  return {
+    date:   dateStr,
+    cat:    typeof catName === 'function' ? catName(t.cat) : t.cat,
+    subCat: t.subCat || '',
+    detail: t.detail || '',
+    amount: t.amount,
+    person: t.person || '',
+    pay:    t.pay === 'cash' ? '現金' : t.pay === 'icard' ? '悠遊卡' : t.pay === 'acct' ? '帳戶' : '信用卡'
+  };
+}
+
+// L1/L2：用 localStorage（即時，不需要等待）
+function getTxDataLocal(level) {
+  const lv = DATA_LEVELS[level || 'L3'];
+  if (lv.days === 0) return [];
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 90);
+  cutoff.setDate(cutoff.getDate() - lv.days);
   const txList = (typeof getTx === 'function' ? getTx() : [])
     .filter(t => new Date(t.at) >= cutoff && !t.private);
-  return txList.map(t => {
-    const d = new Date(t.at);
-    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-    return {
-      date:   dateStr,
-      cat:    typeof catName === 'function' ? catName(t.cat) : t.cat,
-      detail: t.detail || '',
-      amount: t.amount,
-      person: t.person || '',
-      pay:    t.pay === 'cash' ? '現金' : t.pay === 'icard' ? '悠遊卡' : '信用卡'
-    };
-  });
+  return txList.slice(0, lv.maxTx).map(_formatTx);
+}
+
+// L3/L4/L5：從 Firebase 拉取（資料更完整，換手機也有）
+async function getTxDataFirebase(level) {
+  const lv = DATA_LEVELS[level || 'L3'];
+  try {
+    const db = (typeof getDb === 'function') ? getDb() : null;
+    if (!db) return getTxDataLocal(level); // Firebase 不可用時 fallback
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lv.days);
+    const snap = await db.collection('transactions')
+      .orderBy('at', 'desc')
+      .limit(lv.maxTx * 2) // 多拉一些，過濾後取 maxTx
+      .get();
+    const result = [];
+    snap.forEach(doc => {
+      const t = doc.data();
+      if (t.private) return;
+      if (new Date(t.at) < cutoff) return;
+      if (result.length >= lv.maxTx) return;
+      result.push(_formatTx(t));
+    });
+    return result;
+  } catch (e) {
+    console.warn('[AI助理] Firebase 查詢失敗，改用 localStorage:', e.message);
+    return getTxDataLocal(level); // fallback
+  }
+}
+
+// 統一入口：L1/L2 用本地，L3+ 用 Firebase
+async function getTxData(level) {
+  const lv = level || 'L3';
+  if (lv === 'L1') return [];
+  if (lv === 'L2') return getTxDataLocal(lv); // 今日/昨日，本地即時
+  return await getTxDataFirebase(lv);           // L3/L4/L5 用 Firebase
 }
 
 function getCatList() {
@@ -75,16 +153,20 @@ function getCardList() {
 }
 
 // ── 建立系統 Prompt ──────────────────────────────────────────
-function buildSystemPrompt() {
+async function buildSystemPrompt(level) {
   const char    = getChar();
-  const txData  = getTxData();
-  const txJson  = JSON.stringify(txData.slice(0, 200));
+  const lv      = level || 'L3';
+  const txData  = await getTxData(lv);
+  const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
     year:'numeric', month:'2-digit', day:'2-digit', weekday:'long'
   });
   const todayISO = now.toISOString().slice(0,10);
   const currentUser = localStorage.getItem('current_user') || '宏龍';
+  const lvInfo = DATA_LEVELS[lv];
+  const dataDesc = lv === 'L1' ? '（記帳模式，無需歷史資料）'
+    : `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}）`;
 
   return `你是「${char.name}」，一個家庭理財 AI 助理。
 個性：${char.style}
@@ -101,8 +183,9 @@ function buildSystemPrompt() {
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
 
-最近 90 天記帳資料：
-${txJson}
+記帳資料範圍：${dataDesc}
+${txJson !== '（本次查詢不需要歷史資料）' ? `記帳資料（共 ${txData.length} 筆）：
+${txJson}` : txJson}
 
 ━━━━━━━━━━━━━━━━━━━━━
 【記帳的黃金原則：大膽假設，一次確認，絕不來回反問】
@@ -148,6 +231,18 @@ async function callClaude(userMsg) {
   const key = getKey();
   if (!key) return '請先在設定頁填入 Claude API Key 才能使用我喔！';
 
+  // 智慧分級：根據問題決定資料範圍
+  const dataLevel = classifyDataLevel(userMsg);
+  const lvInfo = DATA_LEVELS[dataLevel];
+  const levelDesc = {
+    L1: '記帳模式（無歷史資料）',
+    L2: `近7天/50筆`,
+    L3: `近45天/150筆`,
+    L4: `近90天/300筆`,
+    L5: `近180天/500筆`,
+  }[dataLevel];
+  console.log(`[AI助理] 資料等級: ${dataLevel} (${levelDesc}) - 問題: "${userMsg.slice(0,20)}"`);
+
   chatHistory.push({ role: 'user', content: userMsg });
 
   try {
@@ -162,7 +257,7 @@ async function callClaude(userMsg) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 4096,
-        system: buildSystemPrompt(),
+        system: await buildSystemPrompt(dataLevel),
         messages: chatHistory
       })
     });
