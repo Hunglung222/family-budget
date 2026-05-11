@@ -285,8 +285,10 @@ async function buildSystemPrompt(level, dateRange) {
   const char    = getChar();
   const lv      = level || 'L3';
   const result  = await getTxData(lv, dateRange);
-  const txData  = result.txData;          // 截斷後明細（供 AI 分析用）
   const fullStats = result.fullStats;     // 完整統計（在 slice 前計算，數字精準）
+  // 明細只取前 30 筆給 AI 當作參考樣本（統計已精準，不需要全部明細）
+  // 避免 token 爆量導致 API 慢/失敗
+  const txData  = result.txData.slice(0, 30);
   const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
@@ -344,8 +346,14 @@ ${personLines}
 信用卡清單：${getCardList()}
 
 記帳資料範圍：${dataDesc}${preCalcStats}
-${txJson !== '（本次查詢不需要歷史資料）' ? `詳細記帳明細（共 ${txData.length} 筆，供分析用）：
-${txJson}` : txJson}
+${txJson !== '（本次查詢不需要歷史資料）' ? `
+【最近 ${txData.length} 筆明細樣本（僅供觀察消費模式，禁止用來加總！加總請用上方統計數據）】
+${txJson}` : ''}
+
+【重要規則】：
+1. 回答總金額、總筆數、分類金額、付款方式金額時，**只能**引用上方「統計數據」區塊的數字
+2. 明細樣本是給你看消費內容用的，**絕對不可以**自己重新加總
+3. 上方統計數據是 100% 精準的，跟報表頁完全一致；明細只是部分樣本
 
 ━━━━━━━━━━━━━━━━━━━━━
 【記帳的黃金原則：大膽假設，一次確認，絕不來回反問】
@@ -398,11 +406,15 @@ async function callClaude(userMsg) {
     ? `精準區間（${dataLevel}）`
     : { L1:'記帳模式（無歷史資料）', L2:'近7天/50筆', L3:'近45天/300筆', L4:'近90天/500筆', L5:'近180天/800筆' }[dataLevel];
   if (dateRange) {
-    console.log(`[AI助理] 資料等級: ${dataLevel} 區間:${dateRange.from.toLocaleDateString()}~${dateRange.to.toLocaleDateString()} - 問題: "${userMsg.slice(0,20)}"`);
+    console.log(`[AI助理] 等級:${dataLevel} 區間:${dateRange.from}~${dateRange.to} 問:"${userMsg.slice(0,20)}"`);
   } else {
-    console.log(`[AI助理] 資料等級: ${dataLevel} (${levelDesc}) - 問題: "${userMsg.slice(0,20)}"`);
+    console.log(`[AI助理] 等級:${dataLevel} (${levelDesc}) 問:"${userMsg.slice(0,20)}"`);
   }
 
+  // 修剪 chatHistory：只保留最近 6 輪（12 條訊息），避免 token 爆量、回應變慢
+  if (chatHistory.length > 12) {
+    chatHistory = chatHistory.slice(-12);
+  }
   chatHistory.push({ role: 'user', content: userMsg });
 
   try {
