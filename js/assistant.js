@@ -137,12 +137,12 @@ async function getTxDataFirebase(level) {
   }
 }
 
-// 統一入口：L1/L2 用本地，L3+ 用 Firebase
+// 統一入口：全部用 localStorage（Firebase 同步後資料完整，且不受索引問題影響）
+// Firebase 查詢因 Firestore 複合索引限制，結果不穩定，故改回本地資料
 async function getTxData(level) {
   const lv = level || 'L3';
   if (lv === 'L1') return [];
-  if (lv === 'L2') return getTxDataLocal(lv); // 今日/昨日，本地即時
-  return await getTxDataFirebase(lv);           // L3/L4/L5 用 Firebase
+  return getTxDataLocal(lv); // localStorage 在 fbPullAll 後是完整的
 }
 
 function getCatList() {
