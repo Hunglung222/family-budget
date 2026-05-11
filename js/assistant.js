@@ -68,45 +68,24 @@ function parseDateRange(msg) {
   if (!msg) return null;
   const now = new Date();
   const y = now.getFullYear();
+  const pad = n => String(n).padStart(2, '0');
+  // 回傳 YYYY-MM-DD 字串，與報表頁 txByRange(f, e) 完全一致
+  const toStr = (yr, mo, dd) => `${yr}-${pad(mo)}-${pad(dd)}`;
 
-  // 嘗試各種格式
   const patterns = [
-    // YYYY/MM/DD 或 YYYY-MM-DD 完整格式
     /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[到~～至\-]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
-    // M/D 到 M/D（同年），支援 到/~/～/至/- 等分隔符
     /(\d{1,2})\/(\d{1,2})\s*[到~～至\-]\s*(\d{1,2})\/(\d{1,2})/,
-    // M月D日 到 M月D日
     /(\d{1,2})月(\d{1,2})日?\s*[到~～至]\s*(\d{1,2})月(\d{1,2})日?/,
   ];
 
-  // YYYY/MM/DD～YYYY/MM/DD
   let m = msg.match(patterns[0]);
-  if (m) {
-    return {
-      from: new Date(+m[1], +m[2]-1, +m[3], 0, 0, 0),
-      to:   new Date(+m[4], +m[5]-1, +m[6], 23, 59, 59),
-    };
-  }
+  if (m) return { from: toStr(+m[1],+m[2],+m[3]), to: toStr(+m[4],+m[5],+m[6]) };
 
-  // M/D 到 M/D（同年）
   m = msg.match(patterns[1]);
-  if (m) {
-    const [,m1,d1,m2,d2] = m;
-    return {
-      from: new Date(y, +m1-1, +d1, 0, 0, 0),
-      to:   new Date(y, +m2-1, +d2, 23, 59, 59),
-    };
-  }
+  if (m) return { from: toStr(y,+m[1],+m[2]), to: toStr(y,+m[3],+m[4]) };
 
-  // M月D日 到 M月D日
   m = msg.match(patterns[2]);
-  if (m) {
-    const [,m1,d1,m2,d2] = m;
-    return {
-      from: new Date(y, +m1-1, +d1, 0, 0, 0),
-      to:   new Date(y, +m2-1, +d2, 23, 59, 59),
-    };
-  }
+  if (m) return { from: toStr(y,+m[1],+m[2]), to: toStr(y,+m[3],+m[4]) };
 
   return null;
 }
@@ -118,7 +97,7 @@ function classifyDataLevel(msg) {
   // 若有明確日期區間，直接依範圍天數決定等級（優先判斷，避免被 L1 誤吃）
   const dr = parseDateRange(msg);
   if (dr) {
-    const days = Math.ceil((dr.to - dr.from) / 864e5);
+    const days = Math.ceil((new Date(dr.to) - new Date(dr.from)) / 864e5);
     if (days <= 7)   return 'L2';
     if (days <= 45)  return 'L3';
     if (days <= 90)  return 'L4';
@@ -167,19 +146,19 @@ function getTxDataLocal(level, dateRange) {
 
   let txList;
   if (dateRange && dateRange.from && dateRange.to) {
-    // 精準日期區間：使用與報表頁完全相同的 txByRange()
+    // 精準日期區間：直接傳字串給 txByRange，與報表頁 load() 完全相同的呼叫方式
     txList = typeof txByRange === 'function'
       ? txByRange(dateRange.from, dateRange.to)
-      : (getTx ? getTx() : []).filter(t => {
-          const d = new Date(t.at); return d >= dateRange.from && d <= dateRange.to;
-        });
+      : (getTx ? getTx() : []);
   } else {
+    // 無明確區間：用往回推天數的字串
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - lv.days);
-    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     txList = typeof txByRange === 'function'
-      ? txByRange(cutoff, now)
-      : (getTx ? getTx() : []).filter(t => new Date(t.at) >= cutoff);
+      ? txByRange(toStr(cutoff), toStr(new Date()))
+      : (getTx ? getTx() : []);
   }
 
   // 排序後取 maxTx 筆，轉成 AI 用格式
@@ -254,8 +233,7 @@ async function buildSystemPrompt(level, dateRange) {
   if (lv === 'L1') {
     dataDesc = '（記帳模式，無需歷史資料）';
   } else if (dateRange && dateRange.from && dateRange.to) {
-    const fmtDate = d => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-    dataDesc = `精準區間 ${fmtDate(dateRange.from)} ～ ${fmtDate(dateRange.to)}（共 ${txData.length} 筆）`;
+    dataDesc = `精準區間 ${dateRange.from} ～ ${dateRange.to}（共 ${txData.length} 筆）`;
   } else {
     dataDesc = `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}，共 ${txData.length} 筆）`;
   }
