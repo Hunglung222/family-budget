@@ -44,18 +44,19 @@ function today() {
 
 function getKey() { return localStorage.getItem('claude_api_key') || ''; }
 
-// ── 智慧分級：根據問題決定資料範圍 ────────────────────────
-// L1: 記帳模式      → 不帶歷史資料（0筆）
-// L2: 今日/昨日     → 7天 / 50筆
-// L3: 本週/本月     → 45天 / 150筆（預設）
-// L4: 跨月比較      → 90天 / 300筆
-// L5: 長期分析報告  → 180天 / 500筆
+// ── 智慧分級：依問題決定撈多少天的資料來計算統計 ────────────
+// L1: 記帳模式（不撈歷史）── 用戶要記帳 / 報金額
+// L2: 今日昨日（7天）   ── 「今天花多少」「昨天吃啥」
+// L3: 本月區間（35天）  ── 預設，涵蓋本月+少量上月尾巴
+// L4: 跨月比較（90天）  ── 「上個月」「比較」
+// L5: 長期分析（180天） ── 「半年」「年度報告」
+// 註：明細給 AI 的數量在 buildSystemPrompt 統一寫死 30 筆樣本，這裡不重複設定
 const DATA_LEVELS = {
-  L1: { days: 0,   maxTx: 0   },
-  L2: { days: 7,   maxTx: 50  },
-  L3: { days: 45,  maxTx: 300 },
-  L4: { days: 90,  maxTx: 500 },
-  L5: { days: 180, maxTx: 800 },
+  L1: { days: 0   },
+  L2: { days: 7   },
+  L3: { days: 35  },
+  L4: { days: 90  },
+  L5: { days: 180 },
 };
 
 // ── 從問題解析明確日期區間 ──────────────────────────────────
@@ -133,16 +134,17 @@ function parseDateRange(msg) {
   return null;
 }
 
-function classifyDataLevel(msg) {
+// 接受已解析好的 dateRange，避免重複呼叫 parseDateRange
+function classifyDataLevel(msg, preParsedRange) {
   if (!msg) return 'L3';
   const m = msg.toLowerCase();
 
   // 若有明確日期區間，直接依範圍天數決定等級（優先判斷，避免被 L1 誤吃）
-  const dr = parseDateRange(msg);
+  const dr = preParsedRange !== undefined ? preParsedRange : parseDateRange(msg);
   if (dr) {
     const days = Math.ceil((new Date(dr.to) - new Date(dr.from)) / 864e5);
     if (days <= 7)   return 'L2';
-    if (days <= 45)  return 'L3';
+    if (days <= 35)  return 'L3';
     if (days <= 90)  return 'L4';
     return 'L5';
   }
@@ -203,16 +205,29 @@ function getTxDataLocal(level, dateRange) {
       : (typeof getTx === 'function' ? getTx() : []);
   }
 
-  // ── 先用完整 txList 算出精準統計（Bug1修正：在 slice 前計算）──
+  // ── 用完整 txList 算精準統計，數字 100% 與報表頁一致 ──
   const fullStats = _calcFullStats(txList);
 
-  // 排序後截斷，只把部分明細給 AI（避免 token 超限）
+  // 明細按日期新到舊排序，buildSystemPrompt 會再 slice 30 筆樣本給 AI
   const txData = txList
     .sort((a, b) => new Date(b.at) - new Date(a.at))
-    .slice(0, lv.maxTx)
     .map(_formatTx);
 
   return { txData, fullStats };
+}
+
+// 智慧採樣：若資料多於 n 筆，做均勻間隔採樣（保留時段完整風貌）；少於 n 筆則全給
+// 為何不用「最新 n 筆」：問「上月消費」時最新 30 筆會集中在月底，月初 AI 看不到
+function _sampleTxs(txDataSorted, n) {
+  if (!txDataSorted || txDataSorted.length === 0) return [];
+  if (txDataSorted.length <= n) return txDataSorted;
+  // 均勻採樣：每隔 step 筆抽一筆
+  const step = txDataSorted.length / n;
+  const sampled = [];
+  for (let i = 0; i < n; i++) {
+    sampled.push(txDataSorted[Math.floor(i * step)]);
+  }
+  return sampled;
 }
 
 // 完整統計計算（在 slice 截斷前呼叫，確保數字 100% 準確）
@@ -246,7 +261,7 @@ async function getTxDataFirebase(level) {
     const snap = await db.collection('transactions')
       .where('at', '>=', cutoffISO)
       .orderBy('at', 'desc')
-      .limit(lv.maxTx)
+      .limit(1000)
       .get();
     const result = [];
     snap.forEach(doc => {
@@ -286,9 +301,10 @@ async function buildSystemPrompt(level, dateRange) {
   const lv      = level || 'L3';
   const result  = await getTxData(lv, dateRange);
   const fullStats = result.fullStats;     // 完整統計（在 slice 前計算，數字精準）
-  // 明細只取前 30 筆給 AI 當作參考樣本（統計已精準，不需要全部明細）
-  // 避免 token 爆量導致 API 慢/失敗
-  const txData  = result.txData.slice(0, 30);
+  // 明細樣本給 AI 看消費風格用：100 筆，採用「均勻採樣」確保涵蓋整個時段
+  // 統計數字已精準，這裡只是讓 AI 觀察消費內容/分佈
+  // 100 筆 = 一個月 200 筆的情境下 AI 每天能看到 3 筆左右，有代表性
+  const txData  = _sampleTxs(result.txData, 100);
   const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
@@ -345,53 +361,38 @@ ${personLines}
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
 
-記帳資料範圍：${dataDesc}${preCalcStats}
+${lv === 'L1' ? '' : `記帳資料範圍：${dataDesc}${preCalcStats}`}
 ${txJson !== '（本次查詢不需要歷史資料）' ? `
-【最近 ${txData.length} 筆明細樣本（僅供觀察消費模式，禁止用來加總！加總請用上方統計數據）】
-${txJson}` : ''}
+【${txData.length} 筆明細樣本（時段均勻採樣，僅供觀察消費風格，禁止用來加總）】
+${txJson}
 
-【重要規則】：
-1. 回答總金額、總筆數、分類金額、付款方式金額時，**只能**引用上方「統計數據」區塊的數字
-2. 明細樣本是給你看消費內容用的，**絕對不可以**自己重新加總
-3. 上方統計數據是 100% 精準的，跟報表頁完全一致；明細只是部分樣本
-
+【統計查詢規則】：
+1. 總金額、總筆數、分類金額、付款方式金額 → **只能引用上方統計數據**
+2. 明細樣本只是給你看消費內容用的，**絕對不可以**自己重新加總
+3. 上方統計數據是 JS 精算的，跟報表頁 100% 一致；明細只是部分樣本` : ''}
+${lv === 'L1' ? `
 ━━━━━━━━━━━━━━━━━━━━━
-【記帳的黃金原則：大膽假設，一次確認，絕不來回反問】
+【記帳規則：大膽假設、一次確認、絕不反問】
 ━━━━━━━━━━━━━━━━━━━━━
 
-收到記帳訊息時，立刻根據以下預設值補全所有缺漏資訊，然後直接出示確認句，不得反問任何問題：
+收到記帳訊息，立刻補全缺漏資訊，直接出示確認句，不得反問：
 
-預設值（沒有特別說明就用這個）：
-- 日期 → 今天（${todayISO}）
-- 記帳人 → 目前登入者（${currentUser}）
-- 付款方式 → 現金（cash）
-- 分類/子分類 → 根據消費內容自行推斷（地瓜→餐飲-晚餐、飲料→餐飲-飲料、Uber→交通-計程車）
-- 明細 → 用消費內容當明細
+預設值：日期=今天（${todayISO}）｜記帳人=${currentUser}｜付款=現金｜分類=自行推斷
 
-確認句格式（必須用這個格式說話）：
-「[日期] [分類]-[子分類]-[明細]，[記帳人]用[付款方式]消費 $[金額]，對嗎？」
+確認句格式：「[日期] [分類]-[子分類]-[明細]，[記帳人]用[付款方式]消費 $[金額]，對嗎？」
 
 例子：
-- 輸入「飲料135」→ 確認「今天 餐飲-飲料-飲料，${currentUser}用現金消費 $135，對嗎？」
-- 輸入「晚餐地瓜60現金盈慧」→ 確認「今天 餐飲-晚餐-烤地瓜，盈慧用現金消費 $60，對嗎？」
-- 輸入「Uber 230刷卡」→ 確認「今天 交通-計程車-Uber，${currentUser}用信用卡消費 $230，對嗎？」
+- 「飲料135」→「今天 餐飲-飲料-飲料，${currentUser}用現金消費 $135，對嗎？」
+- 「晚餐地瓜60現金盈慧」→「今天 餐飲-晚餐-烤地瓜，盈慧用現金消費 $60，對嗎？」
+- 「Uber 230刷卡」→「今天 交通-計程車-Uber，${currentUser}用信用卡消費 $230，對嗎？」
 
-如果用戶說「對」「是」「沒錯」「確認」「ok」→ 立刻輸出 [RECORD]
-如果用戶說「不對，是...」→ 根據修正重新推斷，再次出示確認句
+用戶確認（對/是/沒錯/ok）→ 立刻輸出 [RECORD] 格式：
+[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash/card/icard","cardId":"信用卡id或null"}[/RECORD]
+後面用你的個性說一句不超過20字的話。
 
-【嚴格禁止】：
-❌ 不可以問「是今天嗎？」
-❌ 不可以問「是宏龍還是盈慧？」
-❌ 不可以問「是現金還是刷卡？」
-❌ 不可以問任何問題，直接給確認句
-❌ 資訊完整時絕不說「還需要知道...」
+【嚴格禁止】反問任何問題（不可問日期/記帳人/付款方式），資訊完整時絕不說「還需要知道」。` : ''}
 
-記帳回傳格式（用戶確認後才輸出）：
-[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null"}[/RECORD]
-然後用你的個性說一句輕鬆的話（不超過20字）。
-
-查詢/分析時：直接用你的個性回答，可以用 emoji 和換行讓格式好看。
-回答語言：台灣繁體中文，嚴禁使用簡體中文字。`;
+回答語言：台灣繁體中文，嚴禁簡體字。查詢/分析用你的個性回答，可用 emoji 和換行讓格式好看。`;
 }
 
 // ── 呼叫 Claude API ──────────────────────────────────────────
@@ -401,10 +402,10 @@ async function callClaude(userMsg) {
 
   // 智慧分級：根據問題決定資料範圍
   const dateRange  = parseDateRange(userMsg);   // 嘗試解析明確日期區間
-  const dataLevel  = classifyDataLevel(userMsg);
+  const dataLevel  = classifyDataLevel(userMsg, dateRange);  // 傳入避免重算
   const levelDesc  = dateRange
     ? `精準區間（${dataLevel}）`
-    : { L1:'記帳模式（無歷史資料）', L2:'近7天/50筆', L3:'近45天/300筆', L4:'近90天/500筆', L5:'近180天/800筆' }[dataLevel];
+    : { L1:'記帳模式', L2:'近7天', L3:'近35天', L4:'近90天', L5:'近180天' }[dataLevel];
   if (dateRange) {
     console.log(`[AI助理] 等級:${dataLevel} 區間:${dateRange.from}~${dateRange.to} 問:"${userMsg.slice(0,20)}"`);
   } else {
