@@ -177,10 +177,12 @@ async function fbSyncAppConfig(){
         discordWebhook: webhook,
         geminiKey: geminiKey,
         claudeKey: claudeKey,
-        dailyHour:  discordCfg.dailyHour  || 21,
-        weeklyHour: discordCfg.weeklyHour || 8,
-        onDaily:    discordCfg.onDaily  !== false,
-        onWeekly:   discordCfg.onWeekly === true,
+        dailyHour:   discordCfg.dailyHour   || 21,
+        weeklyHour:  discordCfg.weeklyHour  || 8,
+        onDaily:     discordCfg.onDaily    !== false,
+        onWeekly:    discordCfg.onWeekly    === true,
+        onMonthly:   discordCfg.onMonthly   === true,   // 補上：月結算開關
+        monthlyDay:  discordCfg.monthlyDay  || 11,      // 補上：月結算發送日
         updatedAt: Date.now(),
         updatedBy: localStorage.getItem('current_user')||'',
       });
