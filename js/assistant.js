@@ -260,6 +260,37 @@ async function buildSystemPrompt(level, dateRange) {
     dataDesc = `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}，共 ${txData.length} 筆）`;
   }
 
+  // ── 預算統計（JS 精確計算，避免 Claude 自己加總出錯）──
+  let preCalcStats = '';
+  if (txData.length > 0) {
+    const _total   = txData.reduce((s, t) => s + Number(t.amount || 0), 0);
+    const _byCat   = {};
+    const _byPerson = {};
+    const _byCash  = txData.filter(t => t.pay === '現金').reduce((s,t) => s + Number(t.amount||0), 0);
+    const _byCard  = txData.filter(t => t.pay === '信用卡').reduce((s,t) => s + Number(t.amount||0), 0);
+    const _byIcard = txData.filter(t => t.pay === '悠遊卡').reduce((s,t) => s + Number(t.amount||0), 0);
+    txData.forEach(t => {
+      _byCat[t.cat]       = (_byCat[t.cat]       || 0) + Number(t.amount || 0);
+      _byPerson[t.person] = (_byPerson[t.person]  || 0) + Number(t.amount || 0);
+    });
+    const catLines = Object.entries(_byCat)
+      .sort((a,b) => b[1]-a[1])
+      .map(([k,v]) => `  ${k}: $${Math.round(v)}`).join('\n');
+    const personLines = Object.entries(_byPerson)
+      .sort((a,b) => b[1]-a[1])
+      .map(([k,v]) => `  ${k}: $${Math.round(v)}`).join('\n');
+    preCalcStats = `
+【預算統計（已由 JS 精確計算，請直接引用，不要自己重新加總）】
+總金額：$${Math.round(_total)}
+總筆數：${txData.length} 筆
+付款：現金 $${Math.round(_byCash)} / 信用卡 $${Math.round(_byCard)} / 悠遊卡 $${Math.round(_byIcard)}
+分類明細：
+${catLines}
+記帳人明細：
+${personLines}
+`;
+  }
+
   return `你是「${char.name}」，一個家庭理財 AI 助理。
 個性：${char.style}
 現在時間：${nowStr}，今天日期：${todayISO}
@@ -275,8 +306,8 @@ async function buildSystemPrompt(level, dateRange) {
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
 
-記帳資料範圍：${dataDesc}
-${txJson !== '（本次查詢不需要歷史資料）' ? `記帳資料（共 ${txData.length} 筆）：
+記帳資料範圍：${dataDesc}${preCalcStats}
+${txJson !== '（本次查詢不需要歷史資料）' ? `詳細記帳明細（共 ${txData.length} 筆，供分析用）：
 ${txJson}` : txJson}
 
 ━━━━━━━━━━━━━━━━━━━━━
