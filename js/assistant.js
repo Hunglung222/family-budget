@@ -73,8 +73,8 @@ function parseDateRange(msg) {
   const patterns = [
     // YYYY/MM/DD 或 YYYY-MM-DD 完整格式
     /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[到~～至\-]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
-    // M/D 到 M/D（同年）
-    /(\d{1,2})\/(\d{1,2})\s*[到~～至]\s*(\d{1,2})\/(\d{1,2})/,
+    // M/D 到 M/D（同年），支援 到/~/～/至/- 等分隔符
+    /(\d{1,2})\/(\d{1,2})\s*[到~～至\-]\s*(\d{1,2})\/(\d{1,2})/,
     // M月D日 到 M月D日
     /(\d{1,2})月(\d{1,2})日?\s*[到~～至]\s*(\d{1,2})月(\d{1,2})日?/,
   ];
@@ -115,13 +115,7 @@ function classifyDataLevel(msg) {
   if (!msg) return 'L3';
   const m = msg.toLowerCase();
 
-  // L1：明確記帳意圖（有金額數字 或 記帳關鍵字）
-  const hasAmount = /\d+\s*(元|塊|円|$|USD)?/.test(msg) &&
-    !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢/.test(m);
-  const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
-  if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
-
-  // 若有明確日期區間，依範圍天數自動決定等級
+  // 若有明確日期區間，直接依範圍天數決定等級（優先判斷，避免被 L1 誤吃）
   const dr = parseDateRange(msg);
   if (dr) {
     const days = Math.ceil((dr.to - dr.from) / 864e5);
@@ -130,6 +124,12 @@ function classifyDataLevel(msg) {
     if (days <= 90)  return 'L4';
     return 'L5';
   }
+
+  // L1：明確記帳意圖（有金額數字 或 記帳關鍵字）
+  const hasAmount = /\d+\s*(元|塊|円|$|USD)?/.test(msg) &&
+    !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢|總額|筆數|明細|消費|紀錄|記錄|統計|查/.test(m);
+  const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
+  if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
 
   // L5：長期或完整分析關鍵字
   if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
