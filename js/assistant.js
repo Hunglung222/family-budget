@@ -59,33 +59,76 @@ const DATA_LEVELS = {
 };
 
 // ── 從問題解析明確日期區間 ──────────────────────────────────
-// 支援格式：
-//   4/10到5/9、4/10~5/9、4月10日到5月9日
-//   上個月X號到Y號、本月X日到Y日
-//   YYYY/MM/DD～YYYY/MM/DD、YYYY-MM-DD到YYYY-MM-DD
-// 回傳 { from: Date, to: Date } 或 null
+// parseDateRange：解析各種日期表達，回傳 { from, to } YYYY-MM-DD 字串
+// 與報表頁 txByRange(f, e) 完全一致
 function parseDateRange(msg) {
   if (!msg) return null;
   const now = new Date();
-  const y = now.getFullYear();
+  const y = now.getFullYear(), mo = now.getMonth(), d = now.getDate();
   const pad = n => String(n).padStart(2, '0');
-  // 回傳 YYYY-MM-DD 字串，與報表頁 txByRange(f, e) 完全一致
-  const toStr = (yr, mo, dd) => `${yr}-${pad(mo)}-${pad(dd)}`;
+  const toStr = (yr, m, dd) => `${yr}-${pad(m)}-${pad(dd)}`;
+  // 當月最後一天
+  const lastDay = (yr, m) => new Date(yr, m, 0).getDate();
 
+  // ── 自然語言相對日期（優先比對）──────────────────────────
+  // 本週（週一～週日）
+  if (/本週|這週|本周|這周/.test(msg)) {
+    const dow = now.getDay(); // 0=日
+    const mondayOff = dow === 0 ? -6 : 1 - dow;
+    const mon = new Date(now); mon.setDate(d + mondayOff);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    return { from: toStr(mon.getFullYear(),mon.getMonth()+1,mon.getDate()),
+             to:   toStr(sun.getFullYear(),sun.getMonth()+1,sun.getDate()) };
+  }
+  // 上週
+  if (/上週|上周|前一週/.test(msg)) {
+    const dow = now.getDay();
+    const mondayOff = (dow === 0 ? -6 : 1 - dow) - 7;
+    const mon = new Date(now); mon.setDate(d + mondayOff);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    return { from: toStr(mon.getFullYear(),mon.getMonth()+1,mon.getDate()),
+             to:   toStr(sun.getFullYear(),sun.getMonth()+1,sun.getDate()) };
+  }
+  // 本月
+  if (/本月|這個月|這月/.test(msg)) {
+    return { from: toStr(y, mo+1, 1), to: toStr(y, mo+1, lastDay(y, mo+1)) };
+  }
+  // 上個月
+  if (/上個月|上月|前一個月/.test(msg)) {
+    const pm = mo === 0 ? 12 : mo;
+    const py = mo === 0 ? y-1 : y;
+    return { from: toStr(py, pm, 1), to: toStr(py, pm, lastDay(py, pm)) };
+  }
+  // 今年
+  if (/今年/.test(msg)) {
+    return { from: toStr(y, 1, 1), to: toStr(y, 12, 31) };
+  }
+  // X月份 或 X月（指定月份，今年）
+  const mMonth = msg.match(/([一二三四五六七八九十百]+|\d{1,2})月份?/);
+  if (mMonth) {
+    const chToNum = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
+    const mNum = chToNum[mMonth[1]] || +mMonth[1];
+    if (mNum >= 1 && mNum <= 12) {
+      const mYear = mNum > mo + 1 ? y - 1 : y; // 超過當月則為去年同月
+      return { from: toStr(mYear, mNum, 1), to: toStr(mYear, mNum, lastDay(mYear, mNum)) };
+    }
+  }
+
+  // ── 明確日期區間格式 ────────────────────────────────────
   const patterns = [
     /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[到~～至\-]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
     /(\d{1,2})\/(\d{1,2})\s*[到~～至\-]\s*(\d{1,2})\/(\d{1,2})/,
     /(\d{1,2})月(\d{1,2})日?\s*[到~～至]\s*(\d{1,2})月(\d{1,2})日?/,
   ];
 
-  let m = msg.match(patterns[0]);
-  if (m) return { from: toStr(+m[1],+m[2],+m[3]), to: toStr(+m[4],+m[5],+m[6]) };
+  let m2 = msg.match(patterns[0]);
+  if (m2) return { from: toStr(+m2[1],+m2[2],+m2[3]), to: toStr(+m2[4],+m2[5],+m2[6]) };
 
-  m = msg.match(patterns[1]);
-  if (m) return { from: toStr(y,+m[1],+m[2]), to: toStr(y,+m[3],+m[4]) };
+  m2 = msg.match(patterns[1]);
+  if (m2) return { from: toStr(y,+m2[1],+m2[2]), to: toStr(y,+m2[3],+m2[4]) };
 
-  m = msg.match(patterns[2]);
-  if (m) return { from: toStr(y,+m[1],+m[2]), to: toStr(y,+m[3],+m[4]) };
+  m2 = msg.match(patterns[2]);
+  if (m2) return { from: toStr(y,+m2[1],+m2[2]), to: toStr(y,+m2[3],+m2[4]) };
 
   return null;
 }
@@ -140,32 +183,53 @@ function _formatTx(t) {
 
 // 用 localStorage 撈資料，支援明確日期區間 dateRange = { from, to }
 // 直接使用 db.js 的 txByRange()，確保與報表頁資料來源完全一致
+// 回傳 { txData: 截斷後明細陣列, fullStats: 完整統計 }
 function getTxDataLocal(level, dateRange) {
   const lv = DATA_LEVELS[level || 'L3'];
-  if (lv.days === 0) return [];
+  if (lv.days === 0) return { txData: [], fullStats: null };
 
   let txList;
   if (dateRange && dateRange.from && dateRange.to) {
-    // 精準日期區間：直接傳字串給 txByRange，與報表頁 load() 完全相同的呼叫方式
     txList = typeof txByRange === 'function'
       ? txByRange(dateRange.from, dateRange.to)
-      : (getTx ? getTx() : []);
+      : (typeof getTx === 'function' ? getTx() : []);
   } else {
-    // 無明確區間：用往回推天數的字串
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - lv.days);
     const pad = n => String(n).padStart(2,'0');
     const toStr = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
     txList = typeof txByRange === 'function'
       ? txByRange(toStr(cutoff), toStr(new Date()))
-      : (getTx ? getTx() : []);
+      : (typeof getTx === 'function' ? getTx() : []);
   }
 
-  // 排序後取 maxTx 筆，轉成 AI 用格式
-  return txList
+  // ── 先用完整 txList 算出精準統計（Bug1修正：在 slice 前計算）──
+  const fullStats = _calcFullStats(txList);
+
+  // 排序後截斷，只把部分明細給 AI（避免 token 超限）
+  const txData = txList
     .sort((a, b) => new Date(b.at) - new Date(a.at))
     .slice(0, lv.maxTx)
     .map(_formatTx);
+
+  return { txData, fullStats };
+}
+
+// 完整統計計算（在 slice 截斷前呼叫，確保數字 100% 準確）
+function _calcFullStats(txList) {
+  if (!txList || txList.length === 0) return null;
+  const total  = txList.reduce((s, t) => s + Number(t.amount || 0), 0);
+  const byCash = txList.filter(t => t.pay === 'cash').reduce((s,t) => s+Number(t.amount||0), 0);
+  const byCard = txList.filter(t => t.pay === 'card').reduce((s,t) => s+Number(t.amount||0), 0);
+  const byIcard= txList.filter(t => t.pay === 'icard').reduce((s,t) => s+Number(t.amount||0), 0);
+  const byAcct = txList.filter(t => t.pay === 'acct').reduce((s,t) => s+Number(t.amount||0), 0);
+  const byCat = {}, byPerson = {};
+  txList.forEach(t => {
+    const catLabel = typeof catName === 'function' ? catName(t.cat) : t.cat;
+    byCat[catLabel]     = (byCat[catLabel]     || 0) + Number(t.amount || 0);
+    byPerson[t.person]  = (byPerson[t.person]  || 0) + Number(t.amount || 0);
+  });
+  return { total, count: txList.length, byCash, byCard, byIcard, byAcct, byCat, byPerson };
 }
 
 // L3/L4/L5：從 Firebase 拉取（資料更完整，換手機也有）
@@ -199,9 +263,10 @@ async function getTxDataFirebase(level) {
 }
 
 // 統一入口：全部用 localStorage（Firebase 同步後資料完整，且不受索引問題影響）
+// 回傳 { txData: [...], fullStats: {...} }
 async function getTxData(level, dateRange) {
   const lv = level || 'L3';
-  if (lv === 'L1') return [];
+  if (lv === 'L1') return { txData: [], fullStats: null };
   return getTxDataLocal(lv, dateRange);
 }
 
@@ -219,7 +284,9 @@ function getCardList() {
 async function buildSystemPrompt(level, dateRange) {
   const char    = getChar();
   const lv      = level || 'L3';
-  const txData  = await getTxData(lv, dateRange);
+  const result  = await getTxData(lv, dateRange);
+  const txData  = result.txData;          // 截斷後明細（供 AI 分析用）
+  const fullStats = result.fullStats;     // 完整統計（在 slice 前計算，數字精準）
   const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
@@ -233,35 +300,27 @@ async function buildSystemPrompt(level, dateRange) {
   if (lv === 'L1') {
     dataDesc = '（記帳模式，無需歷史資料）';
   } else if (dateRange && dateRange.from && dateRange.to) {
-    dataDesc = `精準區間 ${dateRange.from} ～ ${dateRange.to}（共 ${txData.length} 筆）`;
+    const totalCount = fullStats ? fullStats.count : txData.length;
+    dataDesc = `精準區間 ${dateRange.from} ～ ${dateRange.to}（共 ${totalCount} 筆）`;
   } else {
-    dataDesc = `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}，共 ${txData.length} 筆）`;
+    const totalCount = fullStats ? fullStats.count : txData.length;
+    dataDesc = `最近 ${lvInfo.days} 天（共 ${totalCount} 筆）`;
   }
 
-  // ── 預算統計（JS 精確計算，避免 Claude 自己加總出錯）──
+  // ── 預算統計：直接用 fullStats（已在 slice 前計算完畢，數字絕對正確）──
   let preCalcStats = '';
-  if (txData.length > 0) {
-    const _total   = txData.reduce((s, t) => s + Number(t.amount || 0), 0);
-    const _byCat   = {};
-    const _byPerson = {};
-    const _byCash  = txData.filter(t => t.pay === '現金').reduce((s,t) => s + Number(t.amount||0), 0);
-    const _byCard  = txData.filter(t => t.pay === '信用卡').reduce((s,t) => s + Number(t.amount||0), 0);
-    const _byIcard = txData.filter(t => t.pay === '悠遊卡').reduce((s,t) => s + Number(t.amount||0), 0);
-    txData.forEach(t => {
-      _byCat[t.cat]       = (_byCat[t.cat]       || 0) + Number(t.amount || 0);
-      _byPerson[t.person] = (_byPerson[t.person]  || 0) + Number(t.amount || 0);
-    });
-    const catLines = Object.entries(_byCat)
+  if (fullStats && fullStats.count > 0) {
+    const catLines = Object.entries(fullStats.byCat)
       .sort((a,b) => b[1]-a[1])
       .map(([k,v]) => `  ${k}: $${Math.round(v)}`).join('\n');
-    const personLines = Object.entries(_byPerson)
+    const personLines = Object.entries(fullStats.byPerson)
       .sort((a,b) => b[1]-a[1])
       .map(([k,v]) => `  ${k}: $${Math.round(v)}`).join('\n');
     preCalcStats = `
-【預算統計（已由 JS 精確計算，請直接引用，不要自己重新加總）】
-總金額：$${Math.round(_total)}
-總筆數：${txData.length} 筆
-付款：現金 $${Math.round(_byCash)} / 信用卡 $${Math.round(_byCard)} / 悠遊卡 $${Math.round(_byIcard)}
+【統計數據（JS 精確計算，請直接引用，禁止自行重新加總）】
+總金額：$${Math.round(fullStats.total)}
+總筆數：${fullStats.count} 筆
+付款方式：現金 $${Math.round(fullStats.byCash)} / 信用卡 $${Math.round(fullStats.byCard)} / 悠遊卡 $${Math.round(fullStats.byIcard)}
 分類明細：
 ${catLines}
 記帳人明細：
