@@ -58,6 +58,59 @@ const DATA_LEVELS = {
   L5: { days: 180, maxTx: 800 },
 };
 
+// ── 從問題解析明確日期區間 ──────────────────────────────────
+// 支援格式：
+//   4/10到5/9、4/10~5/9、4月10日到5月9日
+//   上個月X號到Y號、本月X日到Y日
+//   YYYY/MM/DD～YYYY/MM/DD、YYYY-MM-DD到YYYY-MM-DD
+// 回傳 { from: Date, to: Date } 或 null
+function parseDateRange(msg) {
+  if (!msg) return null;
+  const now = new Date();
+  const y = now.getFullYear();
+
+  // 嘗試各種格式
+  const patterns = [
+    // YYYY/MM/DD 或 YYYY-MM-DD 完整格式
+    /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[到~～至\-]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
+    // M/D 到 M/D（同年）
+    /(\d{1,2})\/(\d{1,2})\s*[到~～至]\s*(\d{1,2})\/(\d{1,2})/,
+    // M月D日 到 M月D日
+    /(\d{1,2})月(\d{1,2})日?\s*[到~～至]\s*(\d{1,2})月(\d{1,2})日?/,
+  ];
+
+  // YYYY/MM/DD～YYYY/MM/DD
+  let m = msg.match(patterns[0]);
+  if (m) {
+    return {
+      from: new Date(+m[1], +m[2]-1, +m[3], 0, 0, 0),
+      to:   new Date(+m[4], +m[5]-1, +m[6], 23, 59, 59),
+    };
+  }
+
+  // M/D 到 M/D（同年）
+  m = msg.match(patterns[1]);
+  if (m) {
+    const [,m1,d1,m2,d2] = m;
+    return {
+      from: new Date(y, +m1-1, +d1, 0, 0, 0),
+      to:   new Date(y, +m2-1, +d2, 23, 59, 59),
+    };
+  }
+
+  // M月D日 到 M月D日
+  m = msg.match(patterns[2]);
+  if (m) {
+    const [,m1,d1,m2,d2] = m;
+    return {
+      from: new Date(y, +m1-1, +d1, 0, 0, 0),
+      to:   new Date(y, +m2-1, +d2, 23, 59, 59),
+    };
+  }
+
+  return null;
+}
+
 function classifyDataLevel(msg) {
   if (!msg) return 'L3';
   const m = msg.toLowerCase();
@@ -67,6 +120,16 @@ function classifyDataLevel(msg) {
     !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢/.test(m);
   const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
   if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
+
+  // 若有明確日期區間，依範圍天數自動決定等級
+  const dr = parseDateRange(msg);
+  if (dr) {
+    const days = Math.ceil((dr.to - dr.from) / 864e5);
+    if (days <= 7)   return 'L2';
+    if (days <= 45)  return 'L3';
+    if (days <= 90)  return 'L4';
+    return 'L5';
+  }
 
   // L5：長期或完整分析關鍵字
   if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
@@ -96,15 +159,27 @@ function _formatTx(t) {
   };
 }
 
-// L1/L2：用 localStorage（即時，不需要等待）
-function getTxDataLocal(level) {
+// 用 localStorage 撈資料，支援明確日期區間 dateRange = { from, to }
+function getTxDataLocal(level, dateRange) {
   const lv = DATA_LEVELS[level || 'L3'];
   if (lv.days === 0) return [];
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - lv.days);
-  const txList = (typeof getTx === 'function' ? getTx() : [])
-    .filter(t => new Date(t.at) >= cutoff && !t.private);
-  return txList.slice(0, lv.maxTx).map(_formatTx);
+  const all = (typeof getTx === 'function' ? getTx() : [])
+    .filter(t => !t.private)
+    .sort((a, b) => new Date(b.at) - new Date(a.at)); // 先排序確保 slice 正確
+
+  let filtered;
+  if (dateRange && dateRange.from && dateRange.to) {
+    // 精準日期區間過濾
+    filtered = all.filter(t => {
+      const d = new Date(t.at);
+      return d >= dateRange.from && d <= dateRange.to;
+    });
+  } else {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - lv.days);
+    filtered = all.filter(t => new Date(t.at) >= cutoff);
+  }
+  return filtered.slice(0, lv.maxTx).map(_formatTx);
 }
 
 // L3/L4/L5：從 Firebase 拉取（資料更完整，換手機也有）
@@ -138,11 +213,10 @@ async function getTxDataFirebase(level) {
 }
 
 // 統一入口：全部用 localStorage（Firebase 同步後資料完整，且不受索引問題影響）
-// Firebase 查詢因 Firestore 複合索引限制，結果不穩定，故改回本地資料
-async function getTxData(level) {
+async function getTxData(level, dateRange) {
   const lv = level || 'L3';
   if (lv === 'L1') return [];
-  return getTxDataLocal(lv); // localStorage 在 fbPullAll 後是完整的
+  return getTxDataLocal(lv, dateRange);
 }
 
 function getCatList() {
@@ -156,10 +230,10 @@ function getCardList() {
 }
 
 // ── 建立系統 Prompt ──────────────────────────────────────────
-async function buildSystemPrompt(level) {
+async function buildSystemPrompt(level, dateRange) {
   const char    = getChar();
   const lv      = level || 'L3';
-  const txData  = await getTxData(lv);
+  const txData  = await getTxData(lv, dateRange);
   const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
@@ -168,8 +242,16 @@ async function buildSystemPrompt(level) {
   const todayISO = now.toISOString().slice(0,10);
   const currentUser = localStorage.getItem('current_user') || '宏龍';
   const lvInfo = DATA_LEVELS[lv];
-  const dataDesc = lv === 'L1' ? '（記帳模式，無需歷史資料）'
-    : `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}）`;
+
+  let dataDesc;
+  if (lv === 'L1') {
+    dataDesc = '（記帳模式，無需歷史資料）';
+  } else if (dateRange && dateRange.from && dateRange.to) {
+    const fmtDate = d => `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    dataDesc = `精準區間 ${fmtDate(dateRange.from)} ～ ${fmtDate(dateRange.to)}（共 ${txData.length} 筆）`;
+  } else {
+    dataDesc = `最近 ${lvInfo.days} 天 / 最多 ${lvInfo.maxTx} 筆（${lv}，共 ${txData.length} 筆）`;
+  }
 
   return `你是「${char.name}」，一個家庭理財 AI 助理。
 個性：${char.style}
@@ -235,16 +317,16 @@ async function callClaude(userMsg) {
   if (!key) return '請先在設定頁填入 Claude API Key 才能使用我喔！';
 
   // 智慧分級：根據問題決定資料範圍
-  const dataLevel = classifyDataLevel(userMsg);
-  const lvInfo = DATA_LEVELS[dataLevel];
-  const levelDesc = {
-    L1: '記帳模式（無歷史資料）',
-    L2: `近7天/50筆`,
-    L3: `近45天/150筆`,
-    L4: `近90天/300筆`,
-    L5: `近180天/500筆`,
-  }[dataLevel];
-  console.log(`[AI助理] 資料等級: ${dataLevel} (${levelDesc}) - 問題: "${userMsg.slice(0,20)}"`);
+  const dateRange  = parseDateRange(userMsg);   // 嘗試解析明確日期區間
+  const dataLevel  = classifyDataLevel(userMsg);
+  const levelDesc  = dateRange
+    ? `精準區間（${dataLevel}）`
+    : { L1:'記帳模式（無歷史資料）', L2:'近7天/50筆', L3:'近45天/300筆', L4:'近90天/500筆', L5:'近180天/800筆' }[dataLevel];
+  if (dateRange) {
+    console.log(`[AI助理] 資料等級: ${dataLevel} 區間:${dateRange.from.toLocaleDateString()}~${dateRange.to.toLocaleDateString()} - 問題: "${userMsg.slice(0,20)}"`);
+  } else {
+    console.log(`[AI助理] 資料等級: ${dataLevel} (${levelDesc}) - 問題: "${userMsg.slice(0,20)}"`);
+  }
 
   chatHistory.push({ role: 'user', content: userMsg });
 
@@ -260,7 +342,7 @@ async function callClaude(userMsg) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 8192,
-        system: await buildSystemPrompt(dataLevel),
+        system: await buildSystemPrompt(dataLevel, dateRange),
         messages: chatHistory
       })
     });
@@ -290,7 +372,7 @@ async function callClaude(userMsg) {
           body: JSON.stringify({
             model: 'claude-haiku-4-5',
             max_tokens: 4096,
-            system: await buildSystemPrompt(dataLevel),
+            system: await buildSystemPrompt(dataLevel, dateRange),
             messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
           })
         });
