@@ -160,26 +160,33 @@ function _formatTx(t) {
 }
 
 // 用 localStorage 撈資料，支援明確日期區間 dateRange = { from, to }
+// 直接使用 db.js 的 txByRange()，確保與報表頁資料來源完全一致
 function getTxDataLocal(level, dateRange) {
   const lv = DATA_LEVELS[level || 'L3'];
   if (lv.days === 0) return [];
-  const all = (typeof getTx === 'function' ? getTx() : [])
-    .filter(t => !t.private)
-    .sort((a, b) => new Date(b.at) - new Date(a.at)); // 先排序確保 slice 正確
 
-  let filtered;
+  let txList;
   if (dateRange && dateRange.from && dateRange.to) {
-    // 精準日期區間過濾
-    filtered = all.filter(t => {
-      const d = new Date(t.at);
-      return d >= dateRange.from && d <= dateRange.to;
-    });
+    // 精準日期區間：使用與報表頁完全相同的 txByRange()
+    txList = typeof txByRange === 'function'
+      ? txByRange(dateRange.from, dateRange.to)
+      : (getTx ? getTx() : []).filter(t => {
+          const d = new Date(t.at); return d >= dateRange.from && d <= dateRange.to;
+        });
   } else {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - lv.days);
-    filtered = all.filter(t => new Date(t.at) >= cutoff);
+    const now = new Date();
+    txList = typeof txByRange === 'function'
+      ? txByRange(cutoff, now)
+      : (getTx ? getTx() : []).filter(t => new Date(t.at) >= cutoff);
   }
-  return filtered.slice(0, lv.maxTx).map(_formatTx);
+
+  // 排序後取 maxTx 筆，轉成 AI 用格式
+  return txList
+    .sort((a, b) => new Date(b.at) - new Date(a.at))
+    .slice(0, lv.maxTx)
+    .map(_formatTx);
 }
 
 // L3/L4/L5：從 Firebase 拉取（資料更完整，換手機也有）
