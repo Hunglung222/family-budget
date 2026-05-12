@@ -281,6 +281,35 @@ async function fbPullPrivateData() {
   await fbPullMemos();
 }
 
+
+function fbListenWal(cb){
+  try{
+    const db = getDb();
+    const unsubs = [];
+    unsubs.push(db.collection('personal').doc(uid()).onSnapshot(d=>{
+      if(!d.exists) return;
+      const data = d.data();
+      const localWal = getWal();
+      if(data.wal && data.wal.updatedAt > (localWal.updatedAt||0)) DB.set(pKey('wal'), data.wal);
+      if(data.cards)  DB.set(pKey('cards'),  data.cards);
+      if(data.icards){
+        const localIcards = getIcards();
+        const localTs = Math.max(...localIcards.map(c=>c._localTs||0), 0);
+        const cloudTs = data.syncAt || 0;
+        if(cloudTs >= localTs) DB.set(pKey('icards'), data.icards);
+      }
+      if(data.accts)  DB.set(pKey('accts'),  data.accts);
+      if(data.bills)  DB.set(pKey('bills'),  data.bills);
+      cb&&cb();
+    },e=>console.warn('[FB]listenPersonal',e)));
+    unsubs.push(db.collection('shared').doc('accts').onSnapshot(d=>{
+      if(d.exists&&d.data().list) DB.set('shared_accts',d.data().list);
+      cb&&cb();
+    },e=>console.warn('[FB]listenSharedAccts',e)));
+    return ()=>unsubs.forEach(u=>{try{u&&u();}catch(e){}});
+  }catch(e){console.warn('[FB]listenWal',e);return()=>{};}
+}
+
 async function fbSyncWal(){await fbSyncPersonal();}
 async function fbSyncCards(){await fbSyncPersonal(); await fbSyncSharedCardList();}
 async function fbSyncIcards(){await fbSyncPersonal(); await fbSyncSharedCardList();}

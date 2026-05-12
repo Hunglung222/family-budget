@@ -426,6 +426,10 @@ async function submitEdit() {
   if (old.pay === 'cash')                          walIn(old.amount, '編輯還原');
   if (old.pay === 'icard' && old.icardId)          icardIn(old.icardId, old.amount, '編輯還原');
   if (old.pay === 'card'  && old.cardId)           cardVoidBill(old.cardId, old.amount, old.id);
+  if (old.pay === 'acct'  && old.acctId) {
+    const oldShared = old.acctId.startsWith('shared_');
+    acctIn(oldShared ? old.acctId.replace('shared_','') : old.acctId, old.amount, '編輯還原', oldShared);
+  }
 
   // ── 2. 更新記帳資料 ────────────────────────────────
   list[idx] = {
@@ -450,7 +454,11 @@ async function submitEdit() {
   const label   = updated.detail || catName(updated.cat);
   if (updated.pay === 'cash')                          walOut(updated.amount, label);
   if (updated.pay === 'icard' && updated.icardId)      icardOut(updated.icardId, updated.amount, label);
-  if (updated.pay === 'card'  && updated.cardId)       cardAddBill(updated.cardId, updated.amount, label, updated.at);
+  if (updated.pay === 'card'  && updated.cardId)       cardAddBill(updated.cardId, updated.amount, label, updated.at, updated.id);
+  if (updated.pay === 'acct'  && updated.acctId) {
+    const newShared = updated.acctId.startsWith('shared_');
+    acctOut(newShared ? updated.acctId.replace('shared_','') : updated.acctId, updated.amount, label, newShared);
+  }
 
   // ── 4. 同步 Firebase ───────────────────────────────
   await fbAddTx(updated);

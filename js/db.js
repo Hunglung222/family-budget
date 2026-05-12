@@ -68,7 +68,9 @@ function initDB() {
   if (!DB.get(pKey('shortcuts'))) DB.set(pKey('shortcuts'), []); // 快捷範本（個人）
 
   // 共用帳戶（家用）
-  if (!DB.get('shared_accts')) DB.set('shared_accts', []);
+  if (!DB.get('shared_accts'))  DB.set('shared_accts', []);
+  if (!DB.get('shared_cards'))  DB.set('shared_cards', []);
+  if (!DB.get('shared_icards')) DB.set('shared_icards', []);
 }
 
 // ── 交易（共用） ──────────────────────────────────────
@@ -83,7 +85,7 @@ function addTx(tx) {
   // 自動扣款
   if (tx.pay === 'cash')  walOut(tx.amount, tx.detail || catName(tx.cat));
   if (tx.pay === 'icard' && tx.icardId) icardOut(tx.icardId, tx.amount, tx.detail || catName(tx.cat));
-  if (tx.pay === 'card'  && tx.cardId)  cardAddBill(tx.cardId, tx.amount, tx.detail || catName(tx.cat), tx.at);
+  if (tx.pay === 'card'  && tx.cardId)  cardAddBill(tx.cardId, tx.amount, tx.detail || catName(tx.cat), tx.at, tx.id);
   if (tx.pay === 'acct'  && tx.acctId) {
     const isShared = tx.acctId.startsWith('shared_');
     acctOut(isShared ? tx.acctId.replace('shared_','') : tx.acctId, tx.amount, tx.detail || catName(tx.cat), isShared);
@@ -202,7 +204,7 @@ function getAllAvailableCards() {
 }
 
 function getCardBills() { return DB.get(pKey('bills')) || []; }
-function cardAddBill(cardId, amount, note, at) {
+function cardAddBill(cardId, amount, note, at, txId) {
   const bills = getCardBills();
   const card  = cardFind(cardId); if (!card) return;
   const cutDay = card.cutDay || 25;
@@ -220,14 +222,20 @@ function cardAddBill(cardId, amount, note, at) {
     bills.unshift(bill);
   }
   bill.total += amount;
-  bill.items.unshift({txId: Date.now().toString(36), amount, note, at: now.toISOString()});
+  bill.items.unshift({txId: txId || Date.now().toString(36), amount, note, at: now.toISOString()});
   DB.set(pKey('bills'), bills);
 }
 function cardVoidBill(cardId, amount, txId) {
   const bills = getCardBills();
   bills.forEach(b => {
     if (b.cardId !== cardId) return;
+    const before = b.items.length;
     b.items = b.items.filter(i => i.txId !== txId);
+    // 舊資料曾以臨時 id 存入帳單，刪除／編輯時找不到交易 id；此時退而刪除一筆同金額項目。
+    if (before === b.items.length && amount) {
+      const idx = b.items.findIndex(i => i.amount === amount);
+      if (idx >= 0) b.items.splice(idx, 1);
+    }
     b.total = b.items.reduce((s,i)=>s+i.amount, 0);
   });
   DB.set(pKey('bills'), bills.filter(b=>b.items.length>0||b.paid));
