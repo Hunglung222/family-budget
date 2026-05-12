@@ -996,6 +996,8 @@ function buildUI() {
       <button class="ast-quick" onclick="quickAsk('今天花了多少？')">今天花多少</button>
       <button class="ast-quick" onclick="quickAsk('本週跟上週消費比較')">本週vs上週</button>
       <button class="ast-quick" onclick="quickAsk('這個月哪個分類花最多？')">最多分類</button>
+      <button class="ast-quick" onclick="quickAsk('最近一季消費分析')">季</button>
+      <button class="ast-quick" onclick="quickAsk('最近半年消費分析')">半年</button>
       <button class="ast-quick" onclick="quickAsk('幫我分析消費習慣')">消費分析</button>
       <button class="ast-quick" onclick="quickAsk('照現在速度這個月會超支嗎？')">超支預測</button>
     </div>
