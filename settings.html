@@ -79,7 +79,7 @@
         <span style="font-size:1.5rem">🏡</span>
         <div>
           <div style="font-size:.92rem;font-weight:700">家庭記帳 PWA</div>
-          <div style="font-size:.72rem;color:var(--t2);margin-top:1px">版本 <span id="app-version" style="color:var(--p);font-weight:700"></span> · 快取 <span id="sw-version" style="color:var(--p);font-weight:700"></span></div>
+          <div style="font-size:.72rem;color:var(--t2);margin-top:1px">版本 <span id="app-version" style="color:var(--p);font-weight:700"></span></div>
         </div>
       </div>
       <div id="version-status" style="font-size:.7rem;padding:3px 10px;border-radius:50px;background:rgba(34,197,94,.12);color:var(--ok);font-weight:700">✅ 最新版</div>
@@ -651,15 +651,14 @@ function init(){
   renderSubCatSel();
 }
 
-// 版本檢查：每次部署新版本，請同步更新這兩個常數與 sw.js 的 V。
-// 版本號採用台灣時間：APP_VERSION = vYYYY.MM.DD HH:mm，SW_VERSION = fb-vYYYY.MM.DD-HHmm。
-const APP_VERSION = 'v2026.05.12 16:15';
-const SW_VERSION  = 'fb-v2026.05.12-1615';
+// 版本檢查：每次部署新版本，同步更新這兩個地方：
+// 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
+// 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
+const APP_VERSION = 'v2026.05.13 03:46';
+const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
-  const swVersionEl = document.getElementById('sw-version');
-  if (swVersionEl) swVersionEl.textContent = SW_VERSION;
 
   // 版本比對：用 localStorage 記上次看到的版本
   const STORED_KEY = 'seen_app_version';

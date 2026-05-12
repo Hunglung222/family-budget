@@ -1,4 +1,4 @@
-const V = 'fb-v2026.05.12-1655-smart-detail-query';
+const V = 'fb-v2026.05.13-0346';
 const A = [
   './login.html','./add.html','./index.html','./report.html',
   './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
