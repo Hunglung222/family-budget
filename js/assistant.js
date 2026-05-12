@@ -30,6 +30,49 @@ function getChar() {
 
 // ── 對話歷史（session 內保存）──────────────────────────────
 let chatHistory   = [];    // Claude 的多輪對話歷史
+
+// 對話持久化（切換頁面後保留）
+const CHAT_PERSIST_KEY = 'assistant_chat_history';
+const CHAT_DOM_KEY     = 'assistant_chat_dom';
+const CHAT_MAX_PERSIST = 30;  // 最多保留 30 條訊息（避免 localStorage 爆量）
+
+function saveChatToStorage() {
+  try {
+    // 保存 chatHistory（給 API 用）
+    const trimmed = chatHistory.slice(-CHAT_MAX_PERSIST);
+    localStorage.setItem(CHAT_PERSIST_KEY, JSON.stringify(trimmed));
+    // 保存 DOM HTML（給畫面用）
+    const msgs = document.getElementById('ast-msgs');
+    if (msgs) localStorage.setItem(CHAT_DOM_KEY, msgs.innerHTML);
+  } catch (e) { console.warn('[assistant] saveChat err:', e.message); }
+}
+
+function loadChatFromStorage() {
+  try {
+    const raw = localStorage.getItem(CHAT_PERSIST_KEY);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) chatHistory = arr;
+    }
+  } catch (e) { console.warn('[assistant] loadChat err:', e.message); }
+}
+
+function restoreChatDom() {
+  try {
+    const msgs = document.getElementById('ast-msgs');
+    const html = localStorage.getItem(CHAT_DOM_KEY);
+    if (msgs && html) {
+      msgs.innerHTML = html;
+      // 自動捲到最底
+      requestAnimationFrame(() => { msgs.scrollTop = msgs.scrollHeight; });
+      return true;
+    }
+  } catch (e) { console.warn('[assistant] restoreChatDom err:', e.message); }
+  return false;
+}
+
+// 啟動時先把 chatHistory 從 localStorage 讀回來
+loadChatFromStorage();
 let pendingTx     = null;  // 待確認的記帳資料
 let isOpen        = false;
 let isLoading     = false;
@@ -79,8 +122,14 @@ function getKey() { return localStorage.getItem('claude_api_key') || ''; }
 // L4: 跨月比較（90天）  ── 「上個月」「比較」
 // L5: 長期分析（180天） ── 「半年」「年度報告」
 // 註：一般分析維持採樣省 token；明細查詢會先用 JS 過濾完整資料再限量提供
-const DETAIL_SAMPLE_LIMIT = 100;
-const FULL_DETAIL_LIMIT = 250;
+const DETAIL_SAMPLE_LIMIT = 100;   // 一般查詢：均勻採樣 100 筆給 AI 看消費風格
+const DETAIL_FULL_LIMIT   = 300;   // 偵測到明細查詢意圖時：擴大到 300 筆，AI 能回答具體單筆問題
+
+// 偵測使用者是否想看「具體明細」（明細/逐筆/單筆/最大筆等）
+function wantsDetailedView(msg) {
+  if (!msg) return false;
+  return /明細|逐筆|列出|清單|每一筆|單筆|最大|最貴|最高|最多金額|最便宜|最低|哪一筆|哪幾筆|刷卡紀錄|刷卡記錄/.test(msg);
+}
 const DATA_LEVELS = {
   L1: { days: 0   },
   L2: { days: 7   },
@@ -260,124 +309,6 @@ function _sampleTxs(txDataSorted, n) {
   return sampled;
 }
 
-function wantsFullDetailQuery(msg) {
-  if (!msg) return false;
-  const hasDetailIntent = /明細|逐筆|列出|清單|每一筆|刷卡紀錄|刷卡記錄|信用卡紀錄|信用卡記錄/.test(msg);
-  const hasBroadDetailIntent = /(所有|全部|完整).*(紀錄|記錄|資料|消費|支出|信用卡|刷卡|現金|悠遊卡)/.test(msg);
-  const isAnalysisOnly = /分析|報告|建議|趨勢|預測/.test(msg) && !hasDetailIntent;
-  return !isAnalysisOnly && (hasDetailIntent || hasBroadDetailIntent);
-}
-
-function _txText(t) {
-  return [t.cat, t.subCat, t.detail, t.person, t.pay].filter(Boolean).join(' ').toLowerCase();
-}
-
-function _extractDetailKeyword(msg) {
-  const stopWords = /^(信用卡|刷卡|現金|悠遊卡|帳戶|所有|全部|完整|消費|支出|花費|記帳|紀錄|記錄|明細|清單|逐筆|每一筆|資料)$/;
-  const patterns = [
-    /(?:所有|全部|完整|列出|查詢|查一下|看一下|調出|調)(.{1,16}?)(?:明細|紀錄|記錄|清單|資料)/,
-    /(?:明細|紀錄|記錄|清單).*?(?:關於|包含|有)(.{1,16})/,
-  ];
-  for (const pattern of patterns) {
-    const match = msg.match(pattern);
-    if (!match) continue;
-    const keyword = match[1]
-      .replace(/最近|本月|這個月|本週|這週|上週|上月|上個月|半年|一季|季度|季|近\d+天/g, '')
-      .replace(/信用卡|刷卡|卡片|現金|悠遊卡|一卡通|帳戶|轉帳|銀行/g, '')
-      .replace(/[，。！？?、\s]/g, '')
-      .trim();
-    if (keyword && keyword.length >= 2 && !stopWords.test(keyword)) return keyword;
-  }
-
-  const commonKeywords = ['早餐','早午餐','午餐','晚餐','宵夜','飲料','咖啡','便當','Uber','Ubereats','Costco','好市多','全聯','家樂福','麥當勞'];
-  return commonKeywords.find(k => msg.toLowerCase().includes(k.toLowerCase())) || '';
-}
-
-function _filterDetailTxs(txData, msg) {
-  let rows = [...txData];
-  const filters = [];
-  const addFilter = (label, fn) => {
-    rows = rows.filter(fn);
-    filters.push(label);
-  };
-
-  if (/信用卡|刷卡|卡片/.test(msg)) addFilter('付款=信用卡', t => t.pay === '信用卡');
-  else if (/現金/.test(msg)) addFilter('付款=現金', t => t.pay === '現金');
-  else if (/悠遊卡|一卡通/.test(msg)) addFilter('付款=悠遊卡', t => t.pay === '悠遊卡');
-  else if (/帳戶|轉帳|銀行/.test(msg)) addFilter('付款=帳戶', t => t.pay === '帳戶');
-
-  const cats = [...new Set(txData.map(t => t.cat).filter(Boolean))]
-    .sort((a, b) => b.length - a.length);
-  const matchedCat = cats.find(cat => cat && msg.includes(cat));
-  if (matchedCat) addFilter(`分類=${matchedCat}`, t => t.cat === matchedCat);
-
-  const people = [...new Set(txData.map(t => t.person).filter(Boolean))]
-    .sort((a, b) => b.length - a.length);
-  const matchedPerson = people.find(person => person && msg.includes(person));
-  if (matchedPerson) addFilter(`記帳人=${matchedPerson}`, t => t.person === matchedPerson);
-
-  let keyword = _extractDetailKeyword(msg);
-  if (matchedCat) keyword = keyword.replace(matchedCat, '');
-  if (matchedPerson) keyword = keyword.replace(matchedPerson, '');
-  if (keyword && keyword.length >= 2) {
-    const lowerKeyword = keyword.toLowerCase();
-    addFilter(`關鍵字=${keyword}`, t => _txText(t).includes(lowerKeyword));
-  }
-
-  const minMatch = msg.match(/(?:超過|大於|高於|至少|以上)\s*(\d+)/);
-  if (minMatch) addFilter(`金額>=${minMatch[1]}`, t => Number(t.amount || 0) >= Number(minMatch[1]));
-
-  const maxMatch = msg.match(/(?:低於|小於|少於|以下)\s*(\d+)/);
-  if (maxMatch) addFilter(`金額<=${maxMatch[1]}`, t => Number(t.amount || 0) <= Number(maxMatch[1]));
-
-  return { rows, filters };
-}
-
-function _calcFormattedStats(txData) {
-  const stats = { total: 0, count: txData.length, byPay: {}, byCat: {}, byPerson: {} };
-  txData.forEach(t => {
-    const amount = Number(t.amount || 0);
-    stats.total += amount;
-    stats.byPay[t.pay || '未填'] = (stats.byPay[t.pay || '未填'] || 0) + amount;
-    stats.byCat[t.cat || '未分類'] = (stats.byCat[t.cat || '未分類'] || 0) + amount;
-    stats.byPerson[t.person || '未填'] = (stats.byPerson[t.person || '未填'] || 0) + amount;
-  });
-  return stats;
-}
-
-function _formatStatsMap(map) {
-  const lines = Object.entries(map || {})
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => `  ${k}: $${Math.round(v)}`);
-  return lines.length ? lines.join('\n') : '  無';
-}
-
-function buildDetailPayload(txData, msg) {
-  if (!wantsFullDetailQuery(msg)) {
-    return {
-      mode: 'sample',
-      rows: _sampleTxs(txData, DETAIL_SAMPLE_LIMIT),
-      sourceCount: txData.length,
-      totalMatched: txData.length,
-      truncated: txData.length > DETAIL_SAMPLE_LIMIT,
-      filters: [],
-      stats: null,
-    };
-  }
-
-  const detail = _filterDetailTxs(txData, msg);
-  const rows = detail.rows.slice(0, FULL_DETAIL_LIMIT);
-  return {
-    mode: 'full-detail',
-    rows,
-    sourceCount: txData.length,
-    totalMatched: detail.rows.length,
-    truncated: detail.rows.length > FULL_DETAIL_LIMIT,
-    filters: detail.filters,
-    stats: _calcFormattedStats(detail.rows),
-  };
-}
-
 // 完整統計計算（在 slice 截斷前呼叫，確保數字 100% 準確）
 function _calcFullStats(txList) {
   if (!txList || txList.length === 0) return null;
@@ -449,9 +380,13 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
   const lv      = level || 'L3';
   const result  = await getTxData(lv, dateRange);
   const fullStats = result.fullStats;     // 完整統計（在 slice 前計算，數字精準）
-  const detailPayload = buildDetailPayload(result.txData || [], userMsg);
-  const txData  = detailPayload.rows;
-  const txJson  = txData.length > 0 ? JSON.stringify(txData) : (detailPayload.mode === 'full-detail' ? '[]' : '（本次查詢不需要歷史資料）');
+  // 動態樣本數：問明細時給更多筆，一般查詢給 100 筆
+  const wantDetail = wantsDetailedView(userMsg);
+  const sampleSize = wantDetail ? DETAIL_FULL_LIMIT : DETAIL_SAMPLE_LIMIT;
+  const sourceTxs  = result.txData || [];
+  const txData     = _sampleTxs(sourceTxs, sampleSize);
+  const isNearComplete = sourceTxs.length <= sampleSize;   // 樣本已涵蓋全部
+  const txJson  = txData.length > 0 ? JSON.stringify(txData) : '（本次查詢不需要歷史資料）';
   const now     = new Date();
   const nowStr  = now.toLocaleDateString('zh-TW', {
     year:'numeric', month:'2-digit', day:'2-digit', weekday:'long'
@@ -493,32 +428,6 @@ ${personLines}
 `;
   }
 
-  const detailStats = detailPayload.stats ? `
-【完整明細查詢統計（JS 依條件從完整資料篩選，請直接引用）】
-篩選條件：${detailPayload.filters.length ? detailPayload.filters.join('、') : '無，使用目前資料範圍內全部明細'}
-符合筆數：${detailPayload.totalMatched} 筆${detailPayload.truncated ? `（下方只提供前 ${FULL_DETAIL_LIMIT} 筆，請提醒使用者縮小日期或條件以看完整清單）` : ''}
-符合總金額：$${Math.round(detailPayload.stats.total)}
-付款方式明細：
-${_formatStatsMap(detailPayload.stats.byPay)}
-分類明細：
-${_formatStatsMap(detailPayload.stats.byCat)}
-記帳人明細：
-${_formatStatsMap(detailPayload.stats.byPerson)}
-` : '';
-
-  const txBlockTitle = detailPayload.mode === 'full-detail'
-    ? `完整明細查詢結果（符合 ${detailPayload.totalMatched} 筆${detailPayload.truncated ? `，僅提供前 ${FULL_DETAIL_LIMIT} 筆` : '，已全部提供'}）`
-    : `${txData.length} 筆明細樣本（時段均勻採樣，僅供觀察消費風格，禁止用來加總）`;
-  const txRules = detailPayload.mode === 'full-detail'
-    ? `【完整明細查詢規則】：
-1. 下方明細是 JS 從完整資料依條件篩選後提供，不是均勻採樣
-2. 符合總金額、符合筆數、付款方式/分類/記帳人統計 → 只能引用「完整明細查詢統計」
-3. 若標示僅提供前 ${FULL_DETAIL_LIMIT} 筆，回答時必須提醒使用者資料已截斷，可縮小日期或條件查完整清單`
-    : `【統計查詢規則】：
-1. 總金額、總筆數、分類金額、付款方式金額 → **只能引用上方統計數據**
-2. 明細樣本只是給你看消費內容用的，**絕對不可以**自己重新加總
-3. 上方統計數據是 JS 精算的，跟報表頁 100% 一致；明細只是部分樣本`;
-
   return `你是「${char.name}」，一個家庭理財 AI 助理。
 個性：${char.style}
 現在時間：${nowStr}，今天日期：${todayISO}
@@ -534,12 +443,17 @@ ${_formatStatsMap(detailPayload.stats.byPerson)}
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
 
-${lv === 'L1' ? '' : `記帳資料範圍：${dataDesc}${preCalcStats}${detailStats}`}
+${lv === 'L1' ? '' : `記帳資料範圍：${dataDesc}${preCalcStats}`}
 ${txJson !== '（本次查詢不需要歷史資料）' ? `
-【${txBlockTitle}】
+【${isNearComplete ? `${txData.length} 筆完整明細` : `${txData.length} 筆明細樣本（從共 ${sourceTxs.length} 筆均勻採樣）`}】
 ${txJson}
 
-${txRules}` : ''}
+【明細使用規則】：
+1. 總金額、總筆數、分類加總、付款方式加總 → **只能引用上方統計數據**，**絕對不可以**自己重新加總明細
+2. 上方統計數據是 JS 精算的，跟報表頁 100% 一致
+${isNearComplete
+  ? '3. 上方明細已涵蓋此期間所有筆，可放心引用具體某一筆'
+  : '3. 上方僅為樣本（非完整），若使用者問「最大筆/最貴/具體某天」這類需精確單筆的問題，要說明這是樣本、可能不是真正最大筆，建議縮小日期區間查更精準'}` : ''}
 ${shouldShowRecordRules ? `
 ━━━━━━━━━━━━━━━━━━━━━
 【記帳規則：大膽假設、一次確認、絕不反問】
@@ -605,7 +519,7 @@ async function callClaude(userMsg) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 8192,
-        system: await buildSystemPrompt(dataLevel, dateRange, useForced && autoLevel === 'L1', userMsg),
+        system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
         messages: chatHistory
       })
     });
@@ -635,7 +549,7 @@ async function callClaude(userMsg) {
           body: JSON.stringify({
             model: 'claude-haiku-4-5',
             max_tokens: 4096,
-            system: await buildSystemPrompt(dataLevel, dateRange, useForced && autoLevel === 'L1', userMsg),
+            system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
             messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
           })
         });
@@ -733,6 +647,7 @@ window._assistantConfirm = function() {
 
   const char = getChar();
   appendMsg('assistant', `已幫你記好了！$${fmt(tx.amount)} 已存入 ✅\n${char.name}覺得你很棒，有在好好記帳 💪`);
+  saveChatToStorage();
 
   // 存到 Firebase 對話記錄
   saveConversation('[已確認記帳] $' + tx.amount + ' ' + (tx.detail||''));
@@ -743,6 +658,7 @@ window._assistantCancel = function() {
   const confirmCard = document.querySelector('#ast-msgs .confirm-card');
   if (confirmCard) confirmCard.remove();
   appendMsg('assistant', '好的，取消記帳了。需要修改什麼再告訴我 😊');
+  saveChatToStorage();
 };
 
 // ── 發送訊息 ─────────────────────────────────────────────────
@@ -769,6 +685,10 @@ async function sendMsg(text) {
 
   // 存到 Firebase + Discord
   saveChatLog(text, displayReply);
+
+  // 對話存到 localStorage（跨頁面保留）
+  saveChatToStorage();
+
   isLoading = false;
 }
 
@@ -1026,8 +946,11 @@ function openAssistant() {
   document.getElementById('ast-fab').style.display    = 'none';
   document.getElementById('ast-overlay').style.display= 'block';
 
-  // 第一次開啟，送開場白
-  if (chatHistory.length === 0) {
+  // 還原之前的對話內容（如果有的話）
+  const restored = restoreChatDom();
+
+  // 沒有歷史對話時才送開場白
+  if (!restored && chatHistory.length === 0) {
     const char = getChar();
     const greetings = {
       koala: [
@@ -1097,6 +1020,7 @@ function openAssistant() {
     const greeting = charGreetings[dayIndex];
     appendMsg('assistant', greeting);
     chatHistory.push({ role: 'assistant', content: greeting });
+    saveChatToStorage();
   }
 
   // focus 輸入框
@@ -1233,6 +1157,11 @@ window.clearChat = function() {
   pendingTx   = null;
   const msgs  = document.getElementById('ast-msgs');
   if (msgs) msgs.innerHTML = '';
+  // 同步清除 localStorage（避免下次又跑出舊對話）
+  try {
+    localStorage.removeItem(CHAT_PERSIST_KEY);
+    localStorage.removeItem(CHAT_DOM_KEY);
+  } catch (e) {}
 };
 
 window.toggleVoice = toggleVoice;
