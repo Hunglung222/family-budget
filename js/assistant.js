@@ -35,6 +35,34 @@ let isOpen        = false;
 let isLoading     = false;
 let voiceRec      = null;
 
+// 資料範圍模式：default=原本智慧判斷，L4=固定近90天，L5=固定近180天
+const DATA_MODE_KEY = 'assistant_data_mode';
+
+function getDataMode() {
+  const mode = localStorage.getItem(DATA_MODE_KEY) || 'default';
+  return ['default', 'L4', 'L5'].includes(mode) ? mode : 'default';
+}
+
+function getForcedDataLevel() {
+  const mode = getDataMode();
+  return mode === 'default' ? null : mode;
+}
+
+function dataModeLabel(mode) {
+  return mode === 'L4' ? '季（近90天）' : mode === 'L5' ? '半年（近180天）' : '預設';
+}
+
+function updateDataModeUI() {
+  const mode = getDataMode();
+  document.querySelectorAll('[data-ast-mode]').forEach(btn => {
+    const on = btn.dataset.astMode === mode;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const label = document.getElementById('ast-mode-label');
+  if (label) label.textContent = dataModeLabel(mode);
+}
+
 // ── 工具函數 ─────────────────────────────────────────────────
 function fmt(n) { return Number(n).toLocaleString('zh-TW'); }
 function today() {
@@ -296,7 +324,7 @@ function getCardList() {
 }
 
 // ── 建立系統 Prompt ──────────────────────────────────────────
-async function buildSystemPrompt(level, dateRange) {
+async function buildSystemPrompt(level, dateRange, includeRecordRules = false) {
   const char    = getChar();
   const lv      = level || 'L3';
   const result  = await getTxData(lv, dateRange);
@@ -313,6 +341,7 @@ async function buildSystemPrompt(level, dateRange) {
   const todayISO = now.toISOString().slice(0,10);
   const currentUser = localStorage.getItem('current_user') || '宏龍';
   const lvInfo = DATA_LEVELS[lv];
+  const shouldShowRecordRules = lv === 'L1' || includeRecordRules;
 
   let dataDesc;
   if (lv === 'L1') {
@@ -370,7 +399,7 @@ ${txJson}
 1. 總金額、總筆數、分類金額、付款方式金額 → **只能引用上方統計數據**
 2. 明細樣本只是給你看消費內容用的，**絕對不可以**自己重新加總
 3. 上方統計數據是 JS 精算的，跟報表頁 100% 一致；明細只是部分樣本` : ''}
-${lv === 'L1' ? `
+${shouldShowRecordRules ? `
 ━━━━━━━━━━━━━━━━━━━━━
 【記帳規則：大膽假設、一次確認、絕不反問】
 ━━━━━━━━━━━━━━━━━━━━━
@@ -400,16 +429,21 @@ async function callClaude(userMsg) {
   const key = getKey();
   if (!key) return '請先在設定頁填入 Claude API Key 才能使用我喔！';
 
-  // 智慧分級：根據問題決定資料範圍
-  const dateRange  = parseDateRange(userMsg);   // 嘗試解析明確日期區間
-  const dataLevel  = classifyDataLevel(userMsg, dateRange);  // 傳入避免重算
-  const levelDesc  = dateRange
+  // 智慧分級：預設依問題決定資料範圍；若使用者切到「季/半年」模式，後續查詢固定抓 L4/L5
+  const parsedRange = parseDateRange(userMsg);   // 嘗試解析明確日期區間
+  const autoLevel   = classifyDataLevel(userMsg, parsedRange);  // 傳入避免重算
+  const forcedLevel = getForcedDataLevel();
+  const useForced   = !!forcedLevel;
+  const dataLevel   = useForced ? forcedLevel : autoLevel;
+  const dateRange   = useForced ? null : parsedRange;
+  const levelDesc   = dateRange
     ? `精準區間（${dataLevel}）`
     : { L1:'記帳模式', L2:'近7天', L3:'近35天', L4:'近90天', L5:'近180天' }[dataLevel];
+  const modeNote    = useForced ? ` 模式:${dataModeLabel(forcedLevel)}` : '';
   if (dateRange) {
-    console.log(`[AI助理] 等級:${dataLevel} 區間:${dateRange.from}~${dateRange.to} 問:"${userMsg.slice(0,20)}"`);
+    console.log(`[AI助理] 等級:${dataLevel} 區間:${dateRange.from}~${dateRange.to}${modeNote} 問:"${userMsg.slice(0,20)}"`);
   } else {
-    console.log(`[AI助理] 等級:${dataLevel} (${levelDesc}) 問:"${userMsg.slice(0,20)}"`);
+    console.log(`[AI助理] 等級:${dataLevel} (${levelDesc})${modeNote} 問:"${userMsg.slice(0,20)}"`);
   }
 
   // 修剪 chatHistory：只保留最近 6 輪（12 條訊息），避免 token 爆量、回應變慢
@@ -430,7 +464,7 @@ async function callClaude(userMsg) {
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
         max_tokens: 8192,
-        system: await buildSystemPrompt(dataLevel, dateRange),
+        system: await buildSystemPrompt(dataLevel, dateRange, useForced && autoLevel === 'L1'),
         messages: chatHistory
       })
     });
@@ -460,7 +494,7 @@ async function callClaude(userMsg) {
           body: JSON.stringify({
             model: 'claude-haiku-4-5',
             max_tokens: 4096,
-            system: await buildSystemPrompt(dataLevel, dateRange),
+            system: await buildSystemPrompt(dataLevel, dateRange, useForced && autoLevel === 'L1'),
             messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
           })
         });
@@ -952,8 +986,9 @@ function buildUI() {
     #ast-input:focus { outline: none; border-color: var(--p); }
     #ast-msgs::-webkit-scrollbar { width: 4px; }
     #ast-msgs::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-    .ast-quick { background:var(--card2); border:1px solid var(--border); color:var(--t2); border-radius:20px; padding:5px 12px; font-size:.72rem; cursor:pointer; font-family:inherit; white-space:nowrap; transition:all .15s; }
-    .ast-quick:active { background:var(--pdim); border-color:var(--p); color:var(--p); }
+    .ast-quick, .ast-mode { background:var(--card2); border:1px solid var(--border); color:var(--t2); border-radius:20px; padding:5px 12px; font-size:.72rem; cursor:pointer; font-family:inherit; white-space:nowrap; transition:all .15s; }
+    .ast-quick:active, .ast-mode:active { background:var(--pdim); border-color:var(--p); color:var(--p); }
+    .ast-mode.on { background:var(--pdim); border-color:var(--p); color:var(--p); font-weight:800; }
   `;
   document.head.appendChild(style);
 
@@ -991,6 +1026,14 @@ function buildUI() {
       <button onclick="closeAssistant()" style="width:30px;height:30px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:50%;font-size:1rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
 
+    <!-- 資料範圍模式 -->
+    <div style="display:flex;align-items:center;gap:6px;padding:8px 12px 0;overflow-x:auto;flex-shrink:0;scrollbar-width:none">
+      <span style="font-size:.68rem;color:var(--t3);white-space:nowrap">資料範圍：<b id="ast-mode-label">預設</b></span>
+      <button class="ast-mode" data-ast-mode="default" onclick="setAssistantDataMode('default')" aria-pressed="true">預設</button>
+      <button class="ast-mode" data-ast-mode="L4" onclick="setAssistantDataMode('L4')" aria-pressed="false">季</button>
+      <button class="ast-mode" data-ast-mode="L5" onclick="setAssistantDataMode('L5')" aria-pressed="false">半年</button>
+    </div>
+
     <!-- 快捷問題 -->
     <div style="display:flex;gap:6px;padding:8px 12px;overflow-x:auto;flex-shrink:0;scrollbar-width:none">
       <button class="ast-quick" onclick="quickAsk('今天花了多少？')">今天花多少</button>
@@ -1019,12 +1062,23 @@ function buildUI() {
     </div>
   `;
   document.body.appendChild(panel);
+  updateDataModeUI();
 }
 
 // ── 對外函數 ─────────────────────────────────────────────────
 window.sendAssistantMsg = function() {
   const inp = document.getElementById('ast-input');
   if (inp && inp.value.trim()) sendMsg(inp.value.trim());
+};
+
+window.setAssistantDataMode = function(mode) {
+  const next = ['default', 'L4', 'L5'].includes(mode) ? mode : 'default';
+  localStorage.setItem(DATA_MODE_KEY, next);
+  updateDataModeUI();
+  const label = dataModeLabel(next);
+  appendMsg('assistant', next === 'default'
+    ? '已切回預設模式，接下來會依問題自動判斷資料範圍。'
+    : `已切換到${label}模式，接下來的查詢會固定抓${DATA_LEVELS[next].days}天資料。`);
 };
 
 window.quickAsk = function(text) {
