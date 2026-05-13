@@ -479,7 +479,50 @@ ${shouldShowRecordRules ? `
 回答語言：台灣繁體中文，嚴禁簡體字。查詢/分析用你的個性回答，可用 emoji 和換行讓格式好看。`;
 }
 
-// ── 呼叫 Claude API ──────────────────────────────────────────
+// ── 呼叫 Claude API（帶自動重試，處理暫時性錯誤 529/500-503）─────
+// Anthropic 在過載時會回 529，重試通常就能成功
+async function fetchClaudeAPI(key, payload, maxRetries = 2) {
+  let lastErr = null;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': key,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      // 成功或不需重試的錯誤（401/403）→ 直接回傳
+      if (res.ok || res.status === 401 || res.status === 403 || res.status === 400) {
+        return res;
+      }
+
+      // 429 / 500 / 502 / 503 / 529 → 重試（指數退避 1.5s / 4s）
+      if ([429, 500, 502, 503, 529].includes(res.status) && attempt < maxRetries) {
+        const waitMs = 1500 * Math.pow(2.5, attempt);
+        console.warn(`[AI助理] HTTP ${res.status}，${waitMs/1000}s 後第 ${attempt+1} 次重試`);
+        await new Promise(r => setTimeout(r, waitMs));
+        continue;
+      }
+
+      return res;  // 已重試完仍失敗，回傳給上層處理
+    } catch (e) {
+      // 網路錯誤也重試
+      lastErr = e;
+      if (attempt < maxRetries) {
+        await new Promise(r => setTimeout(r, 1500 * Math.pow(2.5, attempt)));
+        continue;
+      }
+      throw lastErr;
+    }
+  }
+  throw lastErr || new Error('Unexpected fetch failure');
+}
+
 async function callClaude(userMsg) {
   const key = getKey();
   if (!key) return '請先在設定頁填入 Claude API Key 才能使用我喔！';
@@ -508,26 +551,19 @@ async function callClaude(userMsg) {
   chatHistory.push({ role: 'user', content: userMsg });
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 8192,
-        system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
-        messages: chatHistory
-      })
+    const res = await fetchClaudeAPI(key, {
+      model: 'claude-haiku-4-5',
+      max_tokens: 8192,
+      system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
+      messages: chatHistory
     });
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      if (res.status === 429) return '我太忙了，請稍等一下再問我 ⏳';
       if (res.status === 401) return 'API Key 有問題，請到設定頁重新填入 🔑';
+      if (res.status === 403) return 'API Key 沒有權限，請確認你的 Anthropic 帳號狀態 🔑';
+      if (res.status === 429) return '我太忙了 ⏳ 請稍等一下再問我（已重試過了）';
+      if (res.status === 529 || res.status === 503) return 'Anthropic 伺服器目前過載 🛠️\n這是 Anthropic 那邊的問題，等個 1-2 分鐘再問我就好喔～';
+      if (res.status >= 500) return 'Anthropic 伺服器暫時有狀況 🛠️ 請稍後再試';
       throw new Error(`HTTP ${res.status}`);
     }
 
@@ -538,20 +574,11 @@ async function callClaude(userMsg) {
     if (data.stop_reason === 'max_tokens') {
       chatHistory.push({ role: 'assistant', content: reply });
       try {
-        const res2 = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': key,
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true'
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5',
-            max_tokens: 4096,
-            system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
-            messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
-          })
+        const res2 = await fetchClaudeAPI(key, {
+          model: 'claude-haiku-4-5',
+          max_tokens: 4096,
+          system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
+          messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
         });
         if (res2.ok) {
           const data2 = await res2.json();
