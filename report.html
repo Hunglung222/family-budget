@@ -30,9 +30,10 @@
       <input type="date" class="fc" id="dt">
     </div>
     <div class="preset-row">
+      <button class="pb" onclick="preset('week')">本週</button>
       <button class="pb" onclick="preset('month')">本月</button>
+      <button class="pb" onclick="preset('7')">近7天</button>
       <button class="pb" onclick="preset('30')">近30天</button>
-      <button class="pb" onclick="preset('q')">近3月</button>
       <button class="btn-q" onclick="load()">查詢</button>
     </div>
   </div>
@@ -163,7 +164,14 @@ function init(){applyTheme();preset('month');load();renderWeekPred();}
 
 function preset(t){
   const now=new Date();let f,e;
-  if(t==='month'){f=new Date(now.getFullYear(),now.getMonth(),1);e=new Date(now.getFullYear(),now.getMonth()+1,0);}
+  if(t==='week'){
+    // 本週：週一到週日
+    const dow=now.getDay()||7;  // 週日=7
+    f=new Date(now.getFullYear(),now.getMonth(),now.getDate()-(dow-1));
+    e=new Date(f.getFullYear(),f.getMonth(),f.getDate()+6);
+  }
+  else if(t==='month'){f=new Date(now.getFullYear(),now.getMonth(),1);e=new Date(now.getFullYear(),now.getMonth()+1,0);}
+  else if(t==='7'){f=new Date(now-7*864e5);e=now;}
   else if(t==='30'){f=new Date(now-30*864e5);e=now;}
   else{f=new Date(now.getFullYear(),now.getMonth()-2,1);e=now;}
   document.getElementById('df').value=f.toISOString().slice(0,10);

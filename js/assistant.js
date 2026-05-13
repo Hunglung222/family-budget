@@ -978,8 +978,20 @@ function openAssistant() {
 
   // 沒有歷史對話時才送開場白
   if (!restored && chatHistory.length === 0) {
-    const char = getChar();
-    const greetings = {
+    _sendCharGreeting();
+  }
+
+  // focus 輸入框
+  setTimeout(() => {
+    const inp = document.getElementById('ast-input');
+    if (inp) inp.focus();
+  }, 300);
+}
+
+// 發送目前角色的開場白
+function _sendCharGreeting() {
+  const char = getChar();
+  const greetings = {
       koala: [
         '嗨嗨～我是無尾熊可可 🐨 你的暖心理財小夥伴！\n可以問我「今天花多少」、「幫我記帳」或「分析消費習慣」，我會溫柔地幫你整理 🌿',
         '可可在這裡陪你 🐨 不管花多還是花少，記帳就是最棒的理財第一步！\n想查帳、記帳、或聊聊財務規劃，都可以跟我說喔 💚',
@@ -1041,20 +1053,13 @@ function openAssistant() {
         '八隻手臂，八種服務！🐙 記帳、查帳、分析、建議...\n剩下四種我忘了但應該也很厲害！快問我！'
       ]
     };
-    // 每天輪換（用日期決定顯示哪一句）
-    const dayIndex = new Date().getDate() % 3;
-    const charGreetings = greetings[char.id] || greetings.koala;
-    const greeting = charGreetings[dayIndex];
-    appendMsg('assistant', greeting);
-    chatHistory.push({ role: 'assistant', content: greeting });
-    saveChatToStorage();
-  }
-
-  // focus 輸入框
-  setTimeout(() => {
-    const inp = document.getElementById('ast-input');
-    if (inp) inp.focus();
-  }, 300);
+  // 每天輪換（用日期決定顯示哪一句）
+  const dayIndex = new Date().getDate() % 3;
+  const charGreetings = greetings[char.id] || greetings.koala;
+  const greeting = charGreetings[dayIndex];
+  appendMsg('assistant', greeting);
+  chatHistory.push({ role: 'assistant', content: greeting });
+  saveChatToStorage();
 }
 
 function closeAssistant() {
@@ -1131,8 +1136,6 @@ function buildUI() {
       <button class="ast-quick" onclick="quickAsk('今天花了多少？')">今天花多少</button>
       <button class="ast-quick" onclick="quickAsk('本週跟上週消費比較')">本週vs上週</button>
       <button class="ast-quick" onclick="quickAsk('這個月哪個分類花最多？')">最多分類</button>
-      <button class="ast-quick" onclick="quickAsk('最近一季消費分析')">季</button>
-      <button class="ast-quick" onclick="quickAsk('最近半年消費分析')">半年</button>
       <button class="ast-quick" onclick="quickAsk('幫我分析消費習慣')">消費分析</button>
       <button class="ast-quick" onclick="quickAsk('照現在速度這個月會超支嗎？')">超支預測</button>
     </div>
@@ -1194,17 +1197,50 @@ window.clearChat = function() {
 window.toggleVoice = toggleVoice;
 window.closeAssistant = closeAssistant;
 
-// ── 監聽角色切換（設定頁換角色後同步更新）────────────────────
-window.addEventListener('storage', (e) => {
-  if (e.key !== 'mascot_char') return;
+// 換角色時：清空對話、更新 UI、若助理開啟則重新送開場白
+function handleCharChange() {
   const char = getChar();
+  // 更新顯示
   const fab  = document.getElementById('ast-fab');
   const icon = document.getElementById('ast-hdr-icon');
   const name = document.getElementById('ast-hdr-name');
   if (fab)  fab.textContent   = char.emoji;
   if (icon) icon.textContent  = char.emoji;
   if (name) name.textContent  = char.name;
+
+  // 清空對話與持久化記錄（新角色用新身份開場）
+  chatHistory = [];
+  pendingTx   = null;
+  const msgs  = document.getElementById('ast-msgs');
+  if (msgs) msgs.innerHTML = '';
+  try {
+    localStorage.removeItem(CHAT_PERSIST_KEY);
+    localStorage.removeItem(CHAT_DOM_KEY);
+  } catch (e) {}
+
+  // 若此時助理 panel 是開著的，立刻送新角色開場白
+  if (isOpen) {
+    _sendCharGreeting();
+  }
+}
+
+// 跨頁面切換角色（其他分頁/設定頁修改）→ storage 事件
+window.addEventListener('storage', (e) => {
+  if (e.key !== 'mascot_char') return;
+  handleCharChange();
 });
+
+// 同頁面切換角色：polling 偵測（storage 事件不會在同頁觸發）
+let _lastCharId = (function(){ try { return localStorage.getItem('mascot_char') || 'koala'; } catch(e){ return 'koala'; } })();
+setInterval(() => {
+  try {
+    const cur = localStorage.getItem('mascot_char') || 'koala';
+    if (cur !== _lastCharId) {
+      _lastCharId = cur;
+      handleCharChange();
+    }
+  } catch(e){}
+}, 1500);
 
 // ── 初始化 ───────────────────────────────────────────────────
 function init() {
