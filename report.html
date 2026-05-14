@@ -79,6 +79,7 @@
       <div class="sc4"><div class="v" id="ov-n">0</div><div class="l">📋 筆數</div></div>
       <div class="sc4"><div class="v" id="ov-cd">$0</div><div class="l">💳 信用卡</div></div>
       <div class="sc4"><div class="v" id="ov-cs">$0</div><div class="l">💵 現金</div></div>
+      <div class="sc4" id="ov-acct-wrap" style="display:none"><div class="v" id="ov-acct">$0</div><div class="l">🏦 帳戶</div></div>
     </div>
     <div class="chart-card">
       <div class="ct">付款方式比例</div>
@@ -194,6 +195,12 @@ function renderOv(){
   document.getElementById('ov-n').textContent=txData.length;
   document.getElementById('ov-cd').textContent='$'+fmt(s.card);
   document.getElementById('ov-cs').textContent='$'+fmt(s.cash);
+  const acctEl = document.getElementById('ov-acct');
+  const acctWrap = document.getElementById('ov-acct-wrap');
+  if (acctEl && acctWrap) {
+    acctEl.textContent = '$'+fmt(s.acct||0);
+    acctWrap.style.display = (s.acct||0) > 0 ? '' : 'none';
+  }
   const cp=s.total>0?Math.round(s.cash/s.total*100):0;
   document.getElementById('rbar-c').style.width=cp+'%';
   document.getElementById('rp-c').textContent=cp+'%';

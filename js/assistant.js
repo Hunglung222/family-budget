@@ -420,7 +420,7 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
 【統計數據（JS 精確計算，請直接引用，禁止自行重新加總）】
 總金額：$${Math.round(fullStats.total)}
 總筆數：${fullStats.count} 筆
-付款方式：現金 $${Math.round(fullStats.byCash)} / 信用卡 $${Math.round(fullStats.byCard)} / 悠遊卡 $${Math.round(fullStats.byIcard)}
+付款方式：現金 $${Math.round(fullStats.byCash)} / 信用卡 $${Math.round(fullStats.byCard)} / 悠遊卡 $${Math.round(fullStats.byIcard)} / 帳戶 $${Math.round(fullStats.byAcct||0)}
 分類明細：
 ${catLines}
 記帳人明細：

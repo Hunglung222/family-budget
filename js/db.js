@@ -465,17 +465,19 @@ function getAllDetailHints(cat) {
 // ── 統計 ─────────────────────────────────────────────
 function calcStats(list) {
   const total=list.reduce((s,x)=>s+x.amount,0);
-  const cash=list.filter(x=>x.pay==='cash').reduce((s,x)=>s+x.amount,0);
-  const card=list.filter(x=>x.pay==='card').reduce((s,x)=>s+x.amount,0);
+  const cash =list.filter(x=>x.pay==='cash' ).reduce((s,x)=>s+x.amount,0);
+  const card =list.filter(x=>x.pay==='card' ).reduce((s,x)=>s+x.amount,0);
   const icard=list.filter(x=>x.pay==='icard').reduce((s,x)=>s+x.amount,0);
-  const byCat={},byCard={},byIcard={},byPerson={};
+  const acct =list.filter(x=>x.pay==='acct' ).reduce((s,x)=>s+x.amount,0);
+  const byCat={},byCard={},byIcard={},byAcct={},byPerson={};
   list.forEach(x=>{
     byCat[x.cat]=(byCat[x.cat]||0)+x.amount;
     byPerson[x.person]=(byPerson[x.person]||0)+x.amount;
-    if(x.pay==='card'&&x.cardId)  byCard[x.cardId] =(byCard[x.cardId]||0)+x.amount;
-    if(x.pay==='icard'&&x.icardId)byIcard[x.icardId]=(byIcard[x.icardId]||0)+x.amount;
+    if(x.pay==='card' &&x.cardId)  byCard[x.cardId] =(byCard[x.cardId]||0)+x.amount;
+    if(x.pay==='icard'&&x.icardId) byIcard[x.icardId]=(byIcard[x.icardId]||0)+x.amount;
+    if(x.pay==='acct' &&x.acctId)  byAcct[x.acctId] =(byAcct[x.acctId]||0)+x.amount;
   });
-  return {total,cash,card,icard,byCat,byCard,byIcard,byPerson};
+  return {total,cash,card,icard,acct,byCat,byCard,byIcard,byAcct,byPerson};
 }
 
 // ── 標籤統計 ─────────────────────────────────────────
