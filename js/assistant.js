@@ -699,6 +699,7 @@ window._assistantConfirm = function() {
   const char = getChar();
   appendMsg('assistant', `已幫你記好了！$${fmt(tx.amount)} 已存入 ✅\n${char.name}覺得你很棒，有在好好記帳 💪`);
   saveChatToStorage();
+  updateConfirmBar();
 
   // 存到 Firebase 對話記錄
   saveConversation('[已確認記帳] $' + tx.amount + ' ' + (tx.detail||''));
@@ -710,11 +711,87 @@ window._assistantCancel = function() {
   if (confirmCard) confirmCard.remove();
   appendMsg('assistant', '好的，取消記帳了。需要修改什麼再告訴我 😊');
   saveChatToStorage();
+  updateConfirmBar();
+};
+
+// ── 確認列 / 修改 panel 控制 ─────────────────────────────────
+function updateConfirmBar() {
+  const bar = document.getElementById('ast-confirm-bar');
+  if (!bar) return;
+  bar.style.display = pendingTx ? 'flex' : 'none';
+  // 有 pendingTx 時關閉修改panel（避免殘留）
+  if (!pendingTx) closeEditPanel();
+}
+
+window.openEditPanel = function() {
+  if (!pendingTx) return;
+  const panel = document.getElementById('ast-edit-panel');
+  if (!panel) return;
+
+  // 填入現有資料
+  document.getElementById('ep-amount').value  = pendingTx.amount || '';
+  document.getElementById('ep-detail').value  = pendingTx.detail || '';
+  document.getElementById('ep-pay').value     = pendingTx.pay || 'cash';
+
+  // 動態填入分類選項
+  const catSel = document.getElementById('ep-cat');
+  catSel.innerHTML = '';
+  const cats = typeof getCats === 'function' ? getCats() : [];
+  cats.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = (c.icon || '') + ' ' + c.name;
+    if (c.id === pendingTx.cat) opt.selected = true;
+    catSel.appendChild(opt);
+  });
+
+  panel.style.display = 'block';
+};
+
+window.closeEditPanel = function() {
+  const panel = document.getElementById('ast-edit-panel');
+  if (panel) panel.style.display = 'none';
+};
+
+window.applyEditPanel = function() {
+  if (!pendingTx) return;
+  const amount = parseInt(document.getElementById('ep-amount').value);
+  if (!amount || amount <= 0) { alert('請輸入正確金額'); return; }
+  pendingTx.amount = amount;
+  pendingTx.detail = document.getElementById('ep-detail').value.trim();
+  pendingTx.pay    = document.getElementById('ep-pay').value;
+  pendingTx.cat    = document.getElementById('ep-cat').value;
+  closeEditPanel();
+  window._assistantConfirm();
 };
 
 // ── 發送訊息 ─────────────────────────────────────────────────
 async function sendMsg(text) {
   if (!text.trim() || isLoading) return;
+
+  // ── 有待確認記帳時，攔截確認／取消詞，不送 API ──────────────
+  if (pendingTx) {
+    const t = text.trim().toLowerCase();
+    const isConfirm = /^(是|對|好|yes|ok|沒錯|確認|記帳|對的|是的|沒問題|就這樣|save|yep|yup|👍)/.test(t);
+    const isCancel  = /^(不|取消|cancel|算了|不要|不用|重來|錯了|改一下|修改|不對)/.test(t);
+    if (isConfirm) {
+      appendMsg('user', text);
+      clearInput();
+      window._assistantConfirm();
+      return;
+    }
+    if (isCancel) {
+      appendMsg('user', text);
+      clearInput();
+      window._assistantCancel();
+      return;
+    }
+    // 其他文字（修改內容）→ 清掉 pendingTx，讓 AI 重新解析
+    pendingTx = null;
+    const confirmCard = document.querySelector('#ast-msgs .confirm-card');
+    if (confirmCard) confirmCard.remove();
+  }
+
   isLoading = true;
 
   appendMsg('user', text);
@@ -730,6 +807,7 @@ async function sendMsg(text) {
   if (record && record.amount > 0) {
     pendingTx = record;
     appendMsg('assistant', displayReply, buildConfirmCard(record));
+    updateConfirmBar();
   } else {
     appendMsg('assistant', displayReply);
   }
@@ -1167,8 +1245,58 @@ function buildUI() {
     <!-- 訊息區 -->
     <div id="ast-msgs" style="flex:1;overflow-y:auto;padding:8px 12px 4px"></div>
 
+    <!-- 修改記帳 panel（預設隱藏） -->
+    <div id="ast-edit-panel" style="display:none;padding:10px 12px 0;border-top:1px solid var(--border)">
+      <div style="font-size:.78rem;color:var(--t3);margin-bottom:6px">✏️ 修改記帳內容</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:6px">
+        <div>
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:2px">金額</div>
+          <input id="ep-amount" type="number" inputmode="numeric"
+            style="width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.88rem;color:var(--t1);font-family:inherit;box-sizing:border-box">
+        </div>
+        <div>
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:2px">付款方式</div>
+          <select id="ep-pay"
+            style="width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.88rem;color:var(--t1);font-family:inherit;box-sizing:border-box">
+            <option value="cash">💵 現金</option>
+            <option value="icard">🎫 悠遊卡</option>
+            <option value="card">💳 信用卡</option>
+            <option value="acct">🏦 帳戶</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:2px">明細描述</div>
+          <input id="ep-detail" type="text" maxlength="30"
+            style="width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.88rem;color:var(--t1);font-family:inherit;box-sizing:border-box">
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:2px">分類</div>
+          <select id="ep-cat"
+            style="width:100%;background:var(--card2);border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:.88rem;color:var(--t1);font-family:inherit;box-sizing:border-box">
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <button onclick="applyEditPanel()"
+          style="flex:1;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));border:none;border-radius:8px;font-weight:900;color:#000;font-size:.88rem;cursor:pointer;font-family:inherit">✅ 確認記帳</button>
+        <button onclick="closeEditPanel()"
+          style="flex:1;padding:9px;background:var(--card2);border:1.5px solid var(--border);border-radius:8px;color:var(--t2);font-size:.88rem;cursor:pointer;font-family:inherit">取消</button>
+      </div>
+    </div>
+
     <!-- 輸入區 -->
     <div style="padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--border);flex-shrink:0">
+      <!-- 快捷確認列（有待確認記帳時顯示） -->
+      <div id="ast-confirm-bar" style="display:none;gap:6px;margin-bottom:8px">
+        <button onclick="window._assistantConfirm()"
+          style="flex:1;padding:9px 0;background:#16a34a;border:none;border-radius:10px;color:#fff;font-size:1rem;font-weight:900;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">
+          <span style="font-size:1.2rem">✓</span> 確認
+        </button>
+        <button onclick="openEditPanel()"
+          style="flex:1;padding:9px 0;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;color:var(--t1);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px">
+          <span style="font-size:1rem">✏️</span> 修改
+        </button>
+      </div>
       <div style="display:flex;gap:8px;align-items:flex-end">
         <textarea id="ast-input" rows="1"
           placeholder="問我任何財務問題，或說「幫我記帳...」"
