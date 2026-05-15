@@ -666,10 +666,7 @@ function buildConfirmCard(r) {
       <span style="color:var(--t3);font-size:.78rem">付款</span><span>${payLabel}${cardLabel}</span>
       <span style="color:var(--t3);font-size:.78rem">記帳人</span><span>${person}</span>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="window._assistantConfirm()" style="flex:1;padding:10px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:8px;font-weight:900;cursor:pointer;font-family:inherit;font-size:.88rem">✅ 確認</button>
-      <button onclick="window._assistantCancel()" style="flex:1;padding:10px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:8px;font-weight:700;cursor:pointer;font-family:inherit;font-size:.88rem">✏️ 修改</button>
-    </div>
+    <div style="margin-top:10px;font-size:.75rem;color:var(--t3);text-align:center">請按下方按鈕確認或修改</div>
   </div>`;
 }
 
