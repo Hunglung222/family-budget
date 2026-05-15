@@ -379,8 +379,11 @@ function fmtPayLabel(tx) {
 }
 
 async function discordSend(msg){
-  const url=getWebhook();if(!url)return;
-  try{await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:msg})});}
+  const url=getWebhook();if(!url){console.warn('[Discord] 無 webhook');return;}
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:msg})});
+    console.log('[Discord] discordSend status:', r.status);
+  }
   catch(e){console.warn('[Discord]',e);}
 }
 

@@ -656,17 +656,17 @@ function buildConfirmCard(r) {
   }
   const person    = r.person || localStorage.getItem('current_user') || '';
 
-  return `<div style="background:var(--pdim);border:1.5px solid var(--p);border-radius:12px;padding:12px 14px;margin:8px 0;font-size:.85rem">
-    <div style="font-weight:700;color:var(--p);margin-bottom:8px">📋 確認記帳</div>
-    <div style="display:grid;grid-template-columns:auto 1fr;gap:4px 10px;line-height:1.9;color:var(--t1)">
-      <span style="color:var(--t3);font-size:.78rem">日期</span><span>${r.date}</span>
-      <span style="color:var(--t3);font-size:.78rem">分類</span><span>${catLabel}${subLabel}</span>
-      <span style="color:var(--t3);font-size:.78rem">明細</span><span>${r.detail || '（未填）'}</span>
-      <span style="color:var(--t3);font-size:.78rem">金額</span><span style="font-weight:900;color:var(--p)">$${fmt(r.amount)}</span>
-      <span style="color:var(--t3);font-size:.78rem">付款</span><span>${payLabel}${cardLabel}</span>
-      <span style="color:var(--t3);font-size:.78rem">記帳人</span><span>${person}</span>
+  return `<div style="background:var(--card2);border:2px solid var(--p);border-radius:14px;padding:14px 16px;margin:8px 0">
+    <div style="font-weight:800;color:var(--p);margin-bottom:10px;font-size:1rem">📋 確認記帳</div>
+    <div style="display:grid;grid-template-columns:3.5em 1fr;gap:6px 10px;line-height:1.8">
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">日期</span><span style="color:var(--t1);font-size:.88rem">${r.date}</span>
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">分類</span><span style="color:var(--t1);font-size:.88rem">${catLabel}${subLabel}</span>
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">明細</span><span style="color:var(--t1);font-size:.88rem">${r.detail || '（未填）'}</span>
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">金額</span><span style="font-weight:900;color:var(--p);font-size:1.05rem">$${fmt(r.amount)}</span>
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">付款</span><span style="color:var(--t1);font-size:.88rem">${payLabel}${cardLabel}</span>
+      <span style="color:var(--t2);font-size:.82rem;font-weight:600">記帳人</span><span style="color:var(--t1);font-size:.88rem">${person}</span>
     </div>
-    <div style="margin-top:10px;font-size:.75rem;color:var(--t3);text-align:center">請按下方按鈕確認或修改</div>
+    <div style="margin-top:10px;font-size:.78rem;color:var(--t2);text-align:center;letter-spacing:.03em">👇 請按下方按鈕確認或修改</div>
   </div>`;
 }
 
@@ -686,16 +686,46 @@ window._assistantConfirm = function() {
     pay:     tx.pay || 'cash',
     cardId:  tx.cardId || null,
     icardId: tx.icardId || null,
+    acctId:  tx.acctId || null,
     person:  tx.person || localStorage.getItem('current_user') || '宏龍',
     at:      new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0).toISOString()
   };
 
   if (typeof addTx === 'function')    addTx(txObj);
   if (typeof fbAddTx === 'function')  fbAddTx(txObj);
-  if (typeof discordOnAddWithComment === 'function') {
+
+  // 產生 AI 評語後送 Discord（同 add.html 的 getFunnyComment 邏輯）
+  (async () => {
+    const key = localStorage.getItem('claude_api_key') || '';
     const char = getChar();
-    discordOnAddWithComment(txObj, char.name + ' 透過 AI 助理幫你記帳了 ✨');
-  }
+    let comment = char.name + ' 透過 AI 助理幫你記帳了 ✨';
+    if (key) {
+      try {
+        const catLabel = typeof catName === 'function' ? catName(txObj.cat) : txObj.cat;
+        const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}
+這筆消費：${catLabel} ${txObj.detail?'「'+txObj.detail+'」':''} $${txObj.amount}
+用你的個性說一句話（15~25字），加emoji，只回傳那句話。
+【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+          body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 80, messages: [{ role: 'user', content: prompt }] })
+        });
+        if (res.ok) {
+          const d = await res.json();
+          const t = (d.content?.[0]?.text || '').trim();
+          if (t) comment = t;
+        }
+      } catch(e) { console.warn('[assistant] 評語生成失敗:', e.message); }
+    }
+    if (typeof discordOnAddWithComment === 'function') {
+      console.log('[assistant] 送 Discord，webhook:', typeof getWebhook === 'function' ? getWebhook() : 'getWebhook未定義');
+      console.log('[assistant] onAdd:', typeof getDiscord === 'function' ? getDiscord().onAdd : 'getDiscord未定義');
+      discordOnAddWithComment(txObj, comment, char.name);
+    } else {
+      console.warn('[assistant] discordOnAddWithComment 未定義');
+    }
+  })();
 
   // 移除確認卡片，加入成功訊息
   const confirmCard = document.querySelector('#ast-msgs .confirm-card');
