@@ -374,6 +374,14 @@ function getCardList() {
     .map(c => `${c.id}:${c.name}(${c.last4})`).join(', ') || '無';
 }
 
+function getAcctList() {
+  const personal = (typeof getAccts === 'function' ? getAccts(false) : [])
+    .map(a => `${a.id}:${a.name}`);
+  const shared = (typeof getAccts === 'function' ? getAccts(true) : [])
+    .map(a => `shared_${a.id}:${a.name}`);
+  return [...personal, ...shared].join(', ') || '無';
+}
+
 // ── 建立系統 Prompt ──────────────────────────────────────────
 async function buildSystemPrompt(level, dateRange, includeRecordRules = false, userMsg = '') {
   const char    = getChar();
@@ -442,6 +450,7 @@ ${personLines}
 
 可用分類：${getCatList()}
 信用卡清單：${getCardList()}
+帳戶清單：${getAcctList()}
 
 ${lv === 'L1' ? '' : `記帳資料範圍：${dataDesc}${preCalcStats}`}
 ${txJson !== '（本次查詢不需要歷史資料）' ? `
@@ -471,7 +480,7 @@ ${shouldShowRecordRules ? `
 - 「Uber 230刷卡」→「今天 交通-計程車-Uber，${currentUser}用信用卡消費 $230，對嗎？」
 
 用戶確認（對/是/沒錯/ok）→ 立刻輸出 [RECORD] 格式：
-[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash/card/icard","cardId":"信用卡id或null"}[/RECORD]
+[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash/card/icard/acct","cardId":"信用卡id或null","acctId":"帳戶id或null"}[/RECORD]
 後面用你的個性說一句不超過20字的話。
 
 【嚴格禁止】反問任何問題（不可問日期/記帳人/付款方式），資訊完整時絕不說「還需要知道」。` : ''}
@@ -619,9 +628,24 @@ function getDisplayReply(reply) {
 function buildConfirmCard(r) {
   const catLabel  = typeof catName === 'function' ? catName(r.cat) : r.cat;
   const subLabel  = r.subCat ? ` › ${r.subCat}` : '';
-  const payLabel  = r.pay === 'cash' ? '💵 現金' : r.pay === 'icard' ? '🎫 悠遊卡' : '💳 信用卡';
-  const cardLabel = r.cardId && typeof cardFind === 'function'
-    ? `（${cardFind(r.cardId)?.name || r.cardId}）` : '';
+  let payLabel = '💵 現金';
+  let cardLabel = '';
+  if (r.pay === 'cash') {
+    payLabel = '💵 現金';
+  } else if (r.pay === 'icard') {
+    const ic = typeof icardFind === 'function' && r.icardId && icardFind(r.icardId);
+    payLabel = `🎫 ${ic ? ic.name : '悠遊卡'}`;
+  } else if (r.pay === 'acct') {
+    const rawId = r.acctId || '';
+    const isShared = rawId.startsWith('shared_');
+    const cleanId = isShared ? rawId.replace('shared_', '') : rawId;
+    const ac = cleanId && typeof acctFind === 'function' && acctFind(cleanId, isShared);
+    payLabel = `🏦 ${ac ? ac.name : '帳戶'}`;
+  } else {
+    payLabel = '💳 信用卡';
+    cardLabel = r.cardId && typeof cardFind === 'function'
+      ? `（${cardFind(r.cardId)?.name || r.cardId}）` : '';
+  }
   const person    = r.person || localStorage.getItem('current_user') || '';
 
   return `<div style="background:var(--pdim);border:1.5px solid var(--p);border-radius:12px;padding:12px 14px;margin:8px 0;font-size:.85rem">

@@ -360,6 +360,24 @@ async function fbClearAll(){
 // ── Discord 通知系統 ──────────────────────────────────
 function getWebhook(){return localStorage.getItem('discord_webhook')||getDiscord().webhook||'';}
 
+// 統一付款方式標籤（現金/悠遊卡/帳戶/信用卡，含名稱）
+function fmtPayLabel(tx) {
+  if (tx.pay === 'cash') return '💵現金';
+  if (tx.pay === 'icard') {
+    const ic = typeof icardFind === 'function' && tx.icardId && icardFind(tx.icardId);
+    return '🎫' + (ic ? ic.name : '悠遊卡');
+  }
+  if (tx.pay === 'acct') {
+    const isShared = (tx.acctId || '').startsWith('shared_');
+    const cleanId  = isShared ? tx.acctId.replace('shared_', '') : tx.acctId;
+    const ac = cleanId && typeof acctFind === 'function' && acctFind(cleanId, isShared);
+    return '🏦' + (ac ? ac.name : '帳戶');
+  }
+  // 信用卡
+  const c = tx.cardId && typeof cardFind === 'function' && cardFind(tx.cardId);
+  return '💳' + (c ? c.name : '信用卡');
+}
+
 async function discordSend(msg){
   const url=getWebhook();if(!url)return;
   try{await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:msg})});}
@@ -369,8 +387,7 @@ async function discordSend(msg){
 // discordOnAddWithComment：由 add.html 的 getFunnyComment 呼叫，附帶角色說的話
 async function discordOnAddWithComment(tx, comment, charName){
   const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
-  const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':tx.pay==='acct'?(()=>{const isShared=(tx.acctId||'').startsWith('shared_');const accts=(typeof getAccts==='function'?getAccts(isShared):[])||[];const a=accts.find(x=>x.id===tx.acctId);return '🏦'+(a?a.name:'帳戶');})():`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
-
+  const pay = fmtPayLabel(tx);
   const namePrefix = charName ? `**${charName}**：` : '';
   await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}\n💬 ${namePrefix}${comment}`);
 }
@@ -378,8 +395,7 @@ async function discordOnAddWithComment(tx, comment, charName){
 // discordOnAdd：無 Claude Key 時的 fallback，不附帶趣味話
 async function discordOnAdd(tx){
   const cfg=getDiscord();if(!cfg.onAdd||!getWebhook())return;
-  const pay=tx.pay==='cash'?'💵現金':tx.pay==='icard'?'🎫悠遊卡':tx.pay==='acct'?(()=>{const isShared=(tx.acctId||'').startsWith('shared_');const accts=(typeof getAccts==='function'?getAccts(isShared):[])||[];const a=accts.find(x=>x.id===tx.acctId);return '🏦'+(a?a.name:'帳戶');})():`💳信用卡(${cardFind(tx.cardId)?.name||''})`;
-
+  const pay = fmtPayLabel(tx);
   await discordSend(`💰 **${tx.person}** 記帳\n📂 ${catName(tx.cat)}${tx.subCat?' › '+tx.subCat:''}\n📝 ${tx.detail||'（無明細）'}\n💵 **$${fmt(tx.amount)}** ${pay}\n🕐 ${fmtD(tx.at)} ${fmtT(tx.at)}`);
 }
 
