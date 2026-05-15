@@ -468,8 +468,22 @@ function askDel(id, e) {
 
   // 顯示確認 modal
   const label = tx.detail || catName(tx.cat);
-  const payMap = {cash:'現金', card:'信用卡', icard:'悠遊卡', acct:'帳戶'};
-  const payLabel = payMap[tx.wallet] || tx.wallet || '';
+  // 用跟列表相同的邏輯產生付款標籤
+  let payLabel = '';
+  if (tx.pay === 'cash') {
+    payLabel = '💵 現金';
+  } else if (tx.pay === 'icard') {
+    const ic = typeof icardFind === 'function' && icardFind(tx.icardId);
+    payLabel = `🎫 ${ic ? ic.name : '悠遊卡'}`;
+  } else if (tx.pay === 'acct') {
+    const aid = tx.acctId && tx.acctId.startsWith('shared_') ? tx.acctId.replace('shared_','') : tx.acctId;
+    const isSh = tx.acctId && tx.acctId.startsWith('shared_');
+    const ac = aid && typeof acctFind === 'function' && acctFind(aid, isSh);
+    payLabel = `🏦 ${ac ? ac.name : '帳戶'}`;
+  } else {
+    const cname = typeof getCardName === 'function' ? getCardName(tx.cardId) : (typeof cardFind === 'function' && cardFind(tx.cardId)?.name) || '信用卡';
+    payLabel = `💳 ${cname}`;
+  }
   document.getElementById('m-title').textContent = '刪除此筆記帳？';
   document.getElementById('m-msg').innerHTML =
     `<strong>${label}</strong><br>` +
