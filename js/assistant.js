@@ -366,7 +366,10 @@ async function getTxData(level, dateRange) {
 
 function getCatList() {
   return (typeof getCats === 'function' ? getCats() : [])
-    .map(c => `${c.id}(${c.name})`).join(', ');
+    .map(c => {
+      const subs = (c.sub && c.sub.length) ? `[子分類:${c.sub.join('/')}]` : '[無子分類]';
+      return `${c.id}(${c.name})${subs}`;
+    }).join(', ');
 }
 
 function getCardList() {
@@ -479,7 +482,9 @@ ${shouldShowRecordRules ? `
 
 收到記帳訊息，立刻補全缺漏資訊，**同時輸出確認句和 [RECORD]**，一步完成：
 
-預設值：日期=今天（${todayISO}）｜記帳人=${currentUser}｜付款=現金｜分類=自行推斷
+預設值：日期=今天（${todayISO}）｜記帳人=${currentUser}（除非用戶訊息明確提到「盈慧」或「宏龍」，則用該人）｜付款=現金｜分類=自行推斷
+
+【記帳人辨識規則】訊息中若出現「盈慧」二字，person 欄位必須填「盈慧」；若出現「宏龍」二字，person 欄位必須填「宏龍」；都沒提到才用預設值${currentUser}。
 
 【必須同時輸出以下兩個部分，缺一不可】：
 
@@ -487,15 +492,23 @@ ${shouldShowRecordRules ? `
 「[日期] [分類]-[子分類]-[明細]，[記帳人]用[付款方式]消費 $[金額]，對嗎？」
 
 第二部分：緊接著輸出 [RECORD]（不需等用戶回覆）：
-[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類","detail":"說明","date":"YYYY-MM-DD","pay":"cash/card/icard/acct","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}[/RECORD]
+[RECORD]{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","person":"宏龍或盈慧","pay":"cash/card/icard/acct","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}[/RECORD]
+
+【分類選擇邏輯（重要，務必遵守）】
+A. 大分類（cat 欄位）：必須從上方「可用分類」清單中選一個 id。如果都不適合，一律歸類到「other」（其他），不要自己編造新的 cat id。
+B. 子分類處理：
+   - 步驟一：先嘗試從該分類的「已知子分類清單」中找最匹配的（包含同義詞）。例如「煤氣費」=「瓦斯」、「Uber」=「計程車」、「7-11買飲料」=「飲料」、「晚餐飯糰」=「晚餐」。寬鬆匹配，意思相近就用現有的，避免重複建立同一件事的不同名稱。這時 newSubCat = false。
+   - 步驟二：如果完全找不到合適的現有子分類，建議新增一個簡短（2~6字）的子分類名稱，並把 newSubCat 設為 true。例如「換手錶電池」→ 新增子分類「手錶電池」歸到「其他」(other)。
+   - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
+C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如「換手錶電池200元」→ subCat="手錶電池"、detail="換手錶電池"；「晚餐飯糰111」→ subCat="晚餐"、detail="晚餐飯糰"。
 
 例子（用戶說「飲料135」）：
 今天 餐飲-飲料-飲料，${currentUser}用現金消費 $135，對嗎？
-[RECORD]{"amount":135,"cat":"food","subCat":"飲料","detail":"飲料","date":"${todayISO}","pay":"cash","cardId":null,"icardId":null,"acctId":null}[/RECORD]
+[RECORD]{"amount":135,"cat":"food","subCat":"飲料","newSubCat":false,"detail":"飲料","date":"${todayISO}","person":"${currentUser}","pay":"cash","cardId":null,"icardId":null,"acctId":null}[/RECORD]
 
 例子（用戶說「Uber 230刷卡」）：
 今天 交通-計程車-Uber，${currentUser}用信用卡消費 $230，對嗎？
-[RECORD]{"amount":230,"cat":"transport","subCat":"計程車","detail":"Uber","date":"${todayISO}","pay":"card","cardId":null,"icardId":null,"acctId":null}[/RECORD]
+[RECORD]{"amount":230,"cat":"transport","subCat":"計程車","newSubCat":false,"detail":"Uber","date":"${todayISO}","person":"${currentUser}","pay":"card","cardId":null,"icardId":null,"acctId":null}[/RECORD]
 
 【UI說明】：[RECORD] 輸出後，畫面會自動出現「✓確認」和「✏️修改」按鈕，用戶按確認才真正儲存，按修改可調整欄位。你不需要說「已記帳」，等用戶按按鈕。
 
@@ -649,6 +662,16 @@ function buildConfirmCard(r) {
 // ── 確認記帳 ────────────────────────────────────────────────
 window._assistantConfirm = function() {
   if (!pendingTx) return;
+
+  // 若是新子分類，自動轉到 add.html 讓使用者透過既有「新增子分類」流程確認
+  if (pendingTx.newSubCat === true && pendingTx.subCat) {
+    if (typeof toast === 'function') {
+      toast(`偵測到新子分類「${pendingTx.subCat}」，導向修改頁確認`, 'info');
+    }
+    setTimeout(() => window._assistantGoEdit(), 600);
+    return;
+  }
+
   const tx = pendingTx;
   pendingTx = null;
 
@@ -693,6 +716,12 @@ window._assistantConfirm = function() {
           if (t) comment = t;
         }
       } catch(e) { console.warn('[assistant] 評語生成失敗:', e.message); }
+    }
+    // 用 toast 顯示角色評語（同 add.html 的 showMascot 效果）
+    if (typeof showMascot === 'function') {
+      showMascot(char.name + '：' + comment);
+    } else if (typeof toast === 'function') {
+      toast(char.emoji + ' ' + char.name + '：' + comment, 'info');
     }
     if (typeof discordOnAddWithComment === 'function') {
       discordOnAddWithComment(txObj, comment, char.name);
