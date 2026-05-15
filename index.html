@@ -466,6 +466,21 @@ function askDel(id, e) {
   const tx = getTx().find(t=>t.id===id);
   if (!tx) return;
 
+  // 顯示確認 modal
+  const label = tx.detail || catName(tx.cat);
+  const payMap = {cash:'現金', card:'信用卡', icard:'悠遊卡', acct:'帳戶'};
+  const payLabel = payMap[tx.wallet] || tx.wallet || '';
+  document.getElementById('m-title').textContent = '刪除此筆記帳？';
+  document.getElementById('m-msg').innerHTML =
+    `<strong>${label}</strong><br>` +
+    `金額：<strong>$${fmt(tx.amount)}</strong>　付款：${payLabel}<br>` +
+    `<span style="color:var(--danger);font-size:.82rem;margin-top:6px;display:block">刪除後可在 5 秒內復原</span>`;
+  const mOk = document.getElementById('m-ok');
+  mOk.onclick = () => { closeM(); doDelete(id, tx); };
+  document.getElementById('modal').classList.add('show');
+}
+
+function doDelete(id, tx) {
   // 先暫存，5 秒內可復原
   _undoTx = tx;
 
