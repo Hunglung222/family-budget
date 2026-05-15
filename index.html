@@ -77,6 +77,14 @@
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
 </nav>
 <div class="toast" id="toast"></div>
+
+<!-- 吉祥物泡泡（複用 add.html 機制，AI 助理記帳完成時顯示個性評語） -->
+<div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 70px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:auto" onclick="closeMascot()">
+  <div style="display:flex;align-items:flex-end;gap:10px;max-width:480px;margin:0 auto">
+    <div id="mascot-icon" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,229,180,.3)">🐨</div>
+    <div id="mascot-bubble" style="background:var(--card);border:1.5px solid var(--border);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;color:var(--t1);line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100% - 60px)"></div>
+  </div>
+</div>
 <!-- Undo Toast -->
 <div id="undo-toast" style="display:none;position:fixed;bottom:calc(var(--nav) + 16px);left:50%;transform:translateX(-50%);z-index:400;background:var(--card);border:1.5px solid var(--border);border-radius:50px;padding:10px 8px 10px 16px;display:none;align-items:center;gap:10px;font-size:.85rem;color:var(--t);box-shadow:0 4px 20px rgba(0,0,0,.3);white-space:nowrap;max-width:calc(100vw - 32px)">
   <span id="undo-msg">已刪除</span>

@@ -659,6 +659,26 @@ function buildConfirmCard(r) {
   return null; // 不顯示卡片，AI 說確認句即可，按鈕在輸入列
 }
 
+// ── 吉祥物泡泡（複用 add.html 機制）────────────────────────
+let _mascotTimer = null;
+function closeMascot() {
+  const wrap = document.getElementById('mascot-wrap');
+  if (wrap) wrap.style.display = 'none';
+}
+function showMascot(text) {
+  const char = getChar();
+  const wrap = document.getElementById('mascot-wrap');
+  const icon = document.getElementById('mascot-icon');
+  if (!wrap) return;
+  if (icon) icon.textContent = char.emoji;
+  document.getElementById('mascot-bubble').textContent = text;
+  wrap.style.cssText += ';display:block;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s';
+  requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
+  clearTimeout(_mascotTimer);
+  _mascotTimer = setTimeout(closeMascot, 8000);
+}
+window.closeMascot = closeMascot;
+
 // ── 確認記帳 ────────────────────────────────────────────────
 window._assistantConfirm = function() {
   if (!pendingTx) return;
@@ -717,12 +737,8 @@ window._assistantConfirm = function() {
         }
       } catch(e) { console.warn('[assistant] 評語生成失敗:', e.message); }
     }
-    // 用 toast 顯示角色評語（同 add.html 的 showMascot 效果）
-    if (typeof showMascot === 'function') {
-      showMascot(char.name + '：' + comment);
-    } else if (typeof toast === 'function') {
-      toast(char.emoji + ' ' + char.name + '：' + comment, 'info');
-    }
+    // 用吉祥物泡泡顯示角色評語（完全複用 add.html 機制）
+    showMascot(char.name + '：' + comment);
     if (typeof discordOnAddWithComment === 'function') {
       discordOnAddWithComment(txObj, comment, char.name);
     }
