@@ -30,10 +30,10 @@
       <input type="date" class="fc" id="dt">
     </div>
     <div class="preset-row">
-      <button class="pb" onclick="preset('week')">本週</button>
-      <button class="pb" onclick="preset('month')">本月</button>
-      <button class="pb" onclick="preset('7')">近7天</button>
-      <button class="pb" onclick="preset('30')">近30天</button>
+      <button class="pb" data-preset="week"  onclick="preset('week',this)">本週</button>
+      <button class="pb" data-preset="month" onclick="preset('month',this)">本月</button>
+      <button class="pb" data-preset="7"     onclick="preset('7',this)">近7天</button>
+      <button class="pb" data-preset="30"    onclick="preset('30',this)">近30天</button>
       <button class="btn-q" onclick="load()">查詢</button>
     </div>
   </div>
@@ -161,9 +161,31 @@ Chart.defaults.font.family="'Noto Sans TC',sans-serif";
 const COLS=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
 let pieC=null,barC=null,personC=null,txData=[];
 
-function init(){applyTheme();preset('month');load();renderWeekPred();}
+function init(){
+  applyTheme();
+  preset('month');
+  load();
+  renderWeekPred();
+  // 監聽手動改日期：清除快捷鍵的亮起狀態
+  ['df','dt'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('change', () => clearPresetHighlight());
+  });
+}
 
-function preset(t){
+function clearPresetHighlight() {
+  document.querySelectorAll('.pb[data-preset]').forEach(b => b.classList.remove('on'));
+}
+
+// 用本地時間格式化日期字串（避免 toISOString() 受 UTC 影響掉到前一天）
+function toLocalISO(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function preset(t, el){
   const now=new Date();let f,e;
   if(t==='week'){
     // 本週：週一到週日
@@ -175,8 +197,16 @@ function preset(t){
   else if(t==='7'){f=new Date(now-7*864e5);e=now;}
   else if(t==='30'){f=new Date(now-30*864e5);e=now;}
   else{f=new Date(now.getFullYear(),now.getMonth()-2,1);e=now;}
-  document.getElementById('df').value=f.toISOString().slice(0,10);
-  document.getElementById('dt').value=e.toISOString().slice(0,10);
+  document.getElementById('df').value=toLocalISO(f);
+  document.getElementById('dt').value=toLocalISO(e);
+
+  // 高亮目前選中的快捷鍵（el 由按鈕傳入；init() 呼叫時自動找對應按鈕）
+  clearPresetHighlight();
+  const btn = el || document.querySelector(`.pb[data-preset="${t}"]`);
+  if (btn) btn.classList.add('on');
+
+  // 使用者點擊快捷鍵時自動 load（init() 呼叫時 el 為 undefined，跳過 load 讓 init 自己呼叫）
+  if (el && typeof load === 'function') load();
 }
 
 function load(){

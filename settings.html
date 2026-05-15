@@ -724,7 +724,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.15 16:00';
+const APP_VERSION = 'v2026.05.15 16:35';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -968,8 +968,8 @@ async function saveMonthSummaryToFB(start, end, txList) {
     }));
     const summary = {
       month: monthKey,
-      start: start.toISOString().slice(0,10),
-      end:   end.toISOString().slice(0,10),
+      start: toLocalISO(start),
+      end:   toLocalISO(end),
       total, byCat, topItems,
       count: txList.length,
       updatedAt: Date.now()
@@ -984,7 +984,7 @@ async function saveMonthSummaryToFB(start, end, txList) {
 
 function showSendDailyModal(){
   if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
-  const today = new Date().toISOString().slice(0,10);
+  const today = toLocalISO();
   document.getElementById('daily-resend-date').value = today;
   showModal('send-daily-modal');
 }
@@ -1002,7 +1002,7 @@ async function sendDailyNow(){
     const total = txList.reduce((s,t)=>s+t.amount,0);
     const lines = txList.map(t=>`• ${catName(t.cat)}${t.subCat?' › '+t.subCat:''} ${t.detail||''} **$${fmt(t.amount)}** (${t.person})`).join('\n');
     const label = `${s.getMonth()+1}/${s.getDate()}`;
-    const isToday = dateVal === new Date().toISOString().slice(0,10);
+    const isToday = dateVal === toLocalISO();
     await discordSend(`📊 **家庭記帳日結算${isToday?'':'（補發）'}** ${label}\n${lines}\n\n💰 合計：**$${fmt(total)}**`);
     localStorage.removeItem('discord_daily_'+s.toDateString());
     toast('✅ 已發送到 Discord！');
@@ -1013,7 +1013,7 @@ async function sendDailyNow(){
 
 function showSendWeeklyModal(){
   if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
-  const today = new Date().toISOString().slice(0,10);
+  const today = toLocalISO();
   document.getElementById('weekly-resend-date').value = today;
   showModal('send-weekly-modal');
 }

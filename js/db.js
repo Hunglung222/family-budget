@@ -568,6 +568,15 @@ function calcNetWorth() {
 }
 
 // ── 格式化 ────────────────────────────────────────────
+// 本地日期字串（YYYY-MM-DD），避免 toISOString() 用 UTC 在台灣凌晨掉到前一天
+function toLocalISO(d) {
+  if (!d) d = new Date();
+  if (typeof d === 'string') d = new Date(d);
+  const y = d.getFullYear();
+  const m = String(d.getMonth()+1).padStart(2,'0');
+  const day = String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function fmt(n)  { return Number(n||0).toLocaleString('zh-TW'); }
 function fmtT(s) { const d=new Date(s); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtD(s) {

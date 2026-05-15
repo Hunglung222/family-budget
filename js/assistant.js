@@ -407,7 +407,7 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
   const nowStr  = now.toLocaleDateString('zh-TW', {
     year:'numeric', month:'2-digit', day:'2-digit', weekday:'long'
   });
-  const todayISO = now.toISOString().slice(0,10);
+  const todayISO = toLocalISO(now);
   const currentUser = localStorage.getItem('current_user') || '宏龍';
   const lvInfo = DATA_LEVELS[lv];
   const shouldShowRecordRules = lv === 'L1' || includeRecordRules;

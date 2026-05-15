@@ -446,7 +446,7 @@ function showBillOrder(id) {
   document.getElementById('bm-amt').value = o.amount || '';
 
   // 預設日期 = 訂單日（or 今天）
-  const defaultDate = o.orderDate || new Date().toISOString().slice(0,10);
+  const defaultDate = o.orderDate || toLocalISO();
   const dt = new Date(defaultDate + 'T12:00:00');
   document.getElementById('bm-dt').value = new Date(dt.getTime() - dt.getTimezoneOffset()*60000).toISOString().slice(0,16);
 
