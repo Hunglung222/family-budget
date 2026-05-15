@@ -713,6 +713,27 @@ function init() {
   // 隱藏金額修改提示（一開始在 step1）
   document.getElementById('edit-hint').style.display = 'none';
   document.getElementById('amt-card').style.cursor = 'default';
+
+  // ── AI 助理預填（從 sessionStorage 帶入 pendingTx）──
+  try {
+    const prefillRaw = sessionStorage.getItem('ast_prefill');
+    if (prefillRaw) {
+      sessionStorage.removeItem('ast_prefill');
+      const r = JSON.parse(prefillRaw);
+      // 記帳人
+      if (r.person) {
+        person = r.person;
+        document.querySelectorAll('#p-hl,#p-yh').forEach(b => b.classList.remove('on'));
+        const pBtn = document.getElementById(r.person === '宏龍' ? 'p-hl' : 'p-yh');
+        if (pBtn) pBtn.classList.add('on');
+      }
+      // 套用其餘欄位並跳到 step2
+      setTimeout(() => {
+        applySingleResult(r);
+        toast('📝 已從 AI 助理帶入資料，請確認後記帳', 'info');
+      }, 150);
+    }
+  } catch(e) { console.warn('[prefill]', e); }
 }
 
 function backToStep1() {
