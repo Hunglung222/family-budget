@@ -570,10 +570,10 @@
     </div>
     <!-- 模型分層說明 -->
     <div style="margin-top:12px;padding:10px 12px;background:var(--card2);border-radius:var(--rs);border:1px dashed var(--border);font-size:.72rem;line-height:1.7;color:var(--t3)">
-      <div style="font-weight:700;color:var(--t2);margin-bottom:4px">📊 目前 AI 模型分層（自動切換）</div>
-      <div>🧠 <b style="color:var(--p)">Sonnet 4.6</b>：查詢、分析、消費規劃、月報週報</div>
-      <div>⚡ <b style="color:var(--p2)">Haiku 4.5</b>：AI 記帳辨識（L1）、吉祥物評語</div>
-      <div style="margin-top:4px;color:var(--t4);font-size:.68rem">AI 助理會依問題類型自動選用：記帳走 Haiku（快），分析走 Sonnet（深）</div>
+      <div style="font-weight:700;color:var(--t2);margin-bottom:4px">📊 目前 AI 模型分層</div>
+      <div>⚡ <b style="color:var(--p2)">Haiku 4.5</b>（預設）：飛快回應，適合記帳、聊天、查詢</div>
+      <div>🧠 <b style="color:var(--p)">Sonnet 4.6</b>（手動）：深度分析，AI 助理按 🧠 Sonnet 鈕啟用</div>
+      <div style="margin-top:4px;color:var(--t4);font-size:.68rem">月報週報固定 Sonnet（深度建議）；記帳指令永遠 Haiku（快）</div>
     </div>
   </div>
 
@@ -740,7 +740,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.17 00:32';
+const APP_VERSION = 'v2026.05.17 01:46';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
