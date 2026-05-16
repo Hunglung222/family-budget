@@ -659,25 +659,29 @@ function buildConfirmCard(r) {
   return null; // 不顯示卡片，AI 說確認句即可，按鈕在輸入列
 }
 
-// ── 吉祥物泡泡（複用 add.html 機制）────────────────────────
-let _mascotTimer = null;
-function closeMascot() {
-  const wrap = document.getElementById('mascot-wrap');
-  if (wrap) wrap.style.display = 'none';
+// ── 吉祥物泡泡（複用 add.html 機制）──────────────────────────
+// 若頁面已定義同名函數（如 add.html），不覆蓋，沿用該頁面的版本
+if (typeof window.showMascot !== 'function') {
+  let _mascotTimer = null;
+  window.closeMascot = function() {
+    const wrap = document.getElementById('mascot-wrap');
+    if (wrap) wrap.style.display = 'none';
+  };
+  window.showMascot = function(text) {
+    const char = getChar();
+    const wrap = document.getElementById('mascot-wrap');
+    const icon = document.getElementById('mascot-icon');
+    if (!wrap) return;
+    if (icon) icon.textContent = char.emoji;
+    document.getElementById('mascot-bubble').textContent = text;
+    wrap.style.cssText += ';display:block;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s';
+    requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
+    clearTimeout(_mascotTimer);
+    _mascotTimer = setTimeout(window.closeMascot, 8000);
+  };
 }
-function showMascot(text) {
-  const char = getChar();
-  const wrap = document.getElementById('mascot-wrap');
-  const icon = document.getElementById('mascot-icon');
-  if (!wrap) return;
-  if (icon) icon.textContent = char.emoji;
-  document.getElementById('mascot-bubble').textContent = text;
-  wrap.style.cssText += ';display:block;opacity:0;transform:translateY(12px);transition:opacity .3s,transform .3s';
-  requestAnimationFrame(()=>{ wrap.style.opacity='1'; wrap.style.transform='translateY(0)'; });
-  clearTimeout(_mascotTimer);
-  _mascotTimer = setTimeout(closeMascot, 8000);
-}
-window.closeMascot = closeMascot;
+// 本檔需要呼叫 showMascot 時用 window.showMascot
+function showMascot(text) { return window.showMascot(text); }
 
 // ── 確認記帳 ────────────────────────────────────────────────
 window._assistantConfirm = function() {
