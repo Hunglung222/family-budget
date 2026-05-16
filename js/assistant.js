@@ -79,6 +79,7 @@ let isLoading     = false;
 let voiceRec      = null;
 let _dataSynced   = false; // 本頁本次是否已從 Firebase 同步過（避免重複拉）
 let _syncPromise  = null;  // 進行中的同步 Promise，sendMsg 可 await 它避免太早查到空資料
+let _lastCallMeta = null;  // 最後一次 callClaude() 的元資料：{ dataLevel, model, modeNote }，供 Discord 備份標註用
 
 // 資料範圍模式：default=原本智慧判斷，L4=固定近90天，L5=固定近180天
 const DATA_MODE_KEY = 'assistant_data_mode';
@@ -591,9 +592,26 @@ async function callClaude(userMsg) {
   }
   chatHistory.push({ role: 'user', content: userMsg });
 
+  // ── 動態選模型：L1 記帳指令 → Haiku（快速、便宜、夠用）；其他 → Sonnet（深度分析）──
+  // L1 的定義就是「記帳模式（不撈歷史）」，本質是結構化萃取，Haiku 完全勝任。
+  // 查詢/分析/規劃才需要 Sonnet 的推理能力。
+  // 例外：使用者手動鎖定 L4/L5 模式時，雖然 dataLevel 被覆寫為 L4/L5，
+  // 但本來就走 Sonnet，不會誤判。
+  const pickedModel = (dataLevel === 'L1') ? 'claude-haiku-4-5' : 'claude-sonnet-4-6';
+  console.log(`[AI助理] 模型:${pickedModel}`);
+
+  // 記錄這次呼叫的元資料，給 saveChatLog 在 Discord 備份訊息中標註用
+  _lastCallMeta = {
+    dataLevel,
+    model: pickedModel,
+    levelDesc,
+    forced: useForced,
+    dateRange
+  };
+
   try {
     const res = await fetchClaudeAPI(key, {
-      model: 'claude-sonnet-4-6',
+      model: pickedModel,
       max_tokens: 8192,
       system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
       messages: chatHistory
@@ -611,12 +629,12 @@ async function callClaude(userMsg) {
     const data  = await res.json();
     let reply = (data.content?.[0]?.text || '').trim();
 
-    // 若因 max_tokens 截斷，自動繼續請求
+    // 若因 max_tokens 截斷，自動繼續請求（用同一個模型保持風格一致）
     if (data.stop_reason === 'max_tokens') {
       chatHistory.push({ role: 'assistant', content: reply });
       try {
         const res2 = await fetchClaudeAPI(key, {
-          model: 'claude-sonnet-4-6',
+          model: pickedModel,
           max_tokens: 4096,
           system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
           messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
@@ -855,6 +873,9 @@ async function sendMsg(text) {
 const CHAT_LOG_WEBHOOK = 'https://discord.com/api/webhooks/1497601562782990407/agylbOyLjHrIGFu46LljF02wCGK4lZNdoqVHw_wOTSNIGxVuBnfBxm_Ozea8t3eZ0WIT';
 async function saveChatLog(userMsg, assistantMsg) {
   try {
+    // 取得這次對話的元資料（callClaude 寫入；若沒呼叫過 API 例如手動記帳完成，會是 null）
+    const meta = _lastCallMeta;
+
     // Firebase
     if (typeof getDb === 'function') {
       const uid  = localStorage.getItem('current_uid') || 'unknown';
@@ -865,6 +886,11 @@ async function saveChatLog(userMsg, assistantMsg) {
         char:      getChar().name,
         at:        new Date().toISOString()
       };
+      // 附帶模型與等級資訊，方便日後 Firebase 端做使用統計
+      if (meta) {
+        data.dataLevel = meta.dataLevel;
+        data.model     = meta.model;
+      }
       await getDb().collection('chat_logs').add(data);
     }
 
@@ -875,20 +901,38 @@ async function saveChatLog(userMsg, assistantMsg) {
     const nowStr  = new Date().toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
     const person  = localStorage.getItem('current_user') || '';
 
+    // ── 模型 / 等級標籤（顯示在訊息最前面的 fields 區）──
+    // 依模型決定 embed 顏色：Sonnet 紫（深度）、Haiku 青（快速）、無模型呼叫灰（純記帳確認）
+    let embedColor = 0x6366F1; // 預設紫（原本顏色，保持向下相容）
+    let metaFields = [];
+    if (meta) {
+      const isHaiku  = meta.model === 'claude-haiku-4-5';
+      embedColor     = isHaiku ? 0x06B6D4 : 0x8B5CF6; // 青 / 紫
+      const modelTag = isHaiku ? '⚡ Haiku 4.5' : '🧠 Sonnet 4.6';
+      const levelTag = `${meta.dataLevel}・${meta.levelDesc || ''}${meta.forced ? '（手動鎖定）' : ''}`;
+      metaFields = [
+        { name: '🤖 模型',  value: modelTag, inline: true },
+        { name: '📊 等級',  value: levelTag, inline: true }
+      ];
+    }
+
     // Discord 2000 字元限制，超過自動分段
     const MAX = 3800; // Discord embed description 上限約 4096
-    const sendChunk = async (text, title) => {
+    const sendChunk = async (text, title, includeMeta) => {
+      const embed = {
+        title,
+        color: embedColor,
+        description: text,
+        footer: { text: '家庭記帳 PWA · AI 助理' }
+      };
+      // 只在第一段顯示 meta（續寫段不重複）
+      if (includeMeta && metaFields.length > 0) {
+        embed.fields = metaFields;
+      }
       await fetch(CHAT_LOG_WEBHOOK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          embeds: [{
-            title,
-            color: 0x6366F1,
-            description: text,
-            footer: { text: '家庭記帳 PWA · AI 助理' }
-          }]
-        })
+        body: JSON.stringify({ embeds: [embed] })
       });
     };
 
@@ -897,16 +941,16 @@ async function saveChatLog(userMsg, assistantMsg) {
     const title  = `💬 AI 對話記錄　${today()} ${nowStr}`;
 
     if ((header + assistantMsg).length <= MAX) {
-      await sendChunk(header + assistantMsg, title);
+      await sendChunk(header + assistantMsg, title, true);
     } else {
-      // 分段發送
-      await sendChunk(header, title);
+      // 分段發送（meta 只放第一段）
+      await sendChunk(header, title, true);
       let remaining = assistantMsg;
       let part = 1;
       while (remaining.length > 0) {
         const chunk = remaining.slice(0, MAX);
         remaining = remaining.slice(MAX);
-        await sendChunk(chunk, remaining.length > 0 ? `${title}（續${part}）` : `${title}（完）`);
+        await sendChunk(chunk, remaining.length > 0 ? `${title}（續${part}）` : `${title}（完）`, false);
         part++;
         if (part > 15) break; // 最多15段保護
       }
