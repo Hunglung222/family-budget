@@ -84,6 +84,19 @@ let _lastCallMeta = null;  // 最後一次 callClaude() 的元資料：{ dataLev
 // 資料範圍模式：default=原本智慧判斷，L4=固定近90天，L5=固定近180天
 const DATA_MODE_KEY = 'assistant_data_mode';
 
+// Sonnet 手動鎖定模式：true=使用者主動切換為 Sonnet（深度分析、回應較慢）
+// false=預設 Haiku（飛快、適合聊天和查詢）
+// L1 記帳指令永遠用 Haiku，不受此 toggle 影響
+const SONNET_MODE_KEY = 'assistant_sonnet_mode';
+
+function getSonnetMode() {
+  return localStorage.getItem(SONNET_MODE_KEY) === '1';
+}
+
+function setSonnetMode(on) {
+  localStorage.setItem(SONNET_MODE_KEY, on ? '1' : '0');
+}
+
 function getDataMode() {
   const mode = localStorage.getItem(DATA_MODE_KEY) || 'default';
   return ['default', 'L4', 'L5'].includes(mode) ? mode : 'default';
@@ -107,6 +120,14 @@ function updateDataModeUI() {
   });
   const label = document.getElementById('ast-mode-label');
   if (label) label.textContent = dataModeLabel(mode);
+
+  // 同步 Sonnet toggle 按鈕的亮燈狀態
+  const sonnetBtn = document.querySelector('[data-ast-sonnet]');
+  if (sonnetBtn) {
+    const on = getSonnetMode();
+    sonnetBtn.classList.toggle('on', on);
+    sonnetBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
 }
 
 // ── 工具函數 ─────────────────────────────────────────────────
@@ -402,9 +423,26 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
   const lv      = level || 'L3';
   const result  = await getTxData(lv, dateRange);
   const fullStats = result.fullStats;     // 完整統計（在 slice 前計算，數字精準）
-  // 動態樣本數：問明細時給更多筆，一般查詢給 100 筆
+  // 動態樣本數：依「模型 + 資料範圍」決定，盡量讓 AI 看到完整明細
+  // Haiku（預設）：100 筆 — 適合快速查詢和聊天
+  // Sonnet 開啟時：依資料範圍擴大，盡可能涵蓋完整明細
+  //   - 預設範圍（L2/L3） → 300 筆（多數情況已涵蓋完整）
+  //   - 季 L4（90 天）   → 500 筆
+  //   - 半年 L5（180 天） → 800 筆
+  // 問明細時（最大筆、清單等）會再進一步擴大
   const wantDetail = wantsDetailedView(userMsg);
-  const sampleSize = wantDetail ? DETAIL_FULL_LIMIT : DETAIL_SAMPLE_LIMIT;
+  let sampleSize;
+  if (wantDetail) {
+    sampleSize = DETAIL_FULL_LIMIT; // 明細查詢一律給 300 筆（最高優先）
+  } else if (getSonnetMode() && lv !== 'L1') {
+    // 使用者主動開啟 Sonnet → 給更多筆，盡量讓 AI 看到完整資料
+    const forced = getDataMode();
+    if (forced === 'L5')      sampleSize = 800;
+    else if (forced === 'L4') sampleSize = 500;
+    else                       sampleSize = 300;
+  } else {
+    sampleSize = DETAIL_SAMPLE_LIMIT; // Haiku 模式維持 100 筆，省 token 也夠用
+  }
   const sourceTxs  = result.txData || [];
   const txData     = _sampleTxs(sourceTxs, sampleSize);
   const isNearComplete = sourceTxs.length <= sampleSize;   // 樣本已涵蓋全部
@@ -592,13 +630,17 @@ async function callClaude(userMsg) {
   }
   chatHistory.push({ role: 'user', content: userMsg });
 
-  // ── 動態選模型：L1 記帳指令 → Haiku（快速、便宜、夠用）；其他 → Sonnet（深度分析）──
-  // L1 的定義就是「記帳模式（不撈歷史）」，本質是結構化萃取，Haiku 完全勝任。
-  // 查詢/分析/規劃才需要 Sonnet 的推理能力。
-  // 例外：使用者手動鎖定 L4/L5 模式時，雖然 dataLevel 被覆寫為 L4/L5，
-  // 但本來就走 Sonnet，不會誤判。
-  const pickedModel = (dataLevel === 'L1') ? 'claude-haiku-4-5' : 'claude-sonnet-4-6';
-  console.log(`[AI助理] 模型:${pickedModel}`);
+  // ── 動態選模型 ──
+  // L1 記帳指令 → 永遠用 Haiku（快、結構化萃取勝任）
+  // 其他情境 → 看使用者有沒有手動開啟 Sonnet：開了用 Sonnet（深度但慢）、沒開用 Haiku（飛快）
+  // 設計理念：盈慧愛聊天鬥嘴要快 → 預設 Haiku；宏龍要看深度分析 → 手動切 Sonnet
+  let pickedModel;
+  if (dataLevel === 'L1') {
+    pickedModel = 'claude-haiku-4-5';
+  } else {
+    pickedModel = getSonnetMode() ? 'claude-sonnet-4-6' : 'claude-haiku-4-5';
+  }
+  console.log(`[AI助理] 模型:${pickedModel} (L1記帳=${dataLevel === 'L1'}, Sonnet開關=${getSonnetMode()})`);
 
   // 記錄這次呼叫的元資料，給 saveChatLog 在 Discord 備份訊息中標註用
   _lastCallMeta = {
@@ -606,6 +648,7 @@ async function callClaude(userMsg) {
     model: pickedModel,
     levelDesc,
     forced: useForced,
+    sonnetManual: getSonnetMode() && dataLevel !== 'L1',  // 真的因為手動開關才用 Sonnet
     dateRange
   };
 
@@ -908,7 +951,10 @@ async function saveChatLog(userMsg, assistantMsg) {
     if (meta) {
       const isHaiku  = meta.model === 'claude-haiku-4-5';
       embedColor     = isHaiku ? 0x06B6D4 : 0x8B5CF6; // 青 / 紫
-      const modelTag = isHaiku ? '⚡ Haiku 4.5' : '🧠 Sonnet 4.6';
+      // Sonnet 是「使用者主動開啟」還是「L1 以外自動走」── 現在邏輯下只會是前者
+      const modelTag = isHaiku
+        ? '⚡ Haiku 4.5'
+        : `🧠 Sonnet 4.6${meta.sonnetManual ? '（手動）' : ''}`;
       const levelTag = `${meta.dataLevel}・${meta.levelDesc || ''}${meta.forced ? '（手動鎖定）' : ''}`;
       metaFields = [
         { name: '🤖 模型',  value: modelTag, inline: true },
@@ -1386,12 +1432,15 @@ function buildUI() {
       <button onclick="closeAssistant()" style="width:30px;height:30px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:50%;font-size:1rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
 
-    <!-- 資料範圍模式 -->
+    <!-- 資料範圍模式 + Sonnet 切換 -->
     <div style="display:flex;align-items:center;gap:6px;padding:8px 12px 0;overflow-x:auto;flex-shrink:0;scrollbar-width:none">
       <span style="font-size:.68rem;color:var(--t3);white-space:nowrap">資料範圍：<b id="ast-mode-label">預設</b></span>
       <button class="ast-mode" data-ast-mode="default" onclick="setAssistantDataMode('default')" aria-pressed="true">預設</button>
       <button class="ast-mode" data-ast-mode="L4" onclick="setAssistantDataMode('L4')" aria-pressed="false">季</button>
       <button class="ast-mode" data-ast-mode="L5" onclick="setAssistantDataMode('L5')" aria-pressed="false">半年</button>
+      <!-- Sonnet toggle：亮起 = 啟用深度分析模型；預設 Haiku 較快 -->
+      <button class="ast-mode" data-ast-sonnet="1" onclick="toggleSonnetMode()" aria-pressed="false"
+        title="深度分析模式：開啟使用 Sonnet 4.6，回應較慢但更精準；關閉用 Haiku 4.5 飛快回答">🧠 Sonnet</button>
     </div>
 
     <!-- 快捷問題 -->
@@ -1444,6 +1493,25 @@ window.setAssistantDataMode = function(mode) {
   appendMsg('assistant', next === 'default'
     ? '已切回預設模式，接下來會依問題自動判斷資料範圍。'
     : `已切換到${label}模式，接下來的查詢會固定抓${DATA_LEVELS[next].days}天資料。`);
+};
+
+// Sonnet 模式切換：開 → 深度分析（Sonnet 4.6，慢但完整）；關 → 飛快聊天（Haiku 4.5）
+// L1 記帳指令永遠用 Haiku，不受此開關影響
+window.toggleSonnetMode = function() {
+  const next = !getSonnetMode();
+  setSonnetMode(next);
+  updateDataModeUI();
+  const dm = getDataMode();
+  let sampleHint;
+  if (next) {
+    if (dm === 'L5')      sampleHint = '半年範圍會給 800 筆明細';
+    else if (dm === 'L4') sampleHint = '季範圍會給 500 筆明細';
+    else                  sampleHint = '一般查詢會給 300 筆明細';
+  }
+  appendMsg('assistant', next
+    ? `🧠 已開啟 Sonnet 4.6 深度分析模式。\n回應會稍慢（2-3 秒），但分析更精準完整。\n${sampleHint}，多數情境能涵蓋全部資料。\n（記帳指令仍用 Haiku 飛快處理）`
+    : '⚡ 已切回 Haiku 4.5 飛快模式，適合聊天和快速查詢。'
+  );
 };
 
 window.quickAsk = function(text) {
