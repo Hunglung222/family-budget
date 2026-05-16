@@ -77,6 +77,8 @@ let pendingTx     = null;  // 待確認的記帳資料
 let isOpen        = false;
 let isLoading     = false;
 let voiceRec      = null;
+let _dataSynced   = false; // 本頁本次是否已從 Firebase 同步過（避免重複拉）
+let _syncPromise  = null;  // 進行中的同步 Promise，sendMsg 可 await 它避免太早查到空資料
 
 // 資料範圍模式：default=原本智慧判斷，L4=固定近90天，L5=固定近180天
 const DATA_MODE_KEY = 'assistant_data_mode';
@@ -591,7 +593,7 @@ async function callClaude(userMsg) {
 
   try {
     const res = await fetchClaudeAPI(key, {
-      model: 'claude-haiku-4-5',
+      model: 'claude-sonnet-4-6',
       max_tokens: 8192,
       system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
       messages: chatHistory
@@ -614,7 +616,7 @@ async function callClaude(userMsg) {
       chatHistory.push({ role: 'assistant', content: reply });
       try {
         const res2 = await fetchClaudeAPI(key, {
-          model: 'claude-haiku-4-5',
+          model: 'claude-sonnet-4-6',
           max_tokens: 4096,
           system: await buildSystemPrompt(dataLevel, dateRange, dataLevel === 'L1', userMsg),
           messages: [...chatHistory, { role: 'user', content: '請繼續未完成的回覆' }]
@@ -818,6 +820,13 @@ async function sendMsg(text) {
   appendMsg('user', text);
   clearInput();
   showTyping();
+
+  // ── 同步保險：若 openAssistant 觸發的同步還沒回來，先等它（最多 5 秒）──
+  // 避免使用者一打開就立刻問「今天花多少」、但 fbPullAll 還沒回來，
+  // 結果 AI 抓到 0 筆資料反過來質疑使用者沒記帳的尷尬情況。
+  if (_syncPromise) {
+    try { await _syncPromise; } catch(e) {}
+  }
 
   const reply = await callClaude(text);
   hideTyping();
@@ -1090,6 +1099,74 @@ function toggleVoice() {
 }
 
 // ── 開啟/關閉助理 ────────────────────────────────────────────
+// ── 智慧資料同步 ─────────────────────────────────────
+// 問題背景：assistant.js 純讀 localStorage，但只有 index.html 和 wallet.html
+// 開啟時會呼叫 fbPullAll() 把 Firebase 資料拉到 localStorage。
+// 若使用者從 add/settings/report/shopping 等頁面直接打開 AI 助理，
+// localStorage 可能是空的（尤其首次登入、清過快取、或換裝置），
+// 結果就是 AI 一直回「0 筆記錄」，反而質疑使用者沒記帳。
+//
+// 解法：openAssistant() 時先檢查資料量，看起來不齊全才主動同步。
+// 用 _syncPromise 暴露進行中的同步動作，sendMsg 在發送前可 await 它，
+// 避免使用者打開後立刻問問題、但同步還沒回來，又抓到空資料的情況。
+// 加 5 秒 timeout，網路不好也不會卡死。
+function _ensureDataReady() {
+  // 已同步完成 → 直接 resolve
+  if (_dataSynced) return Promise.resolve({ ok: true, synced: false });
+
+  // 已有進行中的同步 → 回傳同一個 Promise（避免重複拉）
+  if (_syncPromise) return _syncPromise;
+
+  // fbPullAll 不存在（理論上不會發生，所有 AI 助理出現的頁面都引了 firebase.js）
+  if (typeof fbPullAll !== 'function') {
+    _dataSynced = true;
+    return Promise.resolve({ ok: true, synced: false });
+  }
+
+  // 沒登入就不拉
+  const uid = localStorage.getItem('current_uid');
+  if (!uid) {
+    _dataSynced = true;
+    return Promise.resolve({ ok: true, synced: false });
+  }
+
+  // 檢查目前 localStorage 資料量。極少筆數（< 3）視為「可能還沒同步」
+  // 用低門檻是因為：盈慧長期使用後 localStorage 一定有大量資料，
+  // 出現 < 3 筆基本上就是換裝置/清快取/從非首頁直接進來這幾種情況。
+  let currentCount = 0;
+  try {
+    currentCount = (typeof getTx === 'function') ? (getTx() || []).length : 0;
+  } catch(e) { currentCount = 0; }
+
+  if (currentCount >= 3) {
+    _dataSynced = true; // 本頁已有資料，不需要再同步
+    return Promise.resolve({ ok: true, synced: false });
+  }
+
+  // 進入實際同步流程，存到 _syncPromise 讓 sendMsg 可共享
+  _syncPromise = (async () => {
+    try {
+      const pullPromise = fbPullAll();
+      const timeoutPromise = new Promise((_, rej) =>
+        setTimeout(() => rej(new Error('timeout')), 5000)
+      );
+      await Promise.race([pullPromise, timeoutPromise]);
+      _dataSynced = true;
+      const afterCount = (typeof getTx === 'function') ? (getTx() || []).length : 0;
+      return { ok: true, synced: true, before: currentCount, after: afterCount };
+    } catch(e) {
+      console.warn('[Assistant] 資料同步失敗:', e.message);
+      // 失敗也標記為「已嘗試過」，避免每次問問題都重試卡 5 秒
+      _dataSynced = true;
+      return { ok: false, synced: false, error: e.message };
+    } finally {
+      _syncPromise = null;
+    }
+  })();
+
+  return _syncPromise;
+}
+
 function openAssistant() {
   isOpen = true;
   document.getElementById('ast-panel').style.display  = 'flex';
@@ -1109,6 +1186,25 @@ function openAssistant() {
     const inp = document.getElementById('ast-input');
     if (inp) inp.focus();
   }, 300);
+
+  // 背景檢查資料同步狀態（不擋使用者操作）
+  // 若資料看起來不齊全，會在背景拉 Firebase，避免出現「0 筆記錄」誤判
+  _ensureDataReady().then(result => {
+    if (result.synced && result.after > result.before) {
+      // 同步成功且確實補了資料，悄悄通知使用者一下
+      const msgs = document.getElementById('ast-messages');
+      if (msgs) {
+        appendMsg('assistant',
+          `📡 已從雲端同步 ${result.after} 筆記帳資料，現在可以開始查詢囉～`
+        );
+      }
+    } else if (!result.ok) {
+      // 同步失敗，提醒使用者目前可能查不到完整資料
+      appendMsg('assistant',
+        '⚠️ 目前網路連線不穩，無法從雲端拉取最新資料。\n如果查詢結果顯示 0 筆，請稍後再試或先回首頁等待同步完成。'
+      );
+    }
+  });
 }
 
 // 發送目前角色的開場白
