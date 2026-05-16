@@ -320,6 +320,7 @@ if ('serviceWorker' in navigator) {
 </script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/assistant.js"></script>
 
 <!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
@@ -522,7 +523,14 @@ function startVoiceInput() {
 
 async function submitAI() {
   const text = document.getElementById('ai-input').value.trim();
-  if (!text) { toast('請輸入描述', 'warn'); return; }
+  // 沒輸入文字 → 自動切換成語音輸入模式（雙用按鈕）
+  if (!text) {
+    if (typeof startVoiceInput === 'function') {
+      startVoiceInput();
+      return;
+    }
+    toast('請輸入描述', 'warn'); return;
+  }
   const btn = document.getElementById('ai-btn');
   btn.textContent = '解析中...'; btn.disabled = true;
   try {
@@ -676,6 +684,18 @@ function rejectNewSubCat() {
 document.getElementById('ai-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') submitAI();
 });
+// 動態切換 AI 按鈕標題：有文字顯示「AI 記帳」，無文字顯示「🎤 語音」
+document.getElementById('ai-input').addEventListener('input', () => {
+  const btn = document.getElementById('ai-btn');
+  if (!btn) return;
+  const hasText = document.getElementById('ai-input').value.trim().length > 0;
+  btn.textContent = hasText ? 'AI 記帳' : '🎤 語音';
+});
+// 初始化時也設一次（input 沒文字 → 顯示語音）
+(function initAIBtnLabel(){
+  const btn = document.getElementById('ai-btn');
+  if (btn) btn.textContent = '🎤 語音';
+})();
 
 // ── 主邏輯 ──────────────────────────────────────────
 let astr='', selCat='', selCard='', selIcard='', selAcct='', pay='cash', person='宏龍', selTags=[];
@@ -1372,9 +1392,11 @@ async function confirmMultiTx() {
   const hasKey = !!localStorage.getItem('claude_api_key');
   if (hasKey && valid.length) {
     const featured = [...valid].sort((a,b)=>b.amount-a.amount)[0];
-    // 多筆時給 AI 完整清單資訊
+    // 多筆時給 AI 完整清單資訊（補上 person/at 等必要欄位，否則 Discord 通知會 undefined/NaN）
     const multiTx = {
       ...featured,
+      person: person,
+      at: new Date().toISOString(),
       _multiSummary: valid.map(it=>`${catName(it.cat)}${it.subCat?' › '+it.subCat:''} $${it.amount}`).join('、'),
       _multiCount: valid.length,
     };

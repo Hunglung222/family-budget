@@ -688,6 +688,14 @@
 </nav>
 <div class="toast" id="toast"></div>
 
+<!-- 吉祥物泡泡（AI 助理評語顯示） -->
+<div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 70px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:auto" onclick="closeMascot()">
+  <div style="display:flex;align-items:flex-end;gap:10px;max-width:480px;margin:0 auto">
+    <div id="mascot-icon" style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0;box-shadow:0 4px 12px rgba(0,229,180,.3)">🐨</div>
+    <div id="mascot-bubble" style="background:var(--card);border:1.5px solid var(--border);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;color:var(--t1);line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.2);max-width:calc(100% - 60px)"></div>
+  </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
@@ -695,6 +703,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/assistant.js"></script>
 <script>
 const ACCENT_DEFS=[{key:'teal',color:'#00e5b4',label:'翠綠'},{key:'blue',color:'#4f8ef7',label:'藍色'},{key:'pink',color:'#f472b6',label:'粉色'},{key:'purple',color:'#a78bfa',label:'紫色'},{key:'yellow',color:'#fbbf24',label:'黃色'},{key:'green',color:'#4ade80',label:'綠色'}];
 
@@ -724,7 +733,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.15 17:28';
+const APP_VERSION = 'v2026.05.16 19:00';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
