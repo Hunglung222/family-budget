@@ -18,7 +18,6 @@
     <div class="hdr-sub" id="hdr-date"></div>
   </div>
   <div style="display:flex;gap:8px">
-    <a href="./private.html" id="priv-btn" style="display:none" class="hdr-btn" title="私密記帳">🔒</a>
     <a href="./memo.html" id="memo-btn" style="display:none" class="hdr-btn" title="備忘錄">📝</a>
     <a href="./settings.html" class="hdr-btn">⚙️</a>
   </div>
@@ -546,7 +545,7 @@ function toast(msg,type=''){const el=document.getElementById('toast');el.textCon
 applyTheme();
 // 宏龍專屬功能顯示
 if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
-  ['priv-btn','memo-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='flex';});
+  ['memo-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='flex';});
 }
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();

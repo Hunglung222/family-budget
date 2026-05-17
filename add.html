@@ -948,6 +948,14 @@ function calcPct() {
   calcExpr = base + val;
   calcDisp = dbase + last + '%';
   _refreshCalc();
+  // ── 隱藏密碼：9981.% 跳轉到私密記帳（僅限宏龍）──
+  // 計算機模式才能輸入「.」和「%」，9981.% 是平常記帳不會打出的組合
+  if (calcDisp === '9981.%' &&
+      (localStorage.getItem('current_email')||'') === 'kevin67222@gmail.com') {
+    // 清空避免被看到密碼
+    calcExpr = ''; calcDisp = ''; _refreshCalc();
+    location.href = './private.html';
+  }
 }
 function calcOp(op) {
   if (op==='clear') { calcExpr=''; calcDisp=''; _refreshCalc(); return; }
