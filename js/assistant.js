@@ -174,46 +174,94 @@ function parseDateRange(msg) {
   // 當月最後一天
   const lastDay = (yr, m) => new Date(yr, m, 0).getDate();
 
-  // ── 自然語言相對日期（優先比對）──────────────────────────
+  // ── 工具函數：算某週的週一與週日 ─────────────────────────
+  const getWeekRange = (offsetWeeks) => {
+    const dow = now.getDay(); // 0=週日
+    const mondayOff = (dow === 0 ? -6 : 1 - dow) + offsetWeeks * 7;
+    const mon = new Date(now); mon.setDate(d + mondayOff);
+    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+    return {
+      from: toStr(mon.getFullYear(), mon.getMonth()+1, mon.getDate()),
+      to:   toStr(sun.getFullYear(), sun.getMonth()+1, sun.getDate())
+    };
+  };
+
+  // ── 工具函數：算某個月的首尾日 ───────────────────────────
+  const getMonthRange = (offsetMonths) => {
+    const targetDate = new Date(y, mo + offsetMonths, 1);
+    const ty = targetDate.getFullYear(), tm = targetDate.getMonth() + 1;
+    return { from: toStr(ty, tm, 1), to: toStr(ty, tm, lastDay(ty, tm)) };
+  };
+
+  // ── 工具函數：算本季、上季的首尾日 ──────────────────────
+  const getQuarterRange = (offsetQuarters) => {
+    const currentQ = Math.floor(mo / 3); // 0-3
+    const targetQ  = currentQ + offsetQuarters;
+    const targetYear = y + Math.floor(targetQ / 4);
+    const qInYear    = ((targetQ % 4) + 4) % 4;
+    const qStartMo   = qInYear * 3 + 1; // 1,4,7,10
+    const qEndMo     = qStartMo + 2;
+    return {
+      from: toStr(targetYear, qStartMo, 1),
+      to:   toStr(targetYear, qEndMo, lastDay(targetYear, qEndMo))
+    };
+  };
+
+  // ── 比較型優先（本X vs 上X）── 要先比多詞組合再比單詞 ──
+  // 本週 vs 上週 → from=上週一，to=本週日（14 天精準區間）
+  if (/本週.*上週|上週.*本週|這週.*上週|上週.*這週|本周.*上周|週.*週比|week.*week/i.test(msg) ||
+      /本週\s*[vV][sS]\s*上週|上週\s*[vV][sS]\s*本週/.test(msg)) {
+    const thisWeek = getWeekRange(0);
+    const lastWeek = getWeekRange(-1);
+    return { from: lastWeek.from, to: thisWeek.to };
+  }
+
+  // 本月 vs 上月 → from=上月一號，to=本月底（完整兩個月）
+  if (/本月.*上月|上月.*本月|這個月.*上個月|上個月.*這個月|月.*月比|月份.*比較/.test(msg) ||
+      /本月\s*[vV][sS]\s*上月/.test(msg)) {
+    const thisMonth = getMonthRange(0);
+    const lastMonth = getMonthRange(-1);
+    return { from: lastMonth.from, to: thisMonth.to };
+  }
+
+  // 本季 vs 上季 → from=上季初，to=本季末（完整兩季）
+  if (/本季.*上季|上季.*本季|季.*季比|季度.*比較|這季.*上季|上季.*這季/.test(msg) ||
+      /本季\s*[vV][sS]\s*上季/.test(msg)) {
+    const thisQ = getQuarterRange(0);
+    const lastQ = getQuarterRange(-1);
+    return { from: lastQ.from, to: thisQ.to };
+  }
+
+  // 今年 vs 去年 → from=去年一月一號，to=今年底（若還沒到底就給今天）
+  if (/今年.*去年|去年.*今年|年.*年比|今年跟去年/.test(msg)) {
+    return { from: toStr(y-1, 1, 1), to: toStr(y, 12, 31) };
+  }
+
+  // ── 單一時段自然語言 ──────────────────────────────────────
   // 本週（週一～週日）
-  if (/本週|這週|本周|這周/.test(msg)) {
-    const dow = now.getDay(); // 0=日
-    const mondayOff = dow === 0 ? -6 : 1 - dow;
-    const mon = new Date(now); mon.setDate(d + mondayOff);
-    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-    return { from: toStr(mon.getFullYear(),mon.getMonth()+1,mon.getDate()),
-             to:   toStr(sun.getFullYear(),sun.getMonth()+1,sun.getDate()) };
-  }
+  if (/本週|這週|本周|這周/.test(msg)) return getWeekRange(0);
   // 上週
-  if (/上週|上周|前一週/.test(msg)) {
-    const dow = now.getDay();
-    const mondayOff = (dow === 0 ? -6 : 1 - dow) - 7;
-    const mon = new Date(now); mon.setDate(d + mondayOff);
-    const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-    return { from: toStr(mon.getFullYear(),mon.getMonth()+1,mon.getDate()),
-             to:   toStr(sun.getFullYear(),sun.getMonth()+1,sun.getDate()) };
-  }
+  if (/上週|上周|前一週|前一周/.test(msg)) return getWeekRange(-1);
   // 本月
-  if (/本月|這個月|這月/.test(msg)) {
-    return { from: toStr(y, mo+1, 1), to: toStr(y, mo+1, lastDay(y, mo+1)) };
-  }
+  if (/本月|這個月|這月/.test(msg)) return getMonthRange(0);
   // 上個月
-  if (/上個月|上月|前一個月/.test(msg)) {
-    const pm = mo === 0 ? 12 : mo;
-    const py = mo === 0 ? y-1 : y;
-    return { from: toStr(py, pm, 1), to: toStr(py, pm, lastDay(py, pm)) };
-  }
+  if (/上個月|上月|前一個月/.test(msg)) return getMonthRange(-1);
+  // 本季（當前季度）
+  if (/本季|這季|這一季|本季度/.test(msg)) return getQuarterRange(0);
+  // 上季
+  if (/上季|上一季|前一季|上季度/.test(msg)) return getQuarterRange(-1);
   // 今年
-  if (/今年/.test(msg)) {
-    return { from: toStr(y, 1, 1), to: toStr(y, 12, 31) };
-  }
+  if (/今年/.test(msg)) return { from: toStr(y, 1, 1), to: toStr(y, 12, 31) };
+  // 去年
+  if (/去年/.test(msg)) return { from: toStr(y-1, 1, 1), to: toStr(y-1, 12, 31) };
+
   // X月份 或 X月（指定月份，今年）
   const mMonth = msg.match(/([一二三四五六七八九十百]+|\d{1,2})月份?/);
   if (mMonth) {
     const chToNum = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
     const mNum = chToNum[mMonth[1]] || +mMonth[1];
     if (mNum >= 1 && mNum <= 12) {
-      const mYear = mNum > mo + 1 ? y - 1 : y; // 超過當月則為去年同月
+      const mYear = mNum > mo + 1 ? y - 1 : y;
       return { from: toStr(mYear, mNum, 1), to: toStr(mYear, mNum, lastDay(mYear, mNum)) };
     }
   }
@@ -242,13 +290,15 @@ function classifyDataLevel(msg, preParsedRange) {
   if (!msg) return 'L3';
   const m = msg.toLowerCase();
 
-  // 若有明確日期區間，直接依範圍天數決定等級（優先判斷，避免被 L1 誤吃）
+  // 若有明確日期區間（含自然語言解析後的結果），直接依範圍天數決定等級
+  // 比較型問題（本週vs上週=14天、本月vs上月≈60天、本季vs上季≈180天）都會在
+  // parseDateRange 產生精準 dateRange，classifyDataLevel 只負責決定 fallback 等級
   const dr = preParsedRange !== undefined ? preParsedRange : parseDateRange(msg);
   if (dr) {
     const days = Math.ceil((new Date(dr.to) - new Date(dr.from)) / 864e5);
-    if (days <= 7)   return 'L2';
+    if (days <= 14)  return 'L2';
     if (days <= 35)  return 'L3';
-    if (days <= 90)  return 'L4';
+    if (days <= 95)  return 'L4';
     return 'L5';
   }
 
@@ -258,16 +308,16 @@ function classifyDataLevel(msg, preParsedRange) {
   const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
   if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
 
-  // L5：長期或完整分析關鍵字
-  if (/半年|六個月|一年|年度|長期|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
+  // L5：長期或完整分析（含年度比較）
+  if (/半年|六個月|一年|年度|長期|今年|去年|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
 
-  // L4：跨月比較
+  // L4：跨月比較或季度分析
   if (/上個月|上月|前兩個月|兩個月|三個月|季度|季|比較|趨勢|變化|增加|減少|上升|下降/.test(m)) return 'L4';
 
-  // L2：今日/昨日
-  if (/今天|今日|昨天|昨日|剛才|剛剛|今晚|今早|今午|最近一兩天/.test(m)) return 'L2';
+  // L2：今日/昨日/本週/這週（短期查詢）
+  if (/今天|今日|昨天|昨日|剛才|剛剛|今晚|今早|今午|最近一兩天|本週|這週|本周|這周|上週|上周/.test(m)) return 'L2';
 
-  // 預設 L3（本週/本月查詢）
+  // 預設 L3（本月查詢）
   return 'L3';
 }
 
@@ -432,16 +482,18 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
   // 問明細時（最大筆、清單等）會再進一步擴大
   const wantDetail = wantsDetailedView(userMsg);
   let sampleSize;
-  if (wantDetail) {
-    sampleSize = DETAIL_FULL_LIMIT; // 明細查詢一律給 300 筆（最高優先）
-  } else if (getSonnetMode() && lv !== 'L1') {
+  if (getSonnetMode() && lv !== 'L1') {
     // 使用者主動開啟 Sonnet → 給更多筆，盡量讓 AI 看到完整資料
+    // Sonnet 模式下，採樣量本來就 ≥ 300，明細查詢自動涵蓋
     const forced = getDataMode();
     if (forced === 'L5')      sampleSize = 800;
     else if (forced === 'L4') sampleSize = 500;
     else                       sampleSize = 300;
+  } else if (wantDetail) {
+    // Haiku 模式但想看明細 → 擴大到 300 筆
+    sampleSize = DETAIL_FULL_LIMIT;
   } else {
-    sampleSize = DETAIL_SAMPLE_LIMIT; // Haiku 模式維持 100 筆，省 token 也夠用
+    sampleSize = DETAIL_SAMPLE_LIMIT; // Haiku 模式預設 100 筆，省 token 也夠用
   }
   const sourceTxs  = result.txData || [];
   const txData     = _sampleTxs(sourceTxs, sampleSize);
@@ -1555,6 +1607,10 @@ function handleCharChange() {
     localStorage.removeItem(CHAT_PERSIST_KEY);
     localStorage.removeItem(CHAT_DOM_KEY);
   } catch (e) {}
+
+  // 重置 Sonnet toggle（新角色從 Haiku 預設開始，避免盈慧誤以為切角色後重置了但其實還在 Sonnet 模式）
+  setSonnetMode(false);
+  updateDataModeUI();
 
   // 若此時助理 panel 是開著的，立刻送新角色開場白
   if (isOpen) {
