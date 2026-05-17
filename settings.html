@@ -166,11 +166,20 @@
   <!-- Discord 通知設定 -->
   <div class="sec-t">📣 Discord 通知設定</div>
   <div class="data-card" style="padding:14px 16px;margin-bottom:8px">
-    <div class="flbl" style="margin-bottom:10px">Webhook URL</div>
+    <div class="flbl" style="margin-bottom:10px">記帳通知頻道（共用，盈慧可看）</div>
     <input type="text" class="fc" id="discord-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
-    <div style="display:flex;gap:8px">
+    <div style="display:flex;gap:8px;margin-bottom:14px">
       <button onclick="saveDiscordUrl()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
       <button onclick="testDiscordBtn()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+    </div>
+    <div id="chat-log-webhook-row" style="display:none;border-top:1px dashed var(--border);padding-top:12px">
+      <div class="flbl" style="margin-bottom:10px">🤖 AI 對話記錄頻道（宏龍專屬，可留空）</div>
+      <input type="text" class="fc" id="chat-log-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button onclick="saveChatLogUrl()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
+        <button onclick="testChatLogBtn()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:6px">留空 = 不備份 AI 對話到 Discord</div>
     </div>
   </div>
 
@@ -740,7 +749,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.17 07:42';
+const APP_VERSION = 'v2026.05.17 12:30';
 const SW_VERSION  = 'fb-v10';
 
 function checkVersion() {
@@ -883,6 +892,22 @@ function renderNotifySettings(){
   const cfg=getDiscord();
   // 優先讀 localStorage（最新值），其次讀 discord 設定
   document.getElementById('discord-url').value=localStorage.getItem('discord_webhook')||cfg.webhook||'';
+
+  // AI 對話記錄頻道：宏龍才看得到，盈慧的話這個區塊隱藏
+  const email = localStorage.getItem('current_email') || '';
+  if (email === 'kevin67222@gmail.com') {
+    const row = document.getElementById('chat-log-webhook-row');
+    if (row) row.style.display = 'block';
+    // 一次性遷移：若 localStorage 還沒設定，用舊的硬編碼 webhook 預填，
+    // 避免使用者升級後 AI 對話備份失效。
+    // 之後可以隨時清空或修改。
+    if (!localStorage.getItem('chat_log_webhook')) {
+      const LEGACY_WEBHOOK = 'https://discord.com/api/webhooks/1497601562782990407/agylbOyLjHrIGFu46LljF02wCGK4lZNdoqVHw_wOTSNIGxVuBnfBxm_Ozea8t3eZ0WIT';
+      localStorage.setItem('chat_log_webhook', LEGACY_WEBHOOK);
+    }
+    const input = document.getElementById('chat-log-url');
+    if (input) input.value = localStorage.getItem('chat_log_webhook') || '';
+  }
   document.getElementById('sw-add').checked=cfg.onAdd!==false;
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
   document.getElementById('sw-budget').checked=cfg.onBudget!==false;
@@ -938,6 +963,29 @@ function saveDiscordUrl(){
   saveDiscord({webhook:url});
   fbSyncAppConfig(); // 同步給盈慧
   toast(url?'✅ 已儲存並同步給盈慧':'已清除 Webhook');
+}
+
+// ── AI 對話記錄頻道（宏龍專屬，存 localStorage，不同步給盈慧）──
+function saveChatLogUrl(){
+  const url = document.getElementById('chat-log-url').value.trim();
+  localStorage.setItem('chat_log_webhook', url);
+  toast(url ? '✅ AI 對話記錄頻道已儲存' : '已清除 AI 對話記錄頻道');
+}
+async function testChatLogBtn(){
+  const url = document.getElementById('chat-log-url').value.trim();
+  if (!url) { toast('請先填入 Webhook URL','warn'); return; }
+  try {
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        embeds:[{title:'🤖 AI 對話記錄頻道測試',description:'這是測試訊息，看到代表 webhook 設定成功',color:0x8B5CF6}]
+      })
+    });
+    toast(res.ok?'✅ 測試訊息已送出':`❌ 失敗（${res.status}）`, res.ok?'':'err');
+  } catch(e) {
+    toast('❌ 網路錯誤：'+e.message,'err');
+  }
 }
 function saveNotify(){
   saveDiscord({
