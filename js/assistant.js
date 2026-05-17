@@ -207,6 +207,17 @@ function parseDateRange(msg) {
     };
   };
 
+  // ── 今天 / 昨天（高頻單日查詢，精準給單日 dateRange）─
+  if (/今天|今日|今晚|今早|今午/.test(msg)) {
+    const s = toStr(now.getFullYear(), now.getMonth()+1, now.getDate());
+    return { from: s, to: s };
+  }
+  if (/昨天|昨日/.test(msg)) {
+    const yest = new Date(now); yest.setDate(now.getDate()-1);
+    const s = toStr(yest.getFullYear(), yest.getMonth()+1, yest.getDate());
+    return { from: s, to: s };
+  }
+
   // ── 比較型優先（本X vs 上X）── 要先比多詞組合再比單詞 ──
   // 本週 vs 上週 → from=上週一，to=本週日（14 天精準區間）
   if (/本週.*上週|上週.*本週|這週.*上週|上週.*這週|本周.*上周|週.*週比|week.*week/i.test(msg) ||
@@ -255,8 +266,9 @@ function parseDateRange(msg) {
   // 去年
   if (/去年/.test(msg)) return { from: toStr(y-1, 1, 1), to: toStr(y-1, 12, 31) };
 
-  // X月份 或 X月（指定月份，今年）
-  const mMonth = msg.match(/([一二三四五六七八九十百]+|\d{1,2})月份?/);
+  // X月份 或 X月（指定整月，不含後接「日」的單日格式）
+  // (?!\d+日?) 確保「5月16日」這種不被當成「5月整月」
+  const mMonth = msg.match(/([一二三四五六七八九十百]+|\d{1,2})月份?(?!\d)/);
   if (mMonth) {
     const chToNum = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
     const mNum = chToNum[mMonth[1]] || +mMonth[1];
@@ -268,8 +280,11 @@ function parseDateRange(msg) {
 
   // ── 明確日期區間格式 ────────────────────────────────────
   const patterns = [
+    // 完整年月日區間：2026/5/1到2026/5/16 或 2026-05-01到2026-05-16
     /(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})\s*[到~～至\-]\s*(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
+    // 月/日區間：5/1到5/16
     /(\d{1,2})\/(\d{1,2})\s*[到~～至\-]\s*(\d{1,2})\/(\d{1,2})/,
+    // 漢字月日區間：5月1日到5月16日 / 5月1日至5月16日
     /(\d{1,2})月(\d{1,2})日?\s*[到~～至]\s*(\d{1,2})月(\d{1,2})日?/,
   ];
 
@@ -281,6 +296,23 @@ function parseDateRange(msg) {
 
   m2 = msg.match(patterns[2]);
   if (m2) return { from: toStr(y,+m2[1],+m2[2]), to: toStr(y,+m2[3],+m2[4]) };
+
+  // 單日：月/日格式（5/16、05/16）— 必須在區間格式之後匹配，避免被搶先吃掉
+  m2 = msg.match(/(?<![0-9])(\d{1,2})\/(\d{1,2})(?![0-9\/\-])/);
+  if (m2 && +m2[1] >= 1 && +m2[1] <= 12 && +m2[2] >= 1 && +m2[2] <= 31) {
+    const mNum = +m2[1], dNum = +m2[2];
+    // 若指定月份已過 → 今年；否則今年（未來日期直接用今年）
+    const s = toStr(y, mNum, dNum);
+    return { from: s, to: s };
+  }
+
+  // 單日：漢字月日（5月16日）— 必須在區間格式之後匹配，區間已在上面處理完
+  // 這裡加了 (?!.*[到至~～]) 確保不是區間格式的一部分
+  m2 = msg.match(/(\d{1,2})月(\d{1,2})日?(?!.*[到至~～])/);
+  if (m2 && +m2[1] >= 1 && +m2[1] <= 12 && +m2[2] >= 1 && +m2[2] <= 31) {
+    const s = toStr(y, +m2[1], +m2[2]);
+    return { from: s, to: s };
+  }
 
   return null;
 }
@@ -964,8 +996,11 @@ async function sendMsg(text) {
   isLoading = false;
 }
 
-// AI 對話記錄專用 Discord 頻道
-const CHAT_LOG_WEBHOOK = 'https://discord.com/api/webhooks/1497601562782990407/agylbOyLjHrIGFu46LljF02wCGK4lZNdoqVHw_wOTSNIGxVuBnfBxm_Ozea8t3eZ0WIT';
+// AI 對話記錄專用 Discord 頻道（從 localStorage 讀取，避免 GitHub Pages public 時 webhook 外洩）
+// 設定在 settings.html → AI 對話記錄頻道欄位
+function getChatLogWebhook() {
+  return localStorage.getItem('chat_log_webhook') || '';
+}
 async function saveChatLog(userMsg, assistantMsg) {
   try {
     // 取得這次對話的元資料（callClaude 寫入；若沒呼叫過 API 例如手動記帳完成，會是 null）
@@ -990,6 +1025,7 @@ async function saveChatLog(userMsg, assistantMsg) {
     }
 
     // Discord（專用 #ai對話記錄 頻道）
+    const CHAT_LOG_WEBHOOK = getChatLogWebhook();
     if (!CHAT_LOG_WEBHOOK) return;
 
     const char    = getChar();
