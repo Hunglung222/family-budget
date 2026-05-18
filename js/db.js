@@ -362,6 +362,22 @@ function isKevin() { return (localStorage.getItem('current_email')||'')===KEVIN_
 function pPrivKey(k) { return 'priv_'+uid()+'_'+k; }
 
 function getPrivTx() {
+  // 一次性遷移：舊版 fbPullPrivTx 因 const DB 不掛 window 走 fallback，把資料寫到
+  // db_priv_{uid}_tx；新版寫到 priv_{uid}_tx。這裡偵測舊 key 有資料就遷移過來。
+  try {
+    const wrongKey = 'db_priv_' + uid() + '_tx';
+    const wrongRaw = localStorage.getItem(wrongKey);
+    if (wrongRaw) {
+      const wrongList = JSON.parse(wrongRaw);
+      const currentList = DB.get(pPrivKey('tx')) || [];
+      const merged = new Map();
+      [...currentList, ...wrongList].forEach(t => { if (!merged.has(t.id)) merged.set(t.id, t); });
+      DB.set(pPrivKey('tx'), [...merged.values()]);
+      localStorage.removeItem(wrongKey);
+      console.log('[Migration] 已遷移私密記帳資料到正確 key（共', merged.size, '筆）');
+    }
+  } catch(e) { console.warn('[Migration] privTx 遷移失敗:', e); }
+
   const raw = DB.get(pPrivKey('tx')) || [];
   const map = new Map(); raw.forEach(t=>{ if(!map.has(t.id)) map.set(t.id,t); });
   return [...map.values()];
@@ -395,6 +411,21 @@ function fixDuplicates() {
 }
 
 function getMemos() {
+  // 一次性遷移：同 getPrivTx
+  try {
+    const wrongKey = 'db_priv_' + uid() + '_memos';
+    const wrongRaw = localStorage.getItem(wrongKey);
+    if (wrongRaw) {
+      const wrongList = JSON.parse(wrongRaw);
+      const currentList = DB.get(pPrivKey('memos')) || [];
+      const merged = new Map();
+      [...currentList, ...wrongList].forEach(m => { if (!merged.has(m.id)) merged.set(m.id, m); });
+      DB.set(pPrivKey('memos'), [...merged.values()]);
+      localStorage.removeItem(wrongKey);
+      console.log('[Migration] 已遷移備忘錄資料到正確 key（共', merged.size, '筆）');
+    }
+  } catch(e) { console.warn('[Migration] memos 遷移失敗:', e); }
+
   const raw = DB.get(pPrivKey('memos')) || [];
   const map = new Map(); raw.forEach(m=>{ if(!map.has(m.id)) map.set(m.id,m); });
   return [...map.values()];

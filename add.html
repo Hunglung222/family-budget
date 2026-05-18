@@ -408,7 +408,7 @@ B. 子分類處理：
    - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
 C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如輸入「換手錶電池200元」→ detail:「換手錶電池」。
 
-回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}, ...]`;
+回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard或acct","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}, ...]`;
 
   const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Claude API Key');
@@ -753,6 +753,22 @@ function init() {
       }, 150);
     }
   } catch(e) { console.warn('[prefill]', e); }
+
+  // ── PWA 起始頁優化：背景同步 Firebase ──
+  // start_url 是 add.html，使用者從 PWA 圖示打開第一頁就是這裡。
+  // 不擋 UI（不 await），同步完成後刷新分類、卡片、帳戶選項。
+  // 避免「在錢包頁新增卡片後從 PWA 圖示開啟，看不到新卡」的情形。
+  if (typeof fbPullAll === 'function') {
+    fbPullAll().then(() => {
+      // 拉完重建可能變動的選項
+      buildCatChips();
+      buildCardChips();
+      buildIcardChips();
+      buildAcctChips();
+      buildShortcutsBar();
+      buildTagChips();
+    }).catch(e => console.warn('[Init] fbPullAll 失敗:', e.message));
+  }
 }
 
 function backToStep1() {
@@ -1258,6 +1274,7 @@ function openMultiConfirmModal(items) {
     pay:       r.pay    || 'cash',
     cardId:    r.cardId  || null,
     icardId:   r.icardId || null,
+    acctId:    r.acctId  || null,
     date:      r.date   || null,
   }));
   renderMultiList();
@@ -1359,6 +1376,7 @@ async function confirmMultiTx() {
       pay:     it.pay,
       cardId:  it.pay === 'card'  ? (it.cardId || null)  : null,
       icardId: it.pay === 'icard' ? (it.icardId || null) : null,
+      acctId:  it.pay === 'acct'  ? (it.acctId || null)  : null,
       tags:    it.tags || [],
       at,
     };
@@ -1382,7 +1400,11 @@ async function confirmMultiTx() {
   const cfg = getDiscord();
   if (cfg.onAdd && getWebhook && getWebhook()) {
     const lines = valid.map(it => {
-      const payLabel = it.pay==='cash'?'💵現金':it.pay==='icard'?'🎫悠遊卡':'💳信用卡';
+      let payLabel;
+      if (it.pay === 'cash')       payLabel = '💵現金';
+      else if (it.pay === 'icard') payLabel = '🎫悠遊卡';
+      else if (it.pay === 'acct')  payLabel = '🏦帳戶';
+      else                          payLabel = '💳信用卡';
       return `• ${catName(it.cat)}${it.subCat?' › '+it.subCat:''} ${it.detail?'「'+it.detail+'」':''} **$${fmt(it.amount)}** ${payLabel}`;
     }).join('\n');
     if (typeof discordSend === 'function') {
@@ -1487,6 +1509,7 @@ function saveMeEdit() {
     pay:       _mePay,
     cardId:    _mePay==='card'  ? document.getElementById('me-card-sel').value  : null,
     icardId:   _mePay==='icard' ? document.getElementById('me-icard-sel').value : null,
+    acctId:    _mePay==='acct'  ? document.getElementById('me-acct-sel').value  : null,
   };
   closeMeModal();
   renderMultiList();

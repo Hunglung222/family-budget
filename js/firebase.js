@@ -226,8 +226,9 @@ async function fbPullPrivTx() {
     const mergedMap = new Map();
     [...items, ...localList].forEach(t => { if(!mergedMap.has(t.id)) mergedMap.set(t.id, t); });
     const merged = [...mergedMap.values()].sort((a,b)=>new Date(b.at)-new Date(a.at));
-    const {DB} = window; if(typeof DB!=='undefined') DB.set(pPrivKey('tx'), merged);
-    else localStorage.setItem('db_priv_'+uid()+'_tx', JSON.stringify(merged));
+    // 寫入 localStorage（DB.set 在 db.js 載入時可用，但 const DB 不會掛 window，
+    // 所以直接用 pPrivKey() 算出正確 key，而不是用衝突的 'db_priv_' 前綴）
+    localStorage.setItem(pPrivKey('tx'), JSON.stringify(merged));
     console.log('[FB] 私密記帳已拉取', merged.length, '筆');
   } catch(e) { console.warn('[FB]pullPrivTx', e); }
 }
@@ -268,8 +269,8 @@ async function fbPullMemos() {
     const mergedMap = new Map();
     [...items, ...localList].forEach(m => { if(!mergedMap.has(m.id)) mergedMap.set(m.id, m); });
     const merged = [...mergedMap.values()].sort((a,b)=>new Date(b.at)-new Date(a.at));
-    const {DB} = window; if(typeof DB!=='undefined') DB.set(pPrivKey('memos'), merged);
-    else localStorage.setItem('db_priv_'+uid()+'_memos', JSON.stringify(merged));
+    // 同 fbPullPrivTx：直接用 pPrivKey('memos')，與 getMemos 讀的 key 一致
+    localStorage.setItem(pPrivKey('memos'), JSON.stringify(merged));
     console.log('[FB] 備忘錄已拉取', merged.length, '筆');
   } catch(e) { console.warn('[FB]pullMemos', e); }
 }

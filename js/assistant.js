@@ -432,36 +432,6 @@ function _calcFullStats(txList) {
   return { total, count: txList.length, byCash, byCard, byIcard, byAcct, byCat, byPerson };
 }
 
-// L3/L4/L5：從 Firebase 拉取（資料更完整，換手機也有）
-async function getTxDataFirebase(level) {
-  const lv = DATA_LEVELS[level || 'L3'];
-  try {
-    const db = (typeof getDb === 'function') ? getDb() : null;
-    if (!db) return getTxDataLocal(level);
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - lv.days);
-    const cutoffISO = cutoff.toISOString();
-    // 正確做法：先用 where 過濾日期範圍，再 orderBy，最後才 limit
-    // 這樣 limit 才是在日期範圍內的筆數限制，不會遺漏資料
-    const snap = await db.collection('transactions')
-      .where('at', '>=', cutoffISO)
-      .orderBy('at', 'desc')
-      .limit(1000)
-      .get();
-    const result = [];
-    snap.forEach(doc => {
-      const t = doc.data();
-      if (t.private) return;
-      result.push(_formatTx(t));
-    });
-    console.log(`[AI助理] Firebase 查詢 ${lv.days}天 → ${result.length} 筆`);
-    return result;
-  } catch (e) {
-    console.warn('[AI助理] Firebase 查詢失敗，改用 localStorage:', e.message);
-    return getTxDataLocal(level);
-  }
-}
-
 // 統一入口：全部用 localStorage（Firebase 同步後資料完整，且不受索引問題影響）
 // 回傳 { txData: [...], fullStats: {...} }
 async function getTxData(level, dateRange) {
@@ -1100,7 +1070,20 @@ function saveConversation(note) {
 
 
 // ── Markdown 簡易渲染 ─────────────────────────────────────────
+// HTML escape：避免 AI 回傳 HTML 標籤被直接渲染（safety: prevent XSS via prompt injection）
+function _escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function renderMarkdown(text) {
+  // 先 escape 整個輸入的 HTML 特殊字元，再用 markdown 規則加回安全的標籤
+  // 這樣 AI 即使回傳 <img onerror=...>、<script> 也只會顯示為純文字
+  text = _escHtml(text);
   const lines = text.split('\n');
   let html = '';
   let i = 0;
@@ -1370,7 +1353,7 @@ function openAssistant() {
   _ensureDataReady().then(result => {
     if (result.synced && result.after > result.before) {
       // 同步成功且確實補了資料，悄悄通知使用者一下
-      const msgs = document.getElementById('ast-messages');
+      const msgs = document.getElementById('ast-msgs');
       if (msgs) {
         appendMsg('assistant',
           `📡 已從雲端同步 ${result.after} 筆記帳資料，現在可以開始查詢囉～`

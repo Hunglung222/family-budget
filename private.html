@@ -292,9 +292,9 @@ async function submitAI() {
     const key = localStorage.getItem('claude_api_key') || '';
     if (!key) { toast('請先在設定頁填入 Claude API Key','err'); return; }
     const cats = getCats().map(c => `${c.id}(${c.name})`).join(', ');
-    const todayStr = new Date().toISOString().slice(0,10);
+    const todayStr = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
     const yest = new Date(); yest.setDate(yest.getDate()-1);
-    const yestStr = yest.toISOString().slice(0,10);
+    const yestStr = (typeof toLocalISO === 'function') ? toLocalISO(yest) : yest.toISOString().slice(0,10);
     const prompt = `你是私密記帳助理。從這段文字提取記帳資訊並回傳純 JSON（不要 markdown）。
 今天:${todayStr} 昨天:${yestStr}
 可用分類(id:名稱): ${cats}
@@ -591,7 +591,7 @@ function openEdit(id) {
   editAcctId  = tx.acctId  || null;
 
   document.getElementById('e-amt').value    = tx.amount;
-  document.getElementById('e-date').value   = new Date(tx.at).toISOString().slice(0,10);
+  document.getElementById('e-date').value   = (typeof toLocalISO === 'function') ? toLocalISO(new Date(tx.at)) : new Date(tx.at).toISOString().slice(0,10);
   document.getElementById('e-detail').value = tx.detail || '';
 
   const catWrap = document.getElementById('e-cat-chips');
@@ -768,7 +768,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (typeof fbPullPersonal === 'function') pulls.push(fbPullPersonal());
   await Promise.all(pulls);
 
-  document.getElementById('p-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('p-date').value = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
 
   buildCatChips();
   renderList();
