@@ -19,15 +19,25 @@
 
 <div class="w" style="padding-bottom:calc(var(--nav) + 20px)">
 
-  <!-- 本月私密總額卡片 -->
-  <div class="data-card" id="priv-stats-card" style="padding:14px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,63,94,.08));border:1px solid rgba(244,63,94,.2)">
-    <div>
-      <div style="font-size:.72rem;color:var(--t3);margin-bottom:4px">📅 <span id="priv-month-label">本月</span>私密記錄</div>
-      <div style="font-size:1.3rem;font-weight:900;color:var(--t)" id="priv-month-total">$0</div>
+  <!-- 月份導覽 + 統計 -->
+  <div class="data-card" id="priv-stats-card" style="padding:14px 16px;margin-bottom:12px;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,63,94,.08));border:1px solid rgba(244,63,94,.2)">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
+      <button onclick="changeMonth(-1)" style="padding:8px 14px;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;color:var(--t1);cursor:pointer;font-family:inherit;font-size:.95rem;font-weight:700">◀</button>
+      <div style="text-align:center;flex:1">
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:2px">📅 私密記錄</div>
+        <div style="font-size:1.05rem;font-weight:900;color:var(--t)" id="priv-month-label">2026 年 5 月</div>
+      </div>
+      <button onclick="changeMonth(1)" id="priv-next-btn" style="padding:8px 14px;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;color:var(--t1);cursor:pointer;font-family:inherit;font-size:.95rem;font-weight:700">▶</button>
     </div>
-    <div style="text-align:right">
-      <div style="font-size:.72rem;color:var(--t3);margin-bottom:4px">筆數</div>
-      <div style="font-size:1.1rem;font-weight:700;color:var(--t2)"><span id="priv-month-count">0</span> 筆</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding-top:10px;border-top:1px dashed var(--border)">
+      <div>
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:2px">總額</div>
+        <div style="font-size:1.3rem;font-weight:900;color:var(--t)" id="priv-month-total">$0</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:2px">筆數</div>
+        <div style="font-size:1.1rem;font-weight:700;color:var(--t2)"><span id="priv-month-count">0</span> 筆</div>
+      </div>
     </div>
   </div>
 
@@ -108,8 +118,21 @@
     </div>
   </div>
 
-  <!-- 私密記帳清單 -->
-  <div class="sec-t">📋 私密記帳記錄</div>
+  <!-- 搜尋區 -->
+  <div class="data-card" style="padding:12px 14px;margin-bottom:10px">
+    <div style="position:relative;margin-bottom:8px">
+      <input type="text" class="fc" id="priv-search" placeholder="🔍 搜尋明細、金額、卡片名稱..." style="padding-right:36px;font-size:.85rem">
+      <button id="priv-search-clear" onclick="clearPrivSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--t2);cursor:pointer;user-select:none">
+      <input type="checkbox" id="priv-search-all" onchange="renderList()" style="cursor:pointer;width:16px;height:16px;accent-color:var(--p)">
+      <span>跨所有月份搜尋</span>
+      <span style="color:var(--t3);font-size:.7rem">（預設只搜當前月份）</span>
+    </label>
+    <div id="priv-search-result" style="display:none;margin-top:8px;padding:8px 10px;background:var(--pdim);border-radius:8px;font-size:.78rem;color:var(--p);font-weight:700"></div>
+  </div>
+
+  <div class="sec-t" id="priv-list-title">📋 私密記帳記錄</div>
   <div id="priv-list"></div>
 </div>
 
@@ -199,6 +222,11 @@ let currentPay   = 'cash';
 let currentCardId  = null;
 let currentIcardId = null;
 let currentAcctId  = null;
+
+// 列表瀏覽狀態（月份切換 + 搜尋）
+let viewYear  = new Date().getFullYear();
+let viewMonth = new Date().getMonth() + 1; // 1-12
+let searchQuery = '';
 
 // 編輯狀態
 let editingId   = '';
@@ -513,21 +541,61 @@ function submit() {
   renderStats();
 }
 
-// ── 渲染統計區（本月總額 + 筆數）──────────────────────
+// ── 渲染統計區（依當前 viewYear/viewMonth）──────────────
 function renderStats() {
+  document.getElementById('priv-month-label').textContent = `${viewYear} 年 ${viewMonth} 月`;
+
+  // 「下個月」按鈕：超過本月時禁用（不能看未來月份）
   const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth() + 1;
-  document.getElementById('priv-month-label').textContent = `${m}月`;
+  const isCurrentOrPast = (viewYear < now.getFullYear()) ||
+    (viewYear === now.getFullYear() && viewMonth <= now.getMonth() + 1);
+  const isCurrent = viewYear === now.getFullYear() && viewMonth === now.getMonth() + 1;
+  const nextBtn = document.getElementById('priv-next-btn');
+  if (isCurrent) {
+    nextBtn.style.opacity = '.3';
+    nextBtn.style.cursor = 'not-allowed';
+  } else {
+    nextBtn.style.opacity = '1';
+    nextBtn.style.cursor = 'pointer';
+  }
+
   const list = getPrivTx().filter(t => {
     const d = new Date(t.at);
-    return d.getFullYear() === y && d.getMonth() + 1 === m;
+    return d.getFullYear() === viewYear && d.getMonth() + 1 === viewMonth;
   });
   const total = list.reduce((s,t) => s + Number(t.amount||0), 0);
   document.getElementById('priv-month-total').textContent = '$' + total.toLocaleString('zh-TW');
   document.getElementById('priv-month-count').textContent = list.length;
 }
 
-// ── 渲染列表 ───────────────────────────────────────────
+// ── 月份切換 ─────────────────────────────────────────
+function changeMonth(delta) {
+  // 不允許切到未來月份
+  const now = new Date();
+  const targetMonth = viewMonth + delta;
+  let ty = viewYear, tm = targetMonth;
+  if (tm > 12) { ty++; tm = 1; }
+  if (tm < 1)  { ty--; tm = 12; }
+  // 禁止超過本月
+  if (ty > now.getFullYear() ||
+      (ty === now.getFullYear() && tm > now.getMonth() + 1)) {
+    return;
+  }
+  viewYear = ty;
+  viewMonth = tm;
+  renderStats();
+  renderList();
+}
+
+// ── 清除搜尋 ─────────────────────────────────────────
+function clearPrivSearch() {
+  document.getElementById('priv-search').value = '';
+  searchQuery = '';
+  document.getElementById('priv-search-clear').style.display = 'none';
+  renderList();
+}
+
+// ── 渲染列表（月份篩選 + 搜尋）───────────────────────
 function payLabel(t) {
   if (t.pay === 'cash')  return '💵 現金';
   if (t.pay === 'card')  {
@@ -545,13 +613,77 @@ function payLabel(t) {
   return '💵 現金';
 }
 
+// 取得交易的「搜尋目標文字」（含付款方式名稱，方便搜「富邦J卡」）
+function payNameForSearch(t) {
+  if (t.pay === 'cash')  return '現金';
+  if (t.pay === 'card')  {
+    const card = getCards().find(c => c.id === t.cardId);
+    return '信用卡 ' + (card ? card.name : '');
+  }
+  if (t.pay === 'icard') {
+    const ic = getIcards().find(c => c.id === t.icardId);
+    return '悠遊卡 ' + (ic ? ic.name : '');
+  }
+  if (t.pay === 'acct')  {
+    const ac = (typeof getAccts === 'function') ? getAccts(false).find(a => a.id === t.acctId) : null;
+    return '帳戶 ' + (ac ? ac.name : '');
+  }
+  return '';
+}
+
 function renderList() {
-  const list = getPrivTx();
+  const all = getPrivTx();
+  const searchAll = document.getElementById('priv-search-all')?.checked || false;
+  // 取目前搜尋字（每次重新讀，避免狀態不同步）
+  searchQuery = (document.getElementById('priv-search')?.value || '').trim();
+  document.getElementById('priv-search-clear').style.display = searchQuery ? 'block' : 'none';
+
+  // 1. 先依月份篩選（除非勾了「跨所有月份搜尋」+ 有搜尋字）
+  let list;
+  const useCrossMonth = searchAll && searchQuery;
+  if (useCrossMonth) {
+    list = all;
+  } else {
+    list = all.filter(t => {
+      const d = new Date(t.at);
+      return d.getFullYear() === viewYear && d.getMonth() + 1 === viewMonth;
+    });
+  }
+
+  // 2. 搜尋
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    list = list.filter(t =>
+      (t.detail||'').toLowerCase().includes(q) ||
+      (catFind(t.cat).name||'').toLowerCase().includes(q) ||
+      (t.subCat||'').toLowerCase().includes(q) ||
+      payNameForSearch(t).toLowerCase().includes(q) ||
+      String(t.amount).includes(q)
+    );
+  }
+
+  // 3. 顯示搜尋合計
+  const resultBox = document.getElementById('priv-search-result');
+  if (searchQuery) {
+    const sum = list.reduce((s,t) => s + Number(t.amount||0), 0);
+    const scope = useCrossMonth ? '全部月份' : `${viewYear}年${viewMonth}月`;
+    resultBox.style.display = 'block';
+    resultBox.innerHTML = `🔍 在「${scope}」找到 <b>${list.length}</b> 筆，合計 <b>$${sum.toLocaleString('zh-TW')}</b>`;
+  } else {
+    resultBox.style.display = 'none';
+  }
+
+  // 4. 渲染
   const root = document.getElementById('priv-list');
   if (!list.length) {
-    root.innerHTML = '<div class="data-card" style="padding:30px;text-align:center;color:var(--t3)">尚無私密記錄</div>';
+    const msg = searchQuery
+      ? `<div style="font-size:3rem;margin-bottom:12px">🔍</div><div>找不到符合的記錄</div><div style="font-size:.78rem;color:var(--t3);margin-top:8px">${useCrossMonth ? '已搜尋全部月份' : '試試勾選「跨所有月份搜尋」'}</div>`
+      : `<div style="font-size:3rem;margin-bottom:12px">📭</div><div>${viewYear}年${viewMonth}月尚無私密記錄</div>`;
+    root.innerHTML = `<div class="data-card" style="padding:40px 20px;text-align:center;color:var(--t3)">${msg}</div>`;
     return;
   }
+  // 依時間倒序顯示
+  list.sort((a,b) => new Date(b.at) - new Date(a.at));
   root.innerHTML = list.map(t => {
     const cat = catFind(t.cat);
     const dStr = fmtD(t.at);
@@ -747,6 +879,22 @@ document.getElementById('ai-input').addEventListener('keydown', e => {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     submitAI();
+  }
+});
+
+// ── 搜尋框事件 ─────────────────────────────────────────
+// debounce：使用者停止輸入 250ms 後才搜尋，避免每按一字都跑一次
+let _searchDebounceTimer = null;
+document.getElementById('priv-search').addEventListener('input', () => {
+  clearTimeout(_searchDebounceTimer);
+  _searchDebounceTimer = setTimeout(() => renderList(), 250);
+});
+// Enter 立即搜尋
+document.getElementById('priv-search').addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    clearTimeout(_searchDebounceTimer);
+    renderList();
   }
 });
 
