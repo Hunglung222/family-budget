@@ -410,6 +410,13 @@ function setEPay(p, el) {
 
 function closeEdit() {
   document.getElementById('edit-modal').classList.remove('show');
+  // 若從報表頁跳來編輯，取消後也跳回報表頁
+  const returnTo = sessionStorage.getItem('report_edit_return');
+  if (returnTo) {
+    sessionStorage.removeItem('report_edit_return');
+    sessionStorage.removeItem('report_edit_tx');
+    setTimeout(() => { location.href = './' + returnTo; }, 200);
+  }
 }
 
 async function submitEdit() {
@@ -465,6 +472,14 @@ async function submitEdit() {
   closeEdit();
   render();
   toast('已儲存修改 ✅');
+
+  // 若從報表頁跳來編輯，儲存後自動跳回報表頁原本的查詢狀態
+  const returnTo = sessionStorage.getItem('report_edit_return');
+  if (returnTo) {
+    sessionStorage.removeItem('report_edit_return');
+    sessionStorage.removeItem('report_edit_tx');
+    setTimeout(() => { location.href = './' + returnTo; }, 600);
+  }
 }
 
 function askDel(id, e) {
@@ -548,8 +563,29 @@ if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
 }
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
+
+// ── 從報表頁跳轉過來編輯：偵測 sessionStorage 並自動展開編輯 modal ──
+function _checkReportEditJump() {
+  const txId = sessionStorage.getItem('report_edit_tx');
+  if (!txId) return;
+  const tx = getTx().find(t => t.id === txId);
+  if (!tx) {
+    // 找不到該筆（可能已被刪），清掉旗標
+    sessionStorage.removeItem('report_edit_tx');
+    sessionStorage.removeItem('report_edit_return');
+    toast('該筆記錄已不存在', 'warn');
+    return;
+  }
+  // 模擬點擊事件物件（askEdit 需要 e.stopPropagation()）
+  askEdit(txId, { stopPropagation: () => {} });
+}
+// 第一次嘗試（資料已在 localStorage）
+_checkReportEditJump();
+
 fbPullAll().then(async ()=>{
   render();
+  // 同步完再嘗試一次（萬一第一次跑時資料還沒拉到）
+  _checkReportEditJump();
   // 拉取共用固定支出清單
   try {
     const doc = await getDb().collection('shared').doc('recurring').get();

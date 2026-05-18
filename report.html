@@ -237,6 +237,22 @@ function renderOv(){
   const el=document.getElementById('cb-list');
   if(!Object.keys(s.byCard).length){el.innerHTML='<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:8px">無信用卡消費</div>';}
   else{el.innerHTML=Object.entries(s.byCard).sort((a,b)=>b[1]-a[1]).map(([cid,amt])=>{
+    // 孤兒記錄：pay=card 但 cardId 為空（資料異常，可能是 AI 多筆記帳舊 bug 或卡片被刪除）
+    if (cid === '_orphan') {
+      const pct = s.card>0 ? Math.round(amt/s.card*100) : 0;
+      return `<div class="cb-item" data-card-id="_orphan" onclick="drillCard('_orphan')" style="cursor:pointer;border-radius:var(--rs);padding:10px;margin-bottom:4px;background:rgba(244,63,94,.08);border:1px dashed var(--warn)">
+        <div class="cb-hdr" style="justify-content:space-between;align-items:center">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-weight:700;color:var(--warn)">⚠️ 未指定卡片</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-weight:900;color:var(--warn)">$${fmt(amt)}</span>
+            <span class="cb-arrow" style="color:var(--t3);font-size:.85rem;transition:.2s">›</span>
+          </div>
+        </div>
+        <div style="font-size:.7rem;color:var(--t3);margin-top:6px">付款方式為信用卡但未填卡片資料，點擊查看明細</div>
+      </div>`;
+    }
     const c=cardFind(cid);const pct=s.card>0?Math.round(amt/s.card*100):0;
     return `<div class="cb-item" data-card-id="${cid}" onclick="drillCard('${cid}')" style="cursor:pointer;transition:.15s;border-radius:var(--rs);padding:10px;margin-bottom:4px;background:var(--card)" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background='var(--card)'">
       <div class="cb-hdr" style="justify-content:space-between;align-items:center">
@@ -432,13 +448,14 @@ function drillSubCat(catId, subName) {
         <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
       </div>
       ${list.map(t=>`
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid rgba(42,53,80,.3)">
+        <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(42,53,80,.3);cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
           <div style="width:36px;height:36px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
           <div style="flex:1;min-width:0">
             <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
             <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${t.person} · ${fmtT(t.at)}</div>
           </div>
           <div style="font-size:.92rem;font-weight:900;color:#ff6b82;flex-shrink:0">-$${fmt(t.amount)}</div>
+          <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>
         </div>`).join('')}
     </div>`;
   }).join('');
@@ -457,7 +474,11 @@ function drillCard(cardId) {
   if (_expandedCardId) collapseCard(_expandedCardId);
   _expandedCardId = cardId;
 
-  const card = cardFind(cardId) || {name:'信用卡', last4:'????', color:'var(--blue)'};
+  // 孤兒記錄特殊處理：顯示為「未指定卡片」
+  const isOrphan = cardId === '_orphan';
+  const card = isOrphan
+    ? {name:'未指定卡片', last4:'????', color:'var(--warn)'}
+    : (cardFind(cardId) || {name:'信用卡', last4:'????', color:'var(--blue)'});
 
   // 用頁面上的日期範圍篩選
   const f = document.getElementById('df').value;
@@ -466,7 +487,11 @@ function drillCard(cardId) {
   end.setHours(23,59,59,999);
   const txs = getTx().filter(t => {
     const d = new Date(t.at);
-    return t.pay === 'card' && t.cardId === cardId && d >= start && d <= end;
+    if (d < start || d > end) return false;
+    if (t.pay !== 'card') return false;
+    // 孤兒：cardId 為空字串、null、undefined
+    if (isOrphan) return !t.cardId;
+    return t.cardId === cardId;
   });
   const total = txs.reduce((s,t) => s+t.amount, 0);
 
@@ -487,13 +512,14 @@ function drillCard(cardId) {
             <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
           </div>
           ${list.map(t => `
-            <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,53,80,.25)">
+            <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,53,80,.25);cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px;padding-left:6px;padding-right:6px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
               <div style="width:34px;height:34px;border-radius:9px;background:${catFind(t.cat).color||'var(--card2)'};display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0;opacity:.85">${catFind(t.cat).name.slice(0,2)}</div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail || catName(t.cat)}</div>
                 <div style="font-size:.68rem;color:var(--t3);margin-top:1px">${catName(t.cat)}${t.subCat ? ' · '+t.subCat : ''} · ${t.person} · ${fmtT(t.at)}</div>
               </div>
               <div style="font-size:.9rem;font-weight:900;color:${card.color||'var(--blue)'};flex-shrink:0">-$${fmt(t.amount)}</div>
+              <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>
             </div>`).join('')}
         </div>`;
       }).join('');
@@ -734,18 +760,29 @@ function renderTagAnalysis() {
   }
 }
 
+// ── 跳轉到列表頁編輯指定的記帳 ─────────────────────────
+// 使用 sessionStorage 傳遞 tx.id 給 index.html
+// 編輯完按儲存後，index.html 會偵測 sessionStorage 的 return-to 旗標自動跳回報表
+function jumpToEditTx(txId) {
+  if (!txId) return;
+  sessionStorage.setItem('report_edit_tx', txId);
+  sessionStorage.setItem('report_edit_return', 'report.html' + location.search);
+  location.href = './index.html';
+}
+
 // 渲染標籤展開的明細列表
 function renderTagDetailList(list, tag) {
   if (!list || !list.length) return '';
   const sorted = [...list].sort((a,b)=>new Date(b.at)-new Date(a.at));
   return `<div style="margin-top:8px;padding:10px 12px;background:${tag.color}14;border-left:3px solid ${tag.color};border-radius:6px">
     ${sorted.map(t => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid ${tag.color}22">
-        <div>
+      <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;justify-content:space-between;padding:7px 6px;border-bottom:1px solid ${tag.color}22;cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px;gap:8px" onmouseenter="this.style.background='${tag.color}1f'" onmouseleave="this.style.background=''">
+        <div style="flex:1;min-width:0">
           <div style="font-size:.82rem;font-weight:600">${t.detail||catName(t.cat)}</div>
           <div style="font-size:.68rem;color:var(--t3);margin-top:2px">${fmtD(t.at)} · ${catName(t.cat)} · ${t.person}</div>
         </div>
-        <div style="font-size:.88rem;font-weight:900;color:var(--danger)">$${fmt(t.amount)}</div>
+        <div style="font-size:.88rem;font-weight:900;color:var(--danger);flex-shrink:0">$${fmt(t.amount)}</div>
+        <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>
       </div>
     `).join('')}
   </div>`;
