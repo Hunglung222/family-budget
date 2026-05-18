@@ -1198,7 +1198,16 @@ function appendMsg(role, text, extraHtml) {
   wrapper.appendChild(avatar);
   wrapper.appendChild(bubble);
   msgs.appendChild(wrapper);
-  msgs.scrollTop = msgs.scrollHeight;
+
+  // 使用者訊息：滾到最底（確認自己的問題可見）
+  // 助理訊息：滾到該訊息頂部（長回答才能從頭看）
+  if (isUser) {
+    msgs.scrollTop = msgs.scrollHeight;
+  } else {
+    requestAnimationFrame(() => {
+      wrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 }
 
 function showTyping() {
