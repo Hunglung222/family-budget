@@ -10,6 +10,121 @@
 <title>🔒 私密記帳</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
+<style>
+  /* 浮動新增按鈕 */
+  .priv-fab {
+    position: fixed;
+    right: 18px;
+    bottom: calc(var(--nav) + 18px);
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--p), var(--p2));
+    color: #000;
+    border: none;
+    font-size: 1.8rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(99,102,241,.45);
+    z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s;
+  }
+  .priv-fab:active { transform: scale(.92); }
+
+  /* Bottom sheet 全屏 modal */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.6);
+    backdrop-filter: blur(6px);
+    z-index: 100;
+    display: none;
+  }
+  .sheet-overlay.show { display: block; }
+  .sheet-container {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    max-height: 92vh;
+    background: var(--bg);
+    border-radius: 18px 18px 0 0;
+    z-index: 101;
+    display: none;
+    flex-direction: column;
+    transform: translateY(100%);
+    transition: transform .25s ease-out;
+    box-shadow: 0 -8px 30px rgba(0,0,0,.4);
+  }
+  .sheet-container.show { display: flex; transform: translateY(0); }
+  .sheet-header {
+    flex-shrink: 0;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+    background: var(--card);
+    border-radius: 18px 18px 0 0;
+  }
+  .sheet-header-title {
+    flex: 1;
+    font-size: 1.05rem;
+    font-weight: 900;
+    color: var(--t);
+  }
+  .sheet-close-btn {
+    padding: 8px 10px;
+    background: var(--card2);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    color: var(--t2);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: .85rem;
+    font-weight: 700;
+  }
+  .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sheet-footer {
+    flex-shrink: 0;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+    display: flex; gap: 10px;
+  }
+  .sheet-footer .btn { flex: 1; padding: 14px; }
+
+  /* 記錄卡片可點 */
+  .rec-card {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 14px; margin-bottom: 8px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--rs);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .rec-card:active { background: var(--card2); }
+  .rec-card .del-btn {
+    flex-shrink: 0;
+    padding: 8px 10px;
+    background: transparent;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    font-size: 1.1rem;
+    border-radius: 8px;
+  }
+  .rec-card .del-btn:active { background: rgba(244,63,94,.12); }
+
+  /* drag handle */
+  .sheet-drag {
+    width: 40px; height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin: -2px auto 6px;
+  }
+</style>
 </head>
 <body>
 <header class="hdr">
@@ -17,10 +132,10 @@
   <a href="./settings.html" class="hdr-btn">⚙️</a>
 </header>
 
-<div class="w" style="padding-bottom:calc(var(--nav) + 20px)">
+<div class="w" style="padding-bottom:calc(var(--nav) + 90px)">
 
-  <!-- 月份導覽 + 統計 -->
-  <div class="data-card" id="priv-stats-card" style="padding:14px 16px;margin-bottom:12px;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,63,94,.08));border:1px solid rgba(244,63,94,.2)">
+  <!-- 月份切換 + 統計 -->
+  <div class="data-card" style="padding:14px 16px;margin-bottom:12px;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(244,63,94,.08));border:1px solid rgba(244,63,94,.2)">
     <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px">
       <button onclick="changeMonth(-1)" style="padding:8px 14px;background:var(--card2);border:1.5px solid var(--border);border-radius:10px;color:var(--t1);cursor:pointer;font-family:inherit;font-size:.95rem;font-weight:700">◀</button>
       <div style="text-align:center;flex:1">
@@ -41,20 +156,50 @@
     </div>
   </div>
 
-  <!-- 新增私密記帳卡片（仿 add.html step2，但精簡） -->
-  <div class="data-card" style="padding:14px 16px;margin-bottom:12px">
-    <div class="sec-t" style="margin:0 0 12px">➕ 新增私密記帳</div>
+  <!-- 搜尋區 -->
+  <div class="data-card" style="padding:12px 14px;margin-bottom:10px">
+    <div style="position:relative;margin-bottom:8px">
+      <input type="text" class="fc" id="priv-search" placeholder="🔍 搜尋明細、金額、卡片名稱..." style="padding-right:36px;font-size:.85rem">
+      <button id="priv-search-clear" onclick="clearPrivSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--t2);cursor:pointer;user-select:none">
+      <input type="checkbox" id="priv-search-all" onchange="renderList()" style="cursor:pointer;width:16px;height:16px;accent-color:var(--p)">
+      <span>跨所有月份搜尋</span>
+      <span style="color:var(--t3);font-size:.7rem">（預設只搜當前月份）</span>
+    </label>
+    <div id="priv-search-result" style="display:none;margin-top:8px;padding:8px 10px;background:var(--pdim);border-radius:8px;font-size:.78rem;color:var(--p);font-weight:700"></div>
+  </div>
 
-    <!-- AI 文字 / 語音雙模式輸入 -->
-    <div style="margin-bottom:12px">
+  <!-- 提示文字（無記錄時隱藏） -->
+  <div id="priv-list-hint" style="font-size:.72rem;color:var(--t3);margin:8px 4px 6px;display:none">💡 點記錄可編輯，右側 🗑 刪除</div>
+
+  <!-- 記錄列表 -->
+  <div id="priv-list"></div>
+</div>
+
+<!-- 浮動新增按鈕 -->
+<button class="priv-fab" id="priv-fab" onclick="openAddSheet()" title="新增私密記帳">➕</button>
+
+<!-- ════════════ Bottom Sheet：新增/編輯（共用）════════════ -->
+<div class="sheet-overlay" id="sheet-overlay" onclick="closeSheet()"></div>
+<div class="sheet-container" id="sheet-container">
+  <div class="sheet-header">
+    <button class="sheet-close-btn" onclick="closeSheet()">取消</button>
+    <div class="sheet-header-title" id="sheet-title">新增私密記帳</div>
+  </div>
+
+  <div class="sheet-body">
+    <div class="sheet-drag"></div>
+
+    <!-- AI 文字 / 語音雙模式輸入（僅新增時顯示） -->
+    <div id="sheet-ai-section" style="margin-bottom:14px">
       <div style="display:flex;gap:8px">
         <input type="text" class="fc" id="ai-input" placeholder="說話或輸入，例：今天買書 350 信用卡" style="flex:1;font-size:.85rem">
         <button id="ai-btn" onclick="submitAI()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;min-width:80px">🎤 語音</button>
       </div>
-      <div style="font-size:.7rem;color:var(--t3);margin-top:4px">空白按鈕進入語音輸入，有文字按鈕變 AI 記帳</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:4px">空白按鈕變語音輸入，有文字按鈕變 AI 記帳</div>
+      <div class="sh" style="margin-top:14px"></div>
     </div>
-
-    <div class="sh" style="margin-bottom:14px"></div>
 
     <!-- 金額 + 日期 -->
     <div class="fg">
@@ -66,13 +211,13 @@
       <input type="date" class="fc" id="p-date">
     </div>
 
-    <!-- 大分類（chip 按鈕，仿 add.html） -->
+    <!-- 分類 -->
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
       <div class="cat-chips" id="cat-chips"></div>
     </div>
 
-    <!-- 子分類（選了分類後自動展開） -->
+    <!-- 子分類 -->
     <div class="fg" id="sub-fg" style="display:none">
       <span class="flbl">📂 子分類（可略）</span>
       <select class="fc" id="sub-sel"><option value="">請選擇</option></select>
@@ -84,7 +229,7 @@
       <input type="text" class="fc" id="p-detail" placeholder="例：書展購書" maxlength="50">
     </div>
 
-    <!-- 付款方式 4 種 -->
+    <!-- 付款方式 -->
     <div class="fg">
       <span class="flbl">💳 付款方式</span>
       <div class="tg" style="flex-wrap:wrap;gap:8px">
@@ -95,7 +240,7 @@
       </div>
     </div>
 
-    <!-- 信用卡 / 悠遊卡 / 帳戶 選擇（按下對應付款方式才展開） -->
+    <!-- 卡片/帳戶選擇 -->
     <div class="fg" id="card-fg" style="display:none">
       <span class="flbl">🃏 選擇信用卡</span>
       <div class="card-chips" id="card-chips"></div>
@@ -111,81 +256,10 @@
       <div class="card-chips" id="acct-chips"></div>
       <div id="no-acct-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定銀行帳戶，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
     </div>
-
-    <!-- 確認按鈕 -->
-    <div style="margin-top:14px">
-      <button class="btn btn-p" onclick="submit()" style="width:100%">🔒 確定記錄（私密）</button>
-    </div>
   </div>
 
-  <!-- 搜尋區 -->
-  <div class="data-card" style="padding:12px 14px;margin-bottom:10px">
-    <div style="position:relative;margin-bottom:8px">
-      <input type="text" class="fc" id="priv-search" placeholder="🔍 搜尋明細、金額、卡片名稱..." style="padding-right:36px;font-size:.85rem">
-      <button id="priv-search-clear" onclick="clearPrivSearch()" style="display:none;position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
-    </div>
-    <label style="display:flex;align-items:center;gap:6px;font-size:.75rem;color:var(--t2);cursor:pointer;user-select:none">
-      <input type="checkbox" id="priv-search-all" onchange="renderList()" style="cursor:pointer;width:16px;height:16px;accent-color:var(--p)">
-      <span>跨所有月份搜尋</span>
-      <span style="color:var(--t3);font-size:.7rem">（預設只搜當前月份）</span>
-    </label>
-    <div id="priv-search-result" style="display:none;margin-top:8px;padding:8px 10px;background:var(--pdim);border-radius:8px;font-size:.78rem;color:var(--p);font-weight:700"></div>
-  </div>
-
-  <div class="sec-t" id="priv-list-title">📋 私密記帳記錄</div>
-  <div id="priv-list"></div>
-</div>
-
-<!-- 編輯 modal -->
-<div class="modal" id="edit-modal" style="display:none">
-  <div class="modal-bg" onclick="closeEditModal()"></div>
-  <div class="modal-c" style="max-height:85vh;overflow-y:auto">
-    <h3 style="margin:0 0 14px">✏️ 編輯私密記錄</h3>
-    <div class="fg">
-      <span class="flbl">💰 金額</span>
-      <input type="number" class="fc" id="e-amt" inputmode="numeric">
-    </div>
-    <div class="fg">
-      <span class="flbl">📅 日期</span>
-      <input type="date" class="fc" id="e-date">
-    </div>
-    <div class="fg">
-      <span class="flbl">🏷️ 分類</span>
-      <div class="cat-chips" id="e-cat-chips"></div>
-    </div>
-    <div class="fg" id="e-sub-fg" style="display:none">
-      <span class="flbl">📂 子分類（可略）</span>
-      <select class="fc" id="e-sub-sel"><option value="">請選擇</option></select>
-    </div>
-    <div class="fg">
-      <span class="flbl">📝 明細（可略）</span>
-      <input type="text" class="fc" id="e-detail" maxlength="50">
-    </div>
-    <div class="fg">
-      <span class="flbl">💳 付款方式</span>
-      <div class="tg" style="flex-wrap:wrap;gap:8px">
-        <button class="tb" id="e-pay-cash"  onclick="setEditPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
-        <button class="tb" id="e-pay-card"  onclick="setEditPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
-        <button class="tb" id="e-pay-icard" onclick="setEditPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
-        <button class="tb" id="e-pay-acct"  onclick="setEditPay('acct',this)"  style="flex:none;padding:10px 14px">🏦 帳戶</button>
-      </div>
-    </div>
-    <div class="fg" id="e-card-fg" style="display:none">
-      <span class="flbl">🃏 選擇信用卡</span>
-      <div class="card-chips" id="e-card-chips"></div>
-    </div>
-    <div class="fg" id="e-icard-fg" style="display:none">
-      <span class="flbl">🎫 選擇悠遊卡</span>
-      <div class="card-chips" id="e-icard-chips"></div>
-    </div>
-    <div class="fg" id="e-acct-fg" style="display:none">
-      <span class="flbl">🏦 選擇帳戶</span>
-      <div class="card-chips" id="e-acct-chips"></div>
-    </div>
-    <div class="btn-row">
-      <button class="btn btn-s" onclick="closeEditModal()">取消</button>
-      <button class="btn btn-p" onclick="saveEdit()">儲存</button>
-    </div>
+  <div class="sheet-footer">
+    <button class="btn btn-p" onclick="submitFromSheet()" id="sheet-submit-btn">🔒 確定記錄</button>
   </div>
 </div>
 
@@ -206,36 +280,29 @@
 <script src="./js/firebase.js"></script>
 <script>
 // ===========================================================================
-// 私密記帳 v2 - 輕量版完整介面
-// 隔離保證：
-//   1. 所有寫入走 addPrivTx / fbAddPrivTx（獨立 localStorage 鍵 + 獨立 Firebase collection）
-//   2. tx.private = true 標記（共用查詢自動過濾）
-//   3. tx.person = '宏龍'（不顯示給盈慧）
-//   4. 完全不呼叫 notifyDiscord / sendBudgetDiscord（無任何通知外洩）
-//   5. 不更新共用預算統計
+// 私密記帳 v3 - 列表優先設計 + Bottom Sheet 編輯/新增
+// 隔離保證（不變）：
+//   1. 所有寫入走 addPrivTx / fbAddPrivTx
+//   2. tx.private = true 標記
+//   3. tx.person = '宏龍' 寫死
+//   4. 不發 Discord、不更新預算
 // ===========================================================================
 
-// 全域狀態
-let currentCat   = '';
-let currentSubCat= '';
-let currentPay   = 'cash';
-let currentCardId  = null;
-let currentIcardId = null;
-let currentAcctId  = null;
+// ── 表單狀態（共用新增/編輯）──
+let formMode  = 'add';   // 'add' or 'edit'
+let editingId = '';      // 編輯時的 tx.id
 
-// 列表瀏覽狀態（月份切換 + 搜尋）
+let curCat   = '';
+let curSubCat= '';
+let curPay   = 'cash';
+let curCardId  = null;
+let curIcardId = null;
+let curAcctId  = null;
+
+// ── 列表瀏覽狀態 ──
 let viewYear  = new Date().getFullYear();
-let viewMonth = new Date().getMonth() + 1; // 1-12
+let viewMonth = new Date().getMonth() + 1;
 let searchQuery = '';
-
-// 編輯狀態
-let editingId   = '';
-let editCat     = '';
-let editSubCat  = '';
-let editPay     = 'cash';
-let editCardId  = null;
-let editIcardId = null;
-let editAcctId  = null;
 
 function toast(msg, type='') {
   const t = document.getElementById('toast');
@@ -244,7 +311,9 @@ function toast(msg, type='') {
   setTimeout(() => { t.className = 'toast'; }, 2500);
 }
 
-// ── 語音輸入 ─────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// 🎤 語音輸入
+// ─────────────────────────────────────────────────────────
 let voiceRec = null;
 
 function startVoiceInput() {
@@ -254,17 +323,12 @@ function startVoiceInput() {
     document.getElementById('ai-input').focus();
     return;
   }
-  if (voiceRec) {
-    try { voiceRec.stop(); } catch {}
-    voiceRec = null;
-    return;
-  }
+  if (voiceRec) { try { voiceRec.stop(); } catch {} voiceRec = null; return; }
   const btn = document.getElementById('ai-btn');
   const recognition = new SR();
   recognition.lang = 'zh-TW';
   recognition.interimResults = false;
   recognition.continuous = false;
-
   recognition.onstart = () => {
     voiceRec = recognition;
     btn.textContent = '🔴 聆聽';
@@ -273,28 +337,19 @@ function startVoiceInput() {
     toast('聆聽中…說完會自動送出', 'info');
   };
   recognition.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    document.getElementById('ai-input').value = text;
+    document.getElementById('ai-input').value = e.results[0][0].transcript;
     voiceRec = null;
     resetAiBtn();
     submitAI();
   };
   recognition.onerror = (e) => {
-    console.warn('[Voice] error:', e.error);
     voiceRec = null;
     resetAiBtn();
     if (e.error === 'aborted') return;
-    const errMap = {
-      'not-allowed':   '請允許麥克風權限',
-      'no-speech':     '沒有偵測到聲音，請再說一次',
-      'network':       '網路問題，請確認連線',
-      'audio-capture': '麥克風無法使用'
-    };
+    const errMap = {'not-allowed':'請允許麥克風權限','no-speech':'沒有偵測到聲音','network':'網路問題','audio-capture':'麥克風無法使用'};
     toast(errMap[e.error] || `語音辨識失敗(${e.error})`, 'err');
   };
-  recognition.onend = () => {
-    if (voiceRec) { voiceRec = null; resetAiBtn(); }
-  };
+  recognition.onend = () => { if (voiceRec) { voiceRec = null; resetAiBtn(); } };
   recognition.start();
 }
 
@@ -306,14 +361,9 @@ function resetAiBtn() {
   btn.textContent = inp.value.trim() ? 'AI 記帳' : '🎤 語音';
 }
 
-// ── AI 文字記帳（Haiku 解析）─────────────────────────
 async function submitAI() {
   const text = document.getElementById('ai-input').value.trim();
-  if (!text) {
-    // 沒文字 → 進入語音模式
-    startVoiceInput();
-    return;
-  }
+  if (!text) { startVoiceInput(); return; }
   const btn = document.getElementById('ai-btn');
   btn.textContent = '解析中…'; btn.disabled = true;
   try {
@@ -346,8 +396,7 @@ async function submitAI() {
     if (r.date) {
       const parts = r.date.replace(/[\/\.]/g,'-').split('-');
       if (parts.length===3) {
-        document.getElementById('p-date').value =
-          `${parts[0].padStart(4,'0')}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+        document.getElementById('p-date').value = `${parts[0].padStart(4,'0')}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
       }
     }
     if (r.cat) {
@@ -362,7 +411,6 @@ async function submitAI() {
     resetAiBtn();
     toast('✅ AI 解析完成，請確認後按記錄', 'info');
   } catch(e) {
-    console.warn('[AI]', e);
     const msg = e.message||'';
     if (msg.includes('Failed to fetch')) toast('📶 網路受限，請檢查連線', 'err');
     else toast('AI 解析失敗：'+msg, 'err');
@@ -372,13 +420,15 @@ async function submitAI() {
   }
 }
 
-// ── 分類 chip 渲染 ────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// 🏷️ 分類 chip 渲染
+// ─────────────────────────────────────────────────────────
 function buildCatChips() {
   const wrap = document.getElementById('cat-chips');
   wrap.innerHTML = '';
   getCats().forEach(c => {
     const b = document.createElement('button');
-    b.className = 'cchip';
+    b.className = 'cchip' + (c.id === curCat ? ' on' : '');
     b.dataset.id = c.id;
     b.style.borderColor = c.color;
     b.innerHTML = `<span style="color:${c.color}">●</span> ${c.name}`;
@@ -388,16 +438,16 @@ function buildCatChips() {
 }
 
 function selCat(catId, btn) {
-  currentCat = catId;
-  currentSubCat = '';
+  curCat = catId;
+  curSubCat = '';
   document.querySelectorAll('#cat-chips .cchip').forEach(el => el.classList.remove('on'));
   btn.classList.add('on');
   buildSubSel();
 }
 
 function buildSubSel() {
-  const cat = catFind(currentCat);
-  const sub = cat.sub || [];
+  const cat = catFind(curCat);
+  const sub = cat?.sub || [];
   const fg  = document.getElementById('sub-fg');
   const sel = document.getElementById('sub-sel');
   if (!sub.length) { fg.style.display = 'none'; return; }
@@ -408,20 +458,20 @@ function buildSubSel() {
     o.value = s; o.textContent = s;
     sel.appendChild(o);
   });
-  sel.value = '';
-  sel.onchange = () => { currentSubCat = sel.value; };
+  sel.value = curSubCat || '';
+  sel.onchange = () => { curSubCat = sel.value; };
 }
 
-// ── 付款方式切換 ───────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// 💳 付款方式切換
+// ─────────────────────────────────────────────────────────
 function setPay(pay, btn) {
-  currentPay = pay;
+  curPay = pay;
   document.querySelectorAll('#pay-cash,#pay-card,#pay-icard,#pay-acct').forEach(el => el.classList.remove('on'));
   btn.classList.add('on');
-
   document.getElementById('card-fg').style.display  = (pay === 'card')  ? 'block' : 'none';
   document.getElementById('icard-fg').style.display = (pay === 'icard') ? 'block' : 'none';
   document.getElementById('acct-fg').style.display  = (pay === 'acct')  ? 'block' : 'none';
-
   if (pay === 'card')  buildCardChips();
   if (pay === 'icard') buildIcardChips();
   if (pay === 'acct')  buildAcctChips();
@@ -436,22 +486,20 @@ function buildCardChips() {
   hint.style.display = 'none';
   cards.forEach(c => {
     const b = document.createElement('button');
-    b.className = 'cchip';
-    b.dataset.id = c.id;
+    b.className = 'cchip' + (c.id === curCardId ? ' on' : '');
     b.innerHTML = `🃏 ${c.name}`;
     b.onclick = () => {
-      currentCardId = c.id;
+      curCardId = c.id;
       document.querySelectorAll('#card-chips .cchip').forEach(el => el.classList.remove('on'));
       b.classList.add('on');
     };
     wrap.appendChild(b);
   });
-  if (cards.length && !currentCardId) {
-    currentCardId = cards[0].id;
+  if (cards.length && !curCardId) {
+    curCardId = cards[0].id;
     wrap.firstChild.classList.add('on');
   }
 }
-
 function buildIcardChips() {
   const wrap = document.getElementById('icard-chips');
   const hint = document.getElementById('no-icard-hint');
@@ -461,22 +509,20 @@ function buildIcardChips() {
   hint.style.display = 'none';
   icards.forEach(c => {
     const b = document.createElement('button');
-    b.className = 'cchip';
-    b.dataset.id = c.id;
+    b.className = 'cchip' + (c.id === curIcardId ? ' on' : '');
     b.innerHTML = `🎫 ${c.name} (餘 $${c.balance||0})`;
     b.onclick = () => {
-      currentIcardId = c.id;
+      curIcardId = c.id;
       document.querySelectorAll('#icard-chips .cchip').forEach(el => el.classList.remove('on'));
       b.classList.add('on');
     };
     wrap.appendChild(b);
   });
-  if (icards.length && !currentIcardId) {
-    currentIcardId = icards[0].id;
+  if (icards.length && !curIcardId) {
+    curIcardId = icards[0].id;
     wrap.firstChild.classList.add('on');
   }
 }
-
 function buildAcctChips() {
   const wrap = document.getElementById('acct-chips');
   const hint = document.getElementById('no-acct-hint');
@@ -486,108 +532,161 @@ function buildAcctChips() {
   hint.style.display = 'none';
   accts.forEach(a => {
     const b = document.createElement('button');
-    b.className = 'cchip';
-    b.dataset.id = a.id;
+    b.className = 'cchip' + (a.id === curAcctId ? ' on' : '');
     b.innerHTML = `🏦 ${a.name}`;
     b.onclick = () => {
-      currentAcctId = a.id;
+      curAcctId = a.id;
       document.querySelectorAll('#acct-chips .cchip').forEach(el => el.classList.remove('on'));
       b.classList.add('on');
     };
     wrap.appendChild(b);
   });
-  if (accts.length && !currentAcctId) {
-    currentAcctId = accts[0].id;
+  if (accts.length && !curAcctId) {
+    curAcctId = accts[0].id;
     wrap.firstChild.classList.add('on');
   }
 }
 
-// ── 送出（隔離保證在這裡 = 不發 Discord、不更新預算）──
-function submit() {
+// ─────────────────────────────────────────────────────────
+// 📋 Bottom Sheet 開關 + 模式切換
+// ─────────────────────────────────────────────────────────
+function openAddSheet() {
+  formMode = 'add';
+  editingId = '';
+  // 重置表單
+  curCat = '';
+  curSubCat = '';
+  curPay = 'cash';
+  curCardId = null;
+  curIcardId = null;
+  curAcctId = null;
+  document.getElementById('sheet-title').textContent = '新增私密記帳';
+  document.getElementById('sheet-submit-btn').textContent = '🔒 確定記錄';
+  document.getElementById('sheet-ai-section').style.display = 'block';
+  document.getElementById('p-amt').value = '';
+  document.getElementById('p-detail').value = '';
+  document.getElementById('p-date').value = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
+  document.getElementById('ai-input').value = '';
+  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard,#pay-acct').forEach(el => el.classList.remove('on'));
+  document.getElementById('pay-cash').classList.add('on');
+  document.getElementById('card-fg').style.display = 'none';
+  document.getElementById('icard-fg').style.display = 'none';
+  document.getElementById('acct-fg').style.display = 'none';
+  document.getElementById('sub-fg').style.display = 'none';
+  buildCatChips();
+  showSheet();
+}
+
+function openEditSheet(id) {
+  const tx = getPrivTx().find(t => t.id === id);
+  if (!tx) return;
+  formMode = 'edit';
+  editingId = id;
+  curCat    = tx.cat;
+  curSubCat = tx.subCat || '';
+  curPay    = tx.pay || 'cash';
+  curCardId  = tx.cardId  || null;
+  curIcardId = tx.icardId || null;
+  curAcctId  = tx.acctId  || null;
+  document.getElementById('sheet-title').textContent = '編輯私密記錄';
+  document.getElementById('sheet-submit-btn').textContent = '💾 儲存變更';
+  document.getElementById('sheet-ai-section').style.display = 'none';  // 編輯時不顯示 AI 區
+  document.getElementById('p-amt').value = tx.amount;
+  document.getElementById('p-detail').value = tx.detail || '';
+  document.getElementById('p-date').value = (typeof toLocalISO === 'function') ? toLocalISO(new Date(tx.at)) : new Date(tx.at).toISOString().slice(0,10);
+  // 付款方式按鈕
+  document.querySelectorAll('#pay-cash,#pay-card,#pay-icard,#pay-acct').forEach(el => el.classList.remove('on'));
+  const payBtn = document.getElementById('pay-' + curPay);
+  if (payBtn) payBtn.classList.add('on');
+  // 卡片區顯示
+  document.getElementById('card-fg').style.display  = curPay === 'card'  ? 'block' : 'none';
+  document.getElementById('icard-fg').style.display = curPay === 'icard' ? 'block' : 'none';
+  document.getElementById('acct-fg').style.display  = curPay === 'acct'  ? 'block' : 'none';
+  if (curPay === 'card')  buildCardChips();
+  if (curPay === 'icard') buildIcardChips();
+  if (curPay === 'acct')  buildAcctChips();
+  buildCatChips();
+  buildSubSel();
+  showSheet();
+}
+
+function showSheet() {
+  document.getElementById('sheet-overlay').classList.add('show');
+  // 用 requestAnimationFrame 讓動畫順暢
+  document.getElementById('sheet-container').style.display = 'flex';
+  requestAnimationFrame(() => {
+    document.getElementById('sheet-container').classList.add('show');
+  });
+  document.body.style.overflow = 'hidden';
+}
+
+function closeSheet() {
+  const container = document.getElementById('sheet-container');
+  container.classList.remove('show');
+  document.getElementById('sheet-overlay').classList.remove('show');
+  document.body.style.overflow = '';
+  // 動畫結束才隱藏
+  setTimeout(() => { container.style.display = 'none'; }, 250);
+}
+
+// ─────────────────────────────────────────────────────────
+// ✅ 送出（新增 or 編輯）
+// ─────────────────────────────────────────────────────────
+function submitFromSheet() {
   const amt = parseInt(document.getElementById('p-amt').value) || 0;
-  if (!amt)        { toast('請輸入金額','warn'); return; }
-  if (!currentCat) { toast('請選擇分類','warn'); return; }
-  if (currentPay === 'card'  && !currentCardId)  { toast('請選擇信用卡','warn'); return; }
-  if (currentPay === 'icard' && !currentIcardId) { toast('請選擇悠遊卡','warn'); return; }
-  if (currentPay === 'acct'  && !currentAcctId)  { toast('請選擇帳戶','warn'); return; }
+  if (!amt)     { toast('請輸入金額','warn'); return; }
+  if (!curCat)  { toast('請選擇分類','warn'); return; }
+  if (curPay === 'card'  && !curCardId)  { toast('請選擇信用卡','warn'); return; }
+  if (curPay === 'icard' && !curIcardId) { toast('請選擇悠遊卡','warn'); return; }
+  if (curPay === 'acct'  && !curAcctId)  { toast('請選擇帳戶','warn'); return; }
 
   const detail = document.getElementById('p-detail').value.trim();
   const date   = document.getElementById('p-date').value;
   const [yyyy,mm,dd] = date.split('-').map(Number);
-
-  const tx = {
+  const data = {
     amount:  amt,
-    cat:     currentCat,
-    subCat:  currentSubCat || '',
+    cat:     curCat,
+    subCat:  curSubCat || '',
     detail,
-    pay:     currentPay,
-    cardId:  currentPay === 'card'  ? currentCardId  : null,
-    icardId: currentPay === 'icard' ? currentIcardId : null,
-    acctId:  currentPay === 'acct'  ? currentAcctId  : null,
+    pay:     curPay,
+    cardId:  curPay === 'card'  ? curCardId  : null,
+    icardId: curPay === 'icard' ? curIcardId : null,
+    acctId:  curPay === 'acct'  ? curAcctId  : null,
     at:      new Date(yyyy, mm-1, dd, 12, 0, 0).toISOString(),
-    person:  '宏龍',
-    private: true                      // 🔒 關鍵旗標
   };
-
-  addPrivTx(tx);
-  fbAddPrivTx(tx);
-  // 故意不呼叫任何 notify/Discord/budget 函數
-
-  document.getElementById('p-amt').value = '';
-  document.getElementById('p-detail').value = '';
-
-  toast('🔒 私密記帳已記錄（不發任何通知）');
+  if (formMode === 'add') {
+    data.person = '宏龍';
+    data.private = true;
+    addPrivTx(data);
+    fbAddPrivTx(data);
+    toast('🔒 已記錄');
+  } else {
+    editPrivTx(editingId, data);
+    fbEditPrivTx(editingId, data);
+    toast('💾 已更新');
+  }
+  closeSheet();
   renderList();
   renderStats();
 }
 
-// ── 渲染統計區（依當前 viewYear/viewMonth）──────────────
-function renderStats() {
-  document.getElementById('priv-month-label').textContent = `${viewYear} 年 ${viewMonth} 月`;
-
-  // 「下個月」按鈕：超過本月時禁用（不能看未來月份）
-  const now = new Date();
-  const isCurrentOrPast = (viewYear < now.getFullYear()) ||
-    (viewYear === now.getFullYear() && viewMonth <= now.getMonth() + 1);
-  const isCurrent = viewYear === now.getFullYear() && viewMonth === now.getMonth() + 1;
-  const nextBtn = document.getElementById('priv-next-btn');
-  if (isCurrent) {
-    nextBtn.style.opacity = '.3';
-    nextBtn.style.cursor = 'not-allowed';
-  } else {
-    nextBtn.style.opacity = '1';
-    nextBtn.style.cursor = 'pointer';
-  }
-
-  const list = getPrivTx().filter(t => {
-    const d = new Date(t.at);
-    return d.getFullYear() === viewYear && d.getMonth() + 1 === viewMonth;
-  });
-  const total = list.reduce((s,t) => s + Number(t.amount||0), 0);
-  document.getElementById('priv-month-total').textContent = '$' + total.toLocaleString('zh-TW');
-  document.getElementById('priv-month-count').textContent = list.length;
-}
-
-// ── 月份切換 ─────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// 📅 月份切換
+// ─────────────────────────────────────────────────────────
 function changeMonth(delta) {
-  // 不允許切到未來月份
   const now = new Date();
-  const targetMonth = viewMonth + delta;
-  let ty = viewYear, tm = targetMonth;
+  let ty = viewYear, tm = viewMonth + delta;
   if (tm > 12) { ty++; tm = 1; }
   if (tm < 1)  { ty--; tm = 12; }
-  // 禁止超過本月
-  if (ty > now.getFullYear() ||
-      (ty === now.getFullYear() && tm > now.getMonth() + 1)) {
-    return;
-  }
-  viewYear = ty;
-  viewMonth = tm;
+  if (ty > now.getFullYear() || (ty === now.getFullYear() && tm > now.getMonth() + 1)) return;
+  viewYear = ty; viewMonth = tm;
   renderStats();
   renderList();
 }
 
-// ── 清除搜尋 ─────────────────────────────────────────
+// ─────────────────────────────────────────────────────────
+// 🔍 搜尋
+// ─────────────────────────────────────────────────────────
 function clearPrivSearch() {
   document.getElementById('priv-search').value = '';
   searchQuery = '';
@@ -595,25 +694,7 @@ function clearPrivSearch() {
   renderList();
 }
 
-// ── 渲染列表（月份篩選 + 搜尋）───────────────────────
-function payLabel(t) {
-  if (t.pay === 'cash')  return '💵 現金';
-  if (t.pay === 'card')  {
-    const card = getCards().find(c => c.id === t.cardId);
-    return '💳 ' + (card ? card.name : '信用卡');
-  }
-  if (t.pay === 'icard') {
-    const ic = getIcards().find(c => c.id === t.icardId);
-    return '🎫 ' + (ic ? ic.name : '悠遊卡');
-  }
-  if (t.pay === 'acct')  {
-    const ac = (typeof getAccts === 'function') ? getAccts(false).find(a => a.id === t.acctId) : null;
-    return '🏦 ' + (ac ? ac.name : '帳戶');
-  }
-  return '💵 現金';
-}
-
-// 取得交易的「搜尋目標文字」（含付款方式名稱，方便搜「富邦J卡」）
+// 取得卡片/帳戶名稱（給搜尋用）
 function payNameForSearch(t) {
   if (t.pay === 'cash')  return '現金';
   if (t.pay === 'card')  {
@@ -631,14 +712,54 @@ function payNameForSearch(t) {
   return '';
 }
 
+// ─────────────────────────────────────────────────────────
+// 💡 統計與列表
+// ─────────────────────────────────────────────────────────
+function renderStats() {
+  document.getElementById('priv-month-label').textContent = `${viewYear} 年 ${viewMonth} 月`;
+  const now = new Date();
+  const isCurrent = viewYear === now.getFullYear() && viewMonth === now.getMonth() + 1;
+  const nextBtn = document.getElementById('priv-next-btn');
+  if (isCurrent) {
+    nextBtn.style.opacity = '.3';
+    nextBtn.style.cursor = 'not-allowed';
+  } else {
+    nextBtn.style.opacity = '1';
+    nextBtn.style.cursor = 'pointer';
+  }
+  const list = getPrivTx().filter(t => {
+    const d = new Date(t.at);
+    return d.getFullYear() === viewYear && d.getMonth() + 1 === viewMonth;
+  });
+  const total = list.reduce((s,t) => s + Number(t.amount||0), 0);
+  document.getElementById('priv-month-total').textContent = '$' + total.toLocaleString('zh-TW');
+  document.getElementById('priv-month-count').textContent = list.length;
+}
+
+function payLabel(t) {
+  if (t.pay === 'cash')  return '💵 現金';
+  if (t.pay === 'card')  {
+    const card = getCards().find(c => c.id === t.cardId);
+    return '💳 ' + (card ? card.name : '信用卡');
+  }
+  if (t.pay === 'icard') {
+    const ic = getIcards().find(c => c.id === t.icardId);
+    return '🎫 ' + (ic ? ic.name : '悠遊卡');
+  }
+  if (t.pay === 'acct')  {
+    const ac = (typeof getAccts === 'function') ? getAccts(false).find(a => a.id === t.acctId) : null;
+    return '🏦 ' + (ac ? ac.name : '帳戶');
+  }
+  return '💵 現金';
+}
+
 function renderList() {
   const all = getPrivTx();
   const searchAll = document.getElementById('priv-search-all')?.checked || false;
-  // 取目前搜尋字（每次重新讀，避免狀態不同步）
   searchQuery = (document.getElementById('priv-search')?.value || '').trim();
   document.getElementById('priv-search-clear').style.display = searchQuery ? 'block' : 'none';
 
-  // 1. 先依月份篩選（除非勾了「跨所有月份搜尋」+ 有搜尋字）
+  // 月份篩選
   let list;
   const useCrossMonth = searchAll && searchQuery;
   if (useCrossMonth) {
@@ -650,7 +771,7 @@ function renderList() {
     });
   }
 
-  // 2. 搜尋
+  // 搜尋
   if (searchQuery) {
     const q = searchQuery.toLowerCase();
     list = list.filter(t =>
@@ -662,7 +783,7 @@ function renderList() {
     );
   }
 
-  // 3. 顯示搜尋合計
+  // 搜尋合計
   const resultBox = document.getElementById('priv-search-result');
   if (searchQuery) {
     const sum = list.reduce((s,t) => s + Number(t.amount||0), 0);
@@ -673,30 +794,31 @@ function renderList() {
     resultBox.style.display = 'none';
   }
 
-  // 4. 渲染
+  // 列表
+  const hint = document.getElementById('priv-list-hint');
   const root = document.getElementById('priv-list');
   if (!list.length) {
+    hint.style.display = 'none';
     const msg = searchQuery
       ? `<div style="font-size:3rem;margin-bottom:12px">🔍</div><div>找不到符合的記錄</div><div style="font-size:.78rem;color:var(--t3);margin-top:8px">${useCrossMonth ? '已搜尋全部月份' : '試試勾選「跨所有月份搜尋」'}</div>`
-      : `<div style="font-size:3rem;margin-bottom:12px">📭</div><div>${viewYear}年${viewMonth}月尚無私密記錄</div>`;
+      : `<div style="font-size:3rem;margin-bottom:12px">📭</div><div>${viewYear}年${viewMonth}月尚無私密記錄</div><div style="font-size:.78rem;color:var(--t3);margin-top:8px">點右下角 ➕ 開始記錄</div>`;
     root.innerHTML = `<div class="data-card" style="padding:40px 20px;text-align:center;color:var(--t3)">${msg}</div>`;
     return;
   }
-  // 依時間倒序顯示
+  hint.style.display = 'block';
   list.sort((a,b) => new Date(b.at) - new Date(a.at));
   root.innerHTML = list.map(t => {
     const cat = catFind(t.cat);
     const dStr = fmtD(t.at);
     const sub  = t.subCat ? `<span style="color:var(--t3);font-size:.72rem">・${t.subCat}</span>` : '';
     return `
-    <div class="data-card" style="padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+    <div class="rec-card" onclick="openEditSheet('${t.id}')">
       <div style="font-size:1.4rem">${cat.icon || '🏷️'}</div>
       <div style="flex:1;min-width:0">
         <div style="font-weight:700;color:var(--t)">$${Number(t.amount).toLocaleString('zh-TW')}<span style="color:${cat.color};font-size:.78rem;margin-left:8px">${cat.name}</span>${sub}</div>
         <div style="font-size:.74rem;color:var(--t3);margin-top:2px">${dStr}・${payLabel(t)}${t.detail ? '・' + t.detail : ''}</div>
       </div>
-      <button onclick="openEdit('${t.id}')" title="編輯" style="padding:6px 8px;background:transparent;border:none;cursor:pointer;font-size:1.1rem">✏️</button>
-      <button onclick="delRecord('${t.id}')" title="刪除" style="padding:6px 8px;background:transparent;border:none;cursor:pointer;font-size:1.1rem;color:var(--danger)">🗑️</button>
+      <button class="del-btn" onclick="event.stopPropagation();delRecord('${t.id}')" title="刪除">🗑️</button>
     </div>`;
   }).join('');
 }
@@ -710,217 +832,53 @@ function delRecord(id) {
   toast('已刪除');
 }
 
-// ── 編輯 modal ─────────────────────────────────────────
-function openEdit(id) {
-  const tx = getPrivTx().find(t => t.id === id);
-  if (!tx) return;
-  editingId   = id;
-  editCat     = tx.cat;
-  editSubCat  = tx.subCat || '';
-  editPay     = tx.pay || 'cash';
-  editCardId  = tx.cardId  || null;
-  editIcardId = tx.icardId || null;
-  editAcctId  = tx.acctId  || null;
-
-  document.getElementById('e-amt').value    = tx.amount;
-  document.getElementById('e-date').value   = (typeof toLocalISO === 'function') ? toLocalISO(new Date(tx.at)) : new Date(tx.at).toISOString().slice(0,10);
-  document.getElementById('e-detail').value = tx.detail || '';
-
-  const catWrap = document.getElementById('e-cat-chips');
-  catWrap.innerHTML = '';
-  getCats().forEach(c => {
-    const b = document.createElement('button');
-    b.className = 'cchip' + (c.id === editCat ? ' on' : '');
-    b.dataset.id = c.id;
-    b.style.borderColor = c.color;
-    b.innerHTML = `<span style="color:${c.color}">●</span> ${c.name}`;
-    b.onclick = () => {
-      editCat = c.id;
-      editSubCat = '';
-      document.querySelectorAll('#e-cat-chips .cchip').forEach(el => el.classList.remove('on'));
-      b.classList.add('on');
-      buildEditSubSel();
-    };
-    catWrap.appendChild(b);
-  });
-  buildEditSubSel();
-
-  document.querySelectorAll('#e-pay-cash,#e-pay-card,#e-pay-icard,#e-pay-acct').forEach(el => el.classList.remove('on'));
-  document.getElementById('e-pay-'+editPay).classList.add('on');
-  toggleEditPayUI(editPay);
-
-  document.getElementById('edit-modal').style.display = 'flex';
-}
-
-function buildEditSubSel() {
-  const cat = catFind(editCat);
-  const sub = cat.sub || [];
-  const fg  = document.getElementById('e-sub-fg');
-  const sel = document.getElementById('e-sub-sel');
-  if (!sub.length) { fg.style.display = 'none'; return; }
-  fg.style.display = 'block';
-  sel.innerHTML = '<option value="">請選擇</option>';
-  sub.forEach(s => {
-    const o = document.createElement('option');
-    o.value = s; o.textContent = s;
-    sel.appendChild(o);
-  });
-  sel.value = editSubCat || '';
-  sel.onchange = () => { editSubCat = sel.value; };
-}
-
-function setEditPay(pay, btn) {
-  editPay = pay;
-  document.querySelectorAll('#e-pay-cash,#e-pay-card,#e-pay-icard,#e-pay-acct').forEach(el => el.classList.remove('on'));
-  btn.classList.add('on');
-  toggleEditPayUI(pay);
-}
-
-function toggleEditPayUI(pay) {
-  document.getElementById('e-card-fg').style.display  = (pay === 'card')  ? 'block' : 'none';
-  document.getElementById('e-icard-fg').style.display = (pay === 'icard') ? 'block' : 'none';
-  document.getElementById('e-acct-fg').style.display  = (pay === 'acct')  ? 'block' : 'none';
-  if (pay === 'card')  buildEditCardChips();
-  if (pay === 'icard') buildEditIcardChips();
-  if (pay === 'acct')  buildEditAcctChips();
-}
-
-function buildEditCardChips() {
-  const wrap = document.getElementById('e-card-chips');
-  wrap.innerHTML = '';
-  getCards().forEach(c => {
-    const b = document.createElement('button');
-    b.className = 'cchip' + (c.id === editCardId ? ' on' : '');
-    b.innerHTML = `🃏 ${c.name}`;
-    b.onclick = () => {
-      editCardId = c.id;
-      document.querySelectorAll('#e-card-chips .cchip').forEach(el => el.classList.remove('on'));
-      b.classList.add('on');
-    };
-    wrap.appendChild(b);
-  });
-  if (!editCardId && getCards().length) editCardId = getCards()[0].id;
-}
-function buildEditIcardChips() {
-  const wrap = document.getElementById('e-icard-chips');
-  wrap.innerHTML = '';
-  getIcards().forEach(c => {
-    const b = document.createElement('button');
-    b.className = 'cchip' + (c.id === editIcardId ? ' on' : '');
-    b.innerHTML = `🎫 ${c.name}`;
-    b.onclick = () => {
-      editIcardId = c.id;
-      document.querySelectorAll('#e-icard-chips .cchip').forEach(el => el.classList.remove('on'));
-      b.classList.add('on');
-    };
-    wrap.appendChild(b);
-  });
-  if (!editIcardId && getIcards().length) editIcardId = getIcards()[0].id;
-}
-function buildEditAcctChips() {
-  const wrap = document.getElementById('e-acct-chips');
-  wrap.innerHTML = '';
-  const accts = (typeof getAccts === 'function') ? getAccts(false) : [];
-  accts.forEach(a => {
-    const b = document.createElement('button');
-    b.className = 'cchip' + (a.id === editAcctId ? ' on' : '');
-    b.innerHTML = `🏦 ${a.name}`;
-    b.onclick = () => {
-      editAcctId = a.id;
-      document.querySelectorAll('#e-acct-chips .cchip').forEach(el => el.classList.remove('on'));
-      b.classList.add('on');
-    };
-    wrap.appendChild(b);
-  });
-  if (!editAcctId && accts.length) editAcctId = accts[0].id;
-}
-
-function closeEditModal() {
-  document.getElementById('edit-modal').style.display = 'none';
-}
-
-function saveEdit() {
-  const amt = parseInt(document.getElementById('e-amt').value) || 0;
-  const detail = document.getElementById('e-detail').value.trim();
-  const date = document.getElementById('e-date').value;
-  if (!amt)     { toast('請輸入金額','warn'); return; }
-  if (!editCat) { toast('請選擇分類','warn'); return; }
-  if (editPay === 'card'  && !editCardId)  { toast('請選擇信用卡','warn'); return; }
-  if (editPay === 'icard' && !editIcardId) { toast('請選擇悠遊卡','warn'); return; }
-  if (editPay === 'acct'  && !editAcctId)  { toast('請選擇帳戶','warn'); return; }
-
-  const [yyyy,mm,dd] = date.split('-').map(Number);
-  const updates = {
-    amount:  amt,
-    cat:     editCat,
-    subCat:  editSubCat || '',
-    detail,
-    pay:     editPay,
-    cardId:  editPay === 'card'  ? editCardId  : null,
-    icardId: editPay === 'icard' ? editIcardId : null,
-    acctId:  editPay === 'acct'  ? editAcctId  : null,
-    at:      new Date(yyyy, mm-1, dd, 12, 0, 0).toISOString()
-  };
-  editPrivTx(editingId, updates);
-  fbEditPrivTx(editingId, updates);
-  closeEditModal();
-  renderList();
-  renderStats();
-  toast('已更新');
-}
-
-// ── AI 按鈕標題動態切換 + Enter 送出 ───────────────────
+// ─────────────────────────────────────────────────────────
+// 🎤 AI 按鈕標題動態切換 + 搜尋 debounce
+// ─────────────────────────────────────────────────────────
 document.getElementById('ai-input').addEventListener('input', () => {
   const inp = document.getElementById('ai-input');
   const btn = document.getElementById('ai-btn');
   btn.textContent = inp.value.trim() ? 'AI 記帳' : '🎤 語音';
 });
 document.getElementById('ai-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    submitAI();
-  }
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitAI(); }
 });
 
-// ── 搜尋框事件 ─────────────────────────────────────────
-// debounce：使用者停止輸入 250ms 後才搜尋，避免每按一字都跑一次
 let _searchDebounceTimer = null;
 document.getElementById('priv-search').addEventListener('input', () => {
   clearTimeout(_searchDebounceTimer);
   _searchDebounceTimer = setTimeout(() => renderList(), 250);
 });
-// Enter 立即搜尋
 document.getElementById('priv-search').addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    clearTimeout(_searchDebounceTimer);
-    renderList();
+  if (e.key === 'Enter') { e.preventDefault(); clearTimeout(_searchDebounceTimer); renderList(); }
+});
+
+// Esc 關閉 sheet
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && document.getElementById('sheet-container').classList.contains('show')) {
+    closeSheet();
   }
 });
 
-// ── 初始化（守衛 + 拉資料 + 渲染）─────────────────────
+// ─────────────────────────────────────────────────────────
+// 🚀 初始化
+// ─────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   const email = localStorage.getItem('current_email') || '';
   if (email !== 'kevin67222@gmail.com') {
     document.querySelector('.w').innerHTML =
       '<div style="text-align:center;padding:60px 20px;color:var(--t3)"><div style="font-size:3rem;margin-bottom:16px">🔒</div><div style="font-size:1.1rem">此功能僅限宏龍使用</div></div>';
+    document.getElementById('priv-fab').style.display = 'none';
     return;
   }
   applyTheme();
-
-  // 從 Firebase 拉私密記帳 + 個人卡片/悠遊卡/帳戶資料
-  // 確保「在錢包頁新增卡片後直接進私密記帳」也能看到最新的卡片清單
-  // （不從首頁進來也沒問題）
   const pulls = [];
   if (typeof fbPullPrivTx   === 'function') pulls.push(fbPullPrivTx());
   if (typeof fbPullPersonal === 'function') pulls.push(fbPullPersonal());
   await Promise.all(pulls);
 
-  document.getElementById('p-date').value = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
-
-  buildCatChips();
-  renderList();
   renderStats();
+  renderList();
 });
 </script>
 </body>
