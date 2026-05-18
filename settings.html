@@ -749,7 +749,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.18 12:44';
+const APP_VERSION = 'v2026.05.18 17:53';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
@@ -897,13 +897,6 @@ function renderNotifySettings(){
   if (email === 'kevin67222@gmail.com') {
     const row = document.getElementById('chat-log-webhook-row');
     if (row) row.style.display = 'block';
-    // 一次性遷移：若 localStorage 還沒設定，用舊的硬編碼 webhook 預填，
-    // 避免使用者升級後 AI 對話備份失效。
-    // 之後可以隨時清空或修改。
-    if (!localStorage.getItem('chat_log_webhook')) {
-      const LEGACY_WEBHOOK = 'https://discord.com/api/webhooks/1497601562782990407/agylbOyLjHrIGFu46LljF02wCGK4lZNdoqVHw_wOTSNIGxVuBnfBxm_Ozea8t3eZ0WIT';
-      localStorage.setItem('chat_log_webhook', LEGACY_WEBHOOK);
-    }
     const input = document.getElementById('chat-log-url');
     if (input) input.value = localStorage.getItem('chat_log_webhook') || '';
   }
