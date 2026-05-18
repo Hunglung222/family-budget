@@ -415,7 +415,7 @@ function closeEdit() {
   if (returnTo) {
     sessionStorage.removeItem('report_edit_return');
     sessionStorage.removeItem('report_edit_tx');
-    setTimeout(() => { location.href = './' + returnTo; }, 200);
+    setTimeout(() => { location.href = './report.html'; }, 200);
   }
 }
 
@@ -473,12 +473,12 @@ async function submitEdit() {
   render();
   toast('已儲存修改 ✅');
 
-  // 若從報表頁跳來編輯，儲存後自動跳回報表頁原本的查詢狀態
+  // 若從報表頁跳來編輯，儲存後自動跳回報表頁（state 在 report.html 的 init 恢復）
   const returnTo = sessionStorage.getItem('report_edit_return');
   if (returnTo) {
     sessionStorage.removeItem('report_edit_return');
     sessionStorage.removeItem('report_edit_tx');
-    setTimeout(() => { location.href = './' + returnTo; }, 600);
+    setTimeout(() => { location.href = './report.html'; }, 600);
   }
 }
 

@@ -162,10 +162,40 @@ let pieC=null,barC=null,personC=null,txData=[];
 
 function init(){
   applyTheme();
+
+  // ── 從編輯頁跳回來：恢復查詢狀態 ──────────────────────
+  const savedState = sessionStorage.getItem('report_edit_state');
+  if (savedState) {
+    sessionStorage.removeItem('report_edit_state');
+    try {
+      const s = JSON.parse(savedState);
+      // 恢復日期
+      if (s.df) document.getElementById('df').value = s.df;
+      if (s.dt) document.getElementById('dt').value = s.dt;
+      clearPresetHighlight();
+      load();
+      // 恢復 tab（小延遲讓資料先跑完）
+      if (s.tab) {
+        setTimeout(() => {
+          const tabs = document.querySelectorAll('.tab');
+          tabs.forEach(btn => {
+            if (btn.textContent.trim() === s.tab) btn.click();
+          });
+        }, 100);
+      }
+      // 監聽日期變更
+      ['df','dt'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('change', () => clearPresetHighlight());
+      });
+      return; // 不執行預設的 preset('month')
+    } catch(e) {}
+  }
+
+  // 預設初始化
   preset('month');
   load();
   renderWeekPred();
-  // 監聽手動改日期：清除快捷鍵的亮起狀態
   ['df','dt'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('change', () => clearPresetHighlight());
@@ -440,22 +470,30 @@ function drillSubCat(catId, subName) {
     groups[d].push(t);
   });
 
-  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
-  document.getElementById('drill-list').innerHTML = Object.entries(groups).map(([day,list])=>{
+  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
+  const catColor = catFind(catId)?.color || 'var(--p)';
+  document.getElementById('drill-list').innerHTML =
+    `<div style="margin-bottom:8px;padding:8px 10px;background:${catColor}14;border-left:3px solid ${catColor};border-radius:6px;font-size:.8rem;color:var(--t2);display:flex;justify-content:space-between">
+      <span>📂 ${subName} · ${txs.length} 筆</span>
+      <span style="font-weight:900">$${fmt(total)}</span>
+    </div>` +
+    Object.entries(groups).map(([day,list])=>{
     const dayTotal = list.reduce((s,t)=>s+t.amount,0);
     return `<div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--t3);padding:4px 0;border-bottom:1px solid var(--border);margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--t3);padding:4px 6px;margin-bottom:4px">
         <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
       </div>
       ${list.map(t=>`
-        <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 6px;border-bottom:1px solid rgba(42,53,80,.3);cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
-          <div style="width:36px;height:36px;border-radius:9px;background:var(--card2);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
+        <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:background .12s" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background='var(--card)'">
+          <div style="width:36px;height:36px;border-radius:9px;background:${catColor}22;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:.88rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
-            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${t.person} · ${fmtT(t.at)}</div>
+            <div style="font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
+            <div style="font-size:.7rem;color:var(--t3);margin-top:3px">${t.person} · ${fmtT(t.at)}${t.subCat ? ' · ' + t.subCat : ''}</div>
           </div>
-          <div style="font-size:.92rem;font-weight:900;color:#ff6b82;flex-shrink:0">-$${fmt(t.amount)}</div>
-          <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:.92rem;font-weight:900;color:#ff6b82">-$${fmt(t.amount)}</div>
+            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">點擊編輯 ✏️</div>
+          </div>
         </div>`).join('')}
     </div>`;
   }).join('');
@@ -489,8 +527,8 @@ function drillCard(cardId) {
     const d = new Date(t.at);
     if (d < start || d > end) return false;
     if (t.pay !== 'card') return false;
-    // 孤兒：cardId 為空字串、null、undefined
-    if (isOrphan) return !t.cardId;
+    // 孤兒：cardId 為空，或有 cardId 但找不到對應卡片（已刪除）
+    if (isOrphan) return !t.cardId || !cardFind(t.cardId);
     return t.cardId === cardId;
   });
   const total = txs.reduce((s,t) => s+t.amount, 0);
@@ -761,12 +799,16 @@ function renderTagAnalysis() {
 }
 
 // ── 跳轉到列表頁編輯指定的記帳 ─────────────────────────
-// 使用 sessionStorage 傳遞 tx.id 給 index.html
-// 編輯完按儲存後，index.html 會偵測 sessionStorage 的 return-to 旗標自動跳回報表
 function jumpToEditTx(txId) {
   if (!txId) return;
+  // 儲存完整查詢狀態：日期區間 + 目前 tab
+  const state = {
+    df: document.getElementById('df')?.value || '',
+    dt: document.getElementById('dt')?.value || '',
+    tab: document.querySelector('.tab.on')?.textContent?.trim() || '總覽',
+  };
   sessionStorage.setItem('report_edit_tx', txId);
-  sessionStorage.setItem('report_edit_return', 'report.html' + location.search);
+  sessionStorage.setItem('report_edit_state', JSON.stringify(state));
   location.href = './index.html';
 }
 
