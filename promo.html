@@ -91,6 +91,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 .fb-green::before{background:var(--green)}
 .fb-blue::before{background:var(--blue)}
 .fb-pink::before{background:var(--pink)}
+.fb-teal::before{background:#0d9488}
 .feat-big .fi{font-size:2rem;margin-bottom:10px;display:block}
 .feat-big .ft{font-size:1rem;font-weight:700;margin-bottom:6px}
 .feat-big .fd{font-size:.82rem;color:var(--ink2);line-height:1.7}
@@ -176,8 +177,18 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
 /* ── divider ── */
 .divider{height:1px;background:var(--border);margin:40px 24px 0}
 
-/* ── 浮動愛心 ── */
-@keyframes float{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-8px) rotate(5deg)}}
+/* ── 通知時間軸 ── */
+.notif-row{
+  display:flex;gap:14px;align-items:flex-start;
+  padding:14px 0;border-bottom:1px solid var(--border);
+}
+.notif-row:last-child{border-bottom:none}
+.notif-icon{
+  width:38px;height:38px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+}
+.notif-body .nt{font-size:.85rem;font-weight:700;margin-bottom:2px}
+.notif-body .nd{font-size:.76rem;color:var(--ink3);line-height:1.5}
 </style>
 </head>
 <body>
@@ -212,6 +223,11 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
       <td class="new-c"><span class="o">✅</span></td>
     </tr>
     <tr>
+      <td>AI 財務助理問答</td>
+      <td class="old-c"><span class="x">✕</span></td>
+      <td class="new-c"><span class="o">✅</span></td>
+    </tr>
+    <tr>
       <td>兩人即時同步</td>
       <td class="old-c"><span class="half">△ 要手動</span></td>
       <td class="new-c"><span class="o">✅ 全自動</span></td>
@@ -227,12 +243,27 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
       <td class="new-c"><span class="o">✅</span></td>
     </tr>
     <tr>
+      <td>信用卡預算警示</td>
+      <td class="old-c"><span class="x">✕</span></td>
+      <td class="new-c"><span class="o">✅</span></td>
+    </tr>
+    <tr>
       <td>悠遊卡餘額管理</td>
       <td class="old-c"><span class="x">✕</span></td>
       <td class="new-c"><span class="o">✅</span></td>
     </tr>
     <tr>
       <td>網購訂單追蹤</td>
+      <td class="old-c"><span class="x">✕</span></td>
+      <td class="new-c"><span class="o">✅</span></td>
+    </tr>
+    <tr>
+      <td>固定支出提醒</td>
+      <td class="old-c"><span class="x">✕</span></td>
+      <td class="new-c"><span class="o">✅</span></td>
+    </tr>
+    <tr>
+      <td>週報 / 月報 AI 分析</td>
       <td class="old-c"><span class="x">✕</span></td>
       <td class="new-c"><span class="o">✅</span></td>
     </tr>
@@ -273,7 +304,18 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
     <div class="fd">
       輸入「今天早餐蛋餅豆漿85元」，AI 自動辨識：<br>
       分類 → <strong>餐飲</strong>、子分類 → <strong>早餐</strong>、金額 → <strong>$85</strong>、日期 → <strong>今天</strong><br><br>
-      也可以說「昨天在蝦皮買包包580刷信用卡」，全部搞定！
+      也支援多筆一起記！說「早餐60現金，午餐外送120刷信用卡」，一次搞定兩筆。
+    </div>
+  </div>
+
+  <div class="feat-big fb-pink">
+    <span class="feat-tag">問什麼都會</span>
+    <span class="fi">💬</span>
+    <div class="ft">AI 財務助理</div>
+    <div class="fd">
+      不只記帳，還能當你的財務顧問！<br>
+      問「這個月餐飲花多少？」、「上週比這週多花多少？」、「幫我分析消費習慣」——AI 都能直接查帳回答。<br><br>
+      需要深度分析時，切換 <strong>🧠 Sonnet 模式</strong>，跨月比較、節流建議一次到位。
     </div>
   </div>
 
@@ -295,7 +337,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
     <div class="ft">完整財務管理</div>
     <div class="fd">
       不只記帳，還能管理：<br>
-      🏦 <strong>銀行帳戶</strong> — 薪資入帳、提款都記錄<br>
+      🏦 <strong>銀行帳戶</strong> — 薪資入帳、帳戶直接扣款都記錄<br>
       👛 <strong>現金錢包</strong> — 從帳戶提領到錢包<br>
       💳 <strong>信用卡帳單</strong> — 自動累計、繳費提醒<br>
       🎫 <strong>悠遊卡</strong> — 餘額管理、現金或刷卡加值
@@ -312,13 +354,14 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
     </div>
   </div>
 
-  <div class="feat-big fb-pink">
+  <div class="feat-big fb-teal">
     <span class="fi">📣</span>
-    <div class="ft">Discord 自動通知</div>
+    <div class="ft">Discord 全方位通知</div>
     <div class="fd">
       每記一筆帳，Discord 立刻收到通知。<br>
-      每天晚上 9 點自動發送當日結算。<br>
-      預算快超支時自動警示，信用卡要繳費也會提醒！
+      每天晚上自動發送日結算，每週六週報、每月月結算報告含 AI 財務建議。<br><br>
+      <strong>信用卡預算警示</strong>：設定每張卡的上限，快超支自動通知。<br>
+      <strong>固定支出提醒</strong>：房租水電等到期前一天提醒，不再漏繳。
     </div>
   </div>
 </div>
@@ -338,13 +381,18 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
     </div>
     <div class="mini">
       <span class="mi">🎯</span>
-      <div class="mt">預算控管</div>
-      <div class="md">各分類設上限，進度條一目了然</div>
+      <div class="mt">分類預算控管</div>
+      <div class="md">各分類設上限，進度條一目了然，超支即時警示</div>
     </div>
     <div class="mini">
       <span class="mi">📊</span>
-      <div class="mt">圓餅圖報表</div>
-      <div class="md">錢花去哪裡，圖表清楚呈現</div>
+      <div class="mt">多維度報表</div>
+      <div class="md">圓餅圖、信用卡分析、雙人對比、本週預測</div>
+    </div>
+    <div class="mini">
+      <span class="mi">✏️</span>
+      <div class="mt">報表點擊編輯</div>
+      <div class="md">報表中點明細直接跳轉編輯，改完自動回到原位</div>
     </div>
     <div class="mini">
       <span class="mi">📤</span>
@@ -352,14 +400,72 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
       <div class="md">隨時匯出完整報表，方便整理</div>
     </div>
     <div class="mini">
-      <span class="mi">✏️</span>
-      <div class="mt">可編輯記帳</div>
-      <div class="md">記錯了沒關係，點編輯修改就好</div>
+      <span class="mi">🔍</span>
+      <div class="mt">月份切換搜尋</div>
+      <div class="md">左右滑動切換月份，關鍵字搜尋快速找到任何一筆</div>
+    </div>
+    <div class="mini">
+      <span class="mi">📌</span>
+      <div class="mt">固定支出管理</div>
+      <div class="md">房租、保險、訂閱費，支援每月/每季/半年/每年提醒</div>
     </div>
     <div class="mini">
       <span class="mi">🎨</span>
       <div class="mt">主題色自訂</div>
       <div class="md">暗色/亮色＋6種主題色隨心換</div>
+    </div>
+  </div>
+</div>
+
+<div class="divider"></div>
+
+<!-- 自動通知一覽 -->
+<div class="section">
+  <div class="sec-label">再也不會錯過</div>
+  <div class="sec-title">Discord<br>幫你盯著錢包</div>
+
+  <div style="background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--r);padding:20px">
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(46,122,82,.12)">📝</div>
+      <div class="notif-body">
+        <div class="nt">每筆記帳即時通知</div>
+        <div class="nd">記完帳馬上推送，金額、分類、付款方式一目了然</div>
+      </div>
+    </div>
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(30,95,154,.12)">📊</div>
+      <div class="notif-body">
+        <div class="nt">每日結算（晚上可設定時間）</div>
+        <div class="nd">當天支出總計、各人花費、分類統計</div>
+      </div>
+    </div>
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(99,102,241,.12)">📈</div>
+      <div class="notif-body">
+        <div class="nt">每週週報（週六早上）</div>
+        <div class="nd">本週消費分析 + AI 理財建議，宏龍專屬頻道</div>
+      </div>
+    </div>
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(192,139,32,.12)">📅</div>
+      <div class="notif-body">
+        <div class="nt">月結算報告（每月固定日）</div>
+        <div class="nd">完整月度分析、與上月比較、AI 節流建議</div>
+      </div>
+    </div>
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(217,79,42,.12)">💳</div>
+      <div class="notif-body">
+        <div class="nt">信用卡預算警示</div>
+        <div class="nd">每張卡設上限，達到 80%、90%、100% 分別通知</div>
+      </div>
+    </div>
+    <div class="notif-row">
+      <div class="notif-icon" style="background:rgba(217,79,42,.08)">📌</div>
+      <div class="notif-body">
+        <div class="nt">固定支出到期提醒（早上 8 點）</div>
+        <div class="nd">房租水電、保險費、訂閱到期前一天提醒</div>
+      </div>
     </div>
   </div>
 </div>
@@ -372,7 +478,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
   <div class="sec-title">真實使用者<br>怎麼說</div>
 
   <div class="quote-card">
-    <div class="quote-text">「以前用記帳雞要一個個輸入，現在直接說一句話就記好了，連分類都自動填，超省時間！」</div>
+    <div class="quote-text">「以前用記帳雞要一個個輸入，現在直接說一句話就記好了，連分類都自動填。而且還能問 AI『這個月餐飲花了多少』，直接幫我查出來，超省時間！」</div>
     <div class="quote-author">
       <div class="quote-av">🙋</div>
       <div class="quote-name">
@@ -406,7 +512,7 @@ body{font-family:'Noto Sans TC',sans-serif;background:var(--bg);color:var(--ink)
       <div class="hs-num">1</div>
       <div class="hs-body">
         <div class="ht">開啟 App，選「盈慧」登入</div>
-        <div class="hd">輸入密碼 <strong>741015</strong>，登入後下次不需要重新輸入。</div>
+        <div class="hd">輸入密碼，登入後下次不需要重新輸入。</div>
       </div>
     </div>
     <div class="how-step">
