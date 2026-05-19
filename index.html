@@ -102,8 +102,9 @@
       <span class="flbl">📅 日期時間</span>
       <div style="display:flex;gap:8px">
         <input type="date" class="fc" id="e-dt-date" style="flex:1.4">
-        <input type="text" class="fc" id="e-dt-time" style="flex:1" inputmode="numeric" placeholder="HH:MM" pattern="^([0-1]?\\d|2[0-3]):([0-5]\\d)$">
+        <input type="time" class="fc" id="e-dt-time" style="flex:1" oninput="updateTimeDisp()">
       </div>
+      <div id="e-dt-disp" style="font-size:.78rem;color:var(--t2);margin-top:4px;padding-left:2px"></div>
     </div>
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
@@ -350,6 +351,7 @@ function askEdit(id, e) {
   const _min = String(d.getMinutes()).padStart(2,'0');
   document.getElementById('e-dt-date').value = `${_yr}-${_mo}-${_dd}`;
   document.getElementById('e-dt-time').value = `${_hh}:${_min}`;
+  updateTimeDisp();
   // 分類
   const catSel = document.getElementById('e-cat');
   catSel.innerHTML = getCats().map(c =>
@@ -427,6 +429,17 @@ function closeEdit() {
   }
 }
 
+function updateTimeDisp(){
+  const t = document.getElementById('e-dt-time').value;
+  const disp = document.getElementById('e-dt-disp');
+  if(!disp) return;
+  if(t){
+    const [hh,mm] = t.split(':');
+    disp.textContent = '⏰ 實際時間：' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  } else {
+    disp.textContent = '';
+  }
+}
 async function submitEdit() {
   const amt = parseInt(document.getElementById('e-amt').value) || 0;
   if (!amt) { toast('金額不可為 0', 'warn'); return; }
@@ -437,16 +450,7 @@ async function submitEdit() {
 
   const old = list[idx];
   const _edtDate = document.getElementById('e-dt-date').value;
-  const _timeInput = document.getElementById('e-dt-time');
-  const _rawTime = (_timeInput.value || '').trim();
-  const _m = (_rawTime || '00:00').match(/^([0-1]?\d|2[0-3]):([0-5]\d)$/);
-  if (!_m) {
-    toast('時間格式請輸入 HH:MM（24 小時制）', 'warn');
-    _timeInput.focus();
-    return;
-  }
-  const _edtTime = `${String(Number(_m[1])).padStart(2,'0')}:${_m[2]}`;
-  _timeInput.value = _edtTime;
+  const _edtTime = document.getElementById('e-dt-time').value || '00:00';
   const dtv = _edtDate ? `${_edtDate}T${_edtTime}` : '';
 
   // 新的付款方式與卡片
