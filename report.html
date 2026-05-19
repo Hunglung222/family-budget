@@ -108,7 +108,10 @@
         <button onclick="closeDrill()" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2);padding:7px 14px;border-radius:50px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">← 返回</button>
         <div id="drill-title" style="font-size:1rem;font-weight:700"></div>
       </div>
-      <div id="drill-list"></div>
+      <!-- 第一層：子分類按鈕列表（始終可見） -->
+      <div id="sub-list"></div>
+      <!-- 第二層：選定子分類的明細（展開時顯示） -->
+      <div id="drill-detail" style="display:none;margin-top:4px"></div>
     </div>
   </div>
 
@@ -413,9 +416,14 @@ function drillCat(catId) {
   document.getElementById('cat-drill').style.display = 'block';
   document.querySelector('#p-cat .chart-card').style.display = 'none';
   document.getElementById('drill-title').innerHTML =
-    `${cat.name} <span style="color:var(--p);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
+    `${cat.icon||''} ${cat.name} <span style="color:var(--p);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
 
-  // 第一層：子分類統計
+  // 收合第二層
+  document.getElementById('drill-detail').style.display = 'none';
+  document.getElementById('drill-detail').innerHTML = '';
+  _openSubName = '';
+
+  // 第一層：子分類統計按鈕
   const subMap = {};
   txs.forEach(t=>{
     const k = t.subCat||'（未分類）';
@@ -424,31 +432,32 @@ function drillCat(catId) {
     subMap[k].list.push(t);
   });
   const subEnts = Object.entries(subMap).sort((a,b)=>b[1].total-a[1].total);
+  const catColor = cat.color || 'var(--p)';
 
-  const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':'💵';
-
-  document.getElementById('drill-list').innerHTML =
-    `<div style="margin-bottom:12px;font-size:.78rem;color:var(--t3)">點子分類查看明細 👇</div>` +
+  document.getElementById('sub-list').innerHTML =
+    `<div style="margin-bottom:8px;font-size:.75rem;color:var(--t3)">👇 點子分類查看明細，可直接編輯</div>` +
     subEnts.map(([sub,data])=>{
       const pct = total>0?Math.round(data.total/total*100):0;
-      return `<div class="li" onclick="drillSubCat('${catId}','${sub}')"
-        style="cursor:pointer;transition:.15s;border-radius:var(--rs);margin-bottom:6px;padding:10px 12px;background:var(--card)"
-        onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background='var(--card)'">
+      return `<div id="sub-btn-${CSS.escape(sub)}" onclick="drillSubCat('${catId}','${sub}')"
+        style="cursor:pointer;transition:.15s;border-radius:var(--rs);margin-bottom:6px;padding:10px 12px;background:var(--card);border:1.5px solid transparent"
+        onmouseenter="this.style.borderColor='${catColor}'" onmouseleave="if(_openSubName!=='${sub}')this.style.borderColor='transparent'">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
           <span style="font-weight:700;font-size:.9rem">${sub}</span>
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:.75rem;color:var(--t3)">${data.list.length}筆</span>
             <span style="font-weight:900;color:var(--danger)">-$${fmt(data.total)}</span>
-            <span style="color:var(--t3);font-size:.8rem">›</span>
+            <span id="sub-arrow-${CSS.escape(sub)}" style="color:var(--t3);font-size:.8rem;transition:.2s">›</span>
           </div>
         </div>
         <div style="height:4px;background:var(--border);border-radius:2px">
-          <div style="height:4px;width:${pct}%;background:var(--p);border-radius:2px;transition:.3s"></div>
+          <div style="height:4px;width:${pct}%;background:${catColor};border-radius:2px;transition:.3s"></div>
         </div>
         <div style="font-size:.7rem;color:var(--t3);margin-top:3px">${pct}%</div>
       </div>`;
     }).join('');
 }
+
+let _openSubName = '';
 
 function drillSubCat(catId, subName) {
   const allTxs = txData.filter(t=>t.cat===catId);
@@ -457,13 +466,23 @@ function drillSubCat(catId, subName) {
     : allTxs.filter(t=>t.subCat===subName);
   const total = txs.reduce((s,t)=>s+t.amount,0);
   const cat = catFind(catId);
+  const catColor = cat?.color || 'var(--p)';
 
-  // 更新標題加上返回上層按鈕
-  document.getElementById('drill-title').innerHTML =
-    `<span onclick="drillCat('${catId}')" style="cursor:pointer;color:var(--t3);font-size:.85rem;margin-right:6px">← ${cat.name}</span>
-     ${subName} <span style="color:var(--p);font-weight:900">$${fmt(total)}</span> <span style="font-size:.75rem;color:var(--t3)">${txs.length}筆</span>`;
+  // 高亮選中的子分類按鈕，其他恢復原樣
+  const prevSub = _openSubName;
+  _openSubName = subName;
+  if (prevSub) {
+    const prevBtn = document.getElementById('sub-btn-'+CSS.escape(prevSub));
+    if (prevBtn) { prevBtn.style.borderColor='transparent'; prevBtn.style.background='var(--card)'; }
+    const prevArr = document.getElementById('sub-arrow-'+CSS.escape(prevSub));
+    if (prevArr) prevArr.textContent = '›';
+  }
+  const selBtn = document.getElementById('sub-btn-'+CSS.escape(subName));
+  if (selBtn) { selBtn.style.borderColor = catColor; selBtn.style.background = catColor+'14'; }
+  const selArr = document.getElementById('sub-arrow-'+CSS.escape(subName));
+  if (selArr) selArr.textContent = '▾';
 
-  // 第二層：按日期分組的明細
+  // 明細按日期分組
   const groups = {};
   [...txs].sort((a,b)=>new Date(b.at)-new Date(a.at)).forEach(t=>{
     const d = fmtD(t.at); if(!groups[d]) groups[d]=[];
@@ -471,32 +490,39 @@ function drillSubCat(catId, subName) {
   });
 
   const payIcon = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
-  const catColor = catFind(catId)?.color || 'var(--p)';
-  document.getElementById('drill-list').innerHTML =
-    `<div style="margin-bottom:8px;padding:8px 10px;background:${catColor}14;border-left:3px solid ${catColor};border-radius:6px;font-size:.8rem;color:var(--t2);display:flex;justify-content:space-between">
-      <span>📂 ${subName} · ${txs.length} 筆</span>
-      <span style="font-weight:900">$${fmt(total)}</span>
+  const detail = document.getElementById('drill-detail');
+  detail.style.display = 'block';
+  detail.innerHTML =
+    `<div style="padding:10px 12px;background:${catColor}14;border-left:3px solid ${catColor};border-radius:8px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:.82rem;font-weight:700;color:var(--t)">📂 ${subName}</span>
+      <span style="font-size:.82rem;font-weight:900;color:${catColor}">$${fmt(total)} · ${txs.length}筆</span>
     </div>` +
     Object.entries(groups).map(([day,list])=>{
-    const dayTotal = list.reduce((s,t)=>s+t.amount,0);
-    return `<div style="margin-bottom:14px">
-      <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--t3);padding:4px 6px;margin-bottom:4px">
-        <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
-      </div>
-      ${list.map(t=>`
-        <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:background .12s" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background='var(--card)'">
-          <div style="width:36px;height:36px;border-radius:9px;background:${catColor}22;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:.9rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail||catName(t.cat)}</div>
-            <div style="font-size:.7rem;color:var(--t3);margin-top:3px">${t.person} · ${fmtT(t.at)}${t.subCat ? ' · ' + t.subCat : ''}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0">
-            <div style="font-size:.92rem;font-weight:900;color:#ff6b82">-$${fmt(t.amount)}</div>
-            <div style="font-size:.7rem;color:var(--t3);margin-top:2px">點擊編輯 ✏️</div>
-          </div>
-        </div>`).join('')}
-    </div>`;
-  }).join('');
+      const dayTotal = list.reduce((s,t)=>s+t.amount,0);
+      return `<div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--t3);padding:3px 4px;margin-bottom:6px;border-bottom:1px solid var(--border)">
+          <span>📅 ${day}</span><span>-$${fmt(dayTotal)}</span>
+        </div>
+        ${list.map(t=>`
+          <div onclick="jumpToEditTx('${t.id}')"
+            style="display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-left:3px solid ${catColor};border-radius:var(--rs);cursor:pointer;transition:background .12s"
+            onmouseenter="this.style.background='var(--card2)'"
+            onmouseleave="this.style.background='var(--card)'">
+            <div style="width:34px;height:34px;border-radius:8px;background:${catColor}22;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t)">${t.detail||catName(t.cat)}</div>
+              <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${t.person} · ${fmtT(t.at)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:.9rem;font-weight:900;color:#ff6b82">-$${fmt(t.amount)}</div>
+              <div style="font-size:.65rem;color:var(--p);margin-top:2px">✏️ 點擊編輯</div>
+            </div>
+          </div>`).join('')}
+      </div>`;
+    }).join('');
+
+  // 自動滾動到明細區
+  setTimeout(() => detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
 }
 
 // 記錄目前展開哪張卡
@@ -594,6 +620,10 @@ function collapseCard(cardId) {
 function closeDrill() {
   document.getElementById('cat-drill').style.display = 'none';
   document.querySelector('#p-cat .chart-card').style.display = 'block';
+  document.getElementById('drill-detail').style.display = 'none';
+  document.getElementById('drill-detail').innerHTML = '';
+  document.getElementById('sub-list').innerHTML = '';
+  _openSubName = '';
 }
 
 function renderBar(){
