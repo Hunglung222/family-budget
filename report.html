@@ -173,78 +173,87 @@ window._inlineSubName='';
 function init(){
   applyTheme();
 
-  // ── 從編輯頁跳回來：恢復查詢狀態 ──────────────────────
   const savedState = sessionStorage.getItem('report_edit_state');
   if (savedState) {
     sessionStorage.removeItem('report_edit_state');
     try {
       const s = JSON.parse(savedState);
-      // 恢復日期
       if (s.df) document.getElementById('df').value = s.df;
       if (s.dt) document.getElementById('dt').value = s.dt;
       clearPresetHighlight();
-      load();
-      // 恢復 panel + 分類下鑽位置（小延遲讓資料先跑完）
-      setTimeout(() => {
+
+      // 等 renderPie 渲染完（callback）再恢復展開狀態，避免 timing 問題
+      load(() => {
         const panelKey = s.panel || 'ov';
         const tabBtns = Array.from(document.querySelectorAll('.tab'));
         const idxMap = { ov:0, cat:1, mon:2, bud:3, tag:4 };
         const targetBtn = tabBtns[idxMap[panelKey]];
         if (targetBtn) sw(panelKey, targetBtn);
 
-        if (panelKey==='cat' && s.catId) {
-          setTimeout(() => {
-            drillCat(s.catId);
-            if (s.subName) {
-              setTimeout(() => {
-                drillSubCat(s.catId, s.subName);
-                const detail = document.getElementById('drill-detail');
-                if (detail) detail.scrollIntoView({ behavior:'smooth', block:'start' });
-
-                const autoNext = sessionStorage.getItem('report_auto_next') === '1';
-                if (autoNext) {
-                  sessionStorage.removeItem('report_auto_next');
-                  try {
-                    const seq = JSON.parse(sessionStorage.getItem('report_edit_seq') || '[]');
-                    const cur = sessionStorage.getItem('report_edit_current') || '';
-                    const i = seq.indexOf(cur);
-                    const nextId = (i >= 0 && i < seq.length-1) ? seq[i+1] : '';
-                    if (nextId) {
-                      sessionStorage.setItem('report_edit_current', nextId);
-                      setTimeout(() => jumpToEditTx(nextId), 260);
-                    } else {
-                      sessionStorage.removeItem('report_edit_seq');
-                      sessionStorage.removeItem('report_edit_current');
-                      toast('已編輯到此子分類最後一筆 ✅');
-                    }
-                  } catch(e) {}
-                }
-              }, 120);
-            }
-          }, 120);
-        }
-        if (panelKey==='cat' && s.inlineCatId) {
-          setTimeout(() => {
-            const row = Array.from(document.querySelectorAll('#pie-leg .li'))
-              .find(el => el.textContent.includes(catName(s.inlineCatId)));
-            if (!row) return;
+        if (panelKey !== 'cat') {
+          // 非分類 tab，無需恢復展開
+        } else if (s.inlineCatId) {
+          // 圖例內嵌展開流程（toggleSubCatInline → toggleTxDetail）
+          const row = Array.from(document.querySelectorAll('#pie-leg .li'))
+            .find(el => el.textContent.includes(catName(s.inlineCatId)));
+          if (row) {
             toggleSubCatInline(s.inlineCatId, row);
+            // toggleSubCatInline 是同步的，展開後 .sub-item 立刻存在
             if (s.inlineSubName) {
+              const subItems = row.parentElement?.querySelectorAll('.sub-item') || [];
+              const target = Array.from(subItems).find(
+                el => (el.getAttribute('data-sub') || '') === s.inlineSubName
+              );
+              if (target) {
+                toggleTxDetail(target, s.inlineCatId, s.inlineSubName);
+                // 滾動到展開的子分類明細
+                setTimeout(() => {
+                  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 80);
+              }
+            } else {
+              // 只恢復到分類層，不恢復子分類
               setTimeout(() => {
-                const subItems = row.parentElement?.querySelectorAll('.sub-item') || [];
-                const target = Array.from(subItems).find(el => (el.getAttribute('data-sub')||'') === s.inlineSubName);
-                if (target) toggleTxDetail(target, s.inlineCatId, s.inlineSubName);
-              }, 120);
+                row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+              }, 80);
             }
-          }, 120);
+          }
+        } else if (s.catId) {
+          // 下鑽流程（drillCat → drillSubCat）
+          drillCat(s.catId);
+          if (s.subName) {
+            drillSubCat(s.catId, s.subName);
+            const detail = document.getElementById('drill-detail');
+            if (detail) setTimeout(() => detail.scrollIntoView({ behavior:'smooth', block:'start' }), 80);
+
+            // 自動跳下一筆（若有序列）
+            const autoNext = sessionStorage.getItem('report_auto_next') === '1';
+            if (autoNext) {
+              sessionStorage.removeItem('report_auto_next');
+              try {
+                const seq = JSON.parse(sessionStorage.getItem('report_edit_seq') || '[]');
+                const cur = sessionStorage.getItem('report_edit_current') || '';
+                const i = seq.indexOf(cur);
+                const nextId = (i >= 0 && i < seq.length-1) ? seq[i+1] : '';
+                if (nextId) {
+                  sessionStorage.setItem('report_edit_current', nextId);
+                  setTimeout(() => jumpToEditTx(nextId), 260);
+                } else {
+                  sessionStorage.removeItem('report_edit_seq');
+                  sessionStorage.removeItem('report_edit_current');
+                  toast('已編輯到此子分類最後一筆 ✅');
+                }
+              } catch(e) {}
+            }
+          }
         }
-      }, 100);
-      // 監聽日期變更
+      });
+
       ['df','dt'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('change', () => clearPresetHighlight());
       });
-      return; // 不執行預設的 preset('month')
+      return;
     } catch(e) {}
   }
 
@@ -294,14 +303,14 @@ function preset(t, el){
   if (el && typeof load === 'function') load();
 }
 
-function load(){
+function load(onPieDone){
   const f=document.getElementById('df').value,e=document.getElementById('dt').value;
   if(!f||!e){toast('請選擇日期','warn');return;}
   // 收合目前展開的卡片明細
   if(_expandedCardId) { collapseCard(_expandedCardId); _expandedCardId=null; }
   txData=txByRange(f,e);
   document.getElementById('range-lbl').textContent=`${f} ～ ${e}（${txData.length}筆）`;
-  renderOv();renderPie();renderBar();renderBud();
+  renderOv();renderPie(onPieDone);renderBar();renderBud();
 }
 
 function renderOv(){
@@ -363,10 +372,10 @@ function renderOv(){
     options:{cutout:'65%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(p1+p2||1)*100)}%)`}}}}});
 }
 
-function renderPie(){
+function renderPie(onDone){
   const s=calcStats(txData);const ent=Object.entries(s.byCat).sort((a,b)=>b[1]-a[1]);
   if(pieC)pieC.destroy();
-  if(!ent.length){document.getElementById('pie-leg').innerHTML='<div class="empty"><div class="ei">📊</div><p>無資料</p></div>';return;}
+  if(!ent.length){document.getElementById('pie-leg').innerHTML='<div class="empty"><div class="ei">📊</div><p>無資料</p></div>';if(onDone)onDone();return;}
   const labs=ent.map(([id])=>catName(id)),vals=ent.map(([,v])=>v),cols=ent.map(([id],i)=>catFind(id).color||COLS[i%COLS.length]);
   pieC=new Chart(document.getElementById('pie-c'),{type:'doughnut',
     data:{labels:labs,datasets:[{data:vals,backgroundColor:cols,borderColor:'#1a2235',borderWidth:3}]},
@@ -384,6 +393,7 @@ function renderPie(){
       <div class="sub-expand" style="display:none;padding:6px 0 6px 16px"></div>
     </div>`;
   }).join('');
+  if(onDone) onDone();
 }
 
 
