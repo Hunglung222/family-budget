@@ -167,6 +167,8 @@ Chart.defaults.font.family="'Noto Sans TC',sans-serif";
 const COLS=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
 let pieC=null,barC=null,personC=null,txData=[];
 window._drillCatId='';
+window._inlineCatId='';
+window._inlineSubName='';
 
 function init(){
   applyTheme();
@@ -217,6 +219,21 @@ function init(){
                     }
                   } catch(e) {}
                 }
+              }, 120);
+            }
+          }, 120);
+        }
+        if (panelKey==='cat' && s.inlineCatId) {
+          setTimeout(() => {
+            const row = Array.from(document.querySelectorAll('#pie-leg .li'))
+              .find(el => el.textContent.includes(catName(s.inlineCatId)));
+            if (!row) return;
+            toggleSubCatInline(s.inlineCatId, row);
+            if (s.inlineSubName) {
+              setTimeout(() => {
+                const subItems = row.parentElement?.querySelectorAll('.sub-item') || [];
+                const target = Array.from(subItems).find(el => (el.getAttribute('data-sub')||'') === s.inlineSubName);
+                if (target) toggleTxDetail(target, s.inlineCatId, s.inlineSubName);
               }, 120);
             }
           }, 120);
@@ -395,6 +412,8 @@ function toggleSubCatInline(catId, rowEl) {
   document.querySelectorAll('#pie-leg .sub-expand').forEach(el => { el.style.display='none'; });
   document.querySelectorAll('#pie-leg .sub-arrow').forEach(el => { el.textContent='▸'; });
   if (isOpen) return; // 原本開著就關掉
+  window._inlineCatId = catId;
+  window._inlineSubName = '';
   // 渲染子分類
   const txs = txData.filter(t => t.cat === catId);
   const total = txs.reduce((s,t)=>s+t.amount,0);
@@ -442,6 +461,8 @@ function toggleTxDetail(itemEl, catId, subName) {
   itemEl.parentElement.querySelectorAll('.tx-detail-expand').forEach(el => { el.style.display='none'; });
   itemEl.parentElement.querySelectorAll('.tx-arrow').forEach(el => { el.textContent='▸'; });
   if (isOpen) return;
+  window._inlineCatId = catId;
+  window._inlineSubName = subName;
   // 渲染明細
   const txs = txData.filter(t => t.cat===catId && (subName==='（未分類）' ? !t.subCat : t.subCat===subName));
   const sorted = [...txs].sort((a,b)=>new Date(b.at)-new Date(a.at));
@@ -661,6 +682,8 @@ function closeDrill() {
   document.getElementById('drill-detail').innerHTML = '';
   document.getElementById('sub-list').innerHTML = '';
   _openSubName = '';
+  window._inlineCatId = '';
+  window._inlineSubName = '';
 }
 
 function renderBar(){
@@ -867,9 +890,15 @@ function renderTagAnalysis() {
 
 
 function buildCurrentDrillSequence() {
-  if (document.getElementById('cat-drill')?.style?.display === 'none' || !window._drillCatId || !_openSubName) return [];
-  const list = txData.filter(t => t.cat===window._drillCatId && (_openSubName==='（未分類）' ? !t.subCat : t.subCat===_openSubName));
-  return [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).map(t=>t.id);
+  if (document.getElementById('cat-drill')?.style?.display !== 'none' && window._drillCatId && _openSubName) {
+    const list = txData.filter(t => t.cat===window._drillCatId && (_openSubName==='（未分類）' ? !t.subCat : t.subCat===_openSubName));
+    return [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).map(t=>t.id);
+  }
+  if (window._inlineCatId && window._inlineSubName) {
+    const list = txData.filter(t => t.cat===window._inlineCatId && (window._inlineSubName==='（未分類）' ? !t.subCat : t.subCat===window._inlineSubName));
+    return [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).map(t=>t.id);
+  }
+  return [];
 }
 
 // ── 跳轉到列表頁編輯指定的記帳 ─────────────────────────
@@ -882,6 +911,8 @@ function jumpToEditTx(txId) {
     panel: document.querySelector('.panel.on')?.id?.replace('p-','') || 'ov',
     catId: document.getElementById('cat-drill')?.style?.display !== 'none' ? (window._drillCatId || '') : '',
     subName: window._openSubName || '',
+    inlineCatId: window._inlineCatId || '',
+    inlineSubName: window._inlineSubName || '',
   };
   const seq = buildCurrentDrillSequence();
   if (seq.length) {
