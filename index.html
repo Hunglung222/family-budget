@@ -478,6 +478,7 @@ async function submitEdit() {
   if (returnTo) {
     sessionStorage.removeItem('report_edit_return');
     sessionStorage.removeItem('report_edit_tx');
+    sessionStorage.setItem('report_auto_next', '1');
     setTimeout(() => { location.href = './report.html'; }, 600);
   }
 }

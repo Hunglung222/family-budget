@@ -198,6 +198,25 @@ function init(){
                 drillSubCat(s.catId, s.subName);
                 const detail = document.getElementById('drill-detail');
                 if (detail) detail.scrollIntoView({ behavior:'smooth', block:'start' });
+
+                const autoNext = sessionStorage.getItem('report_auto_next') === '1';
+                if (autoNext) {
+                  sessionStorage.removeItem('report_auto_next');
+                  try {
+                    const seq = JSON.parse(sessionStorage.getItem('report_edit_seq') || '[]');
+                    const cur = sessionStorage.getItem('report_edit_current') || '';
+                    const i = seq.indexOf(cur);
+                    const nextId = (i >= 0 && i < seq.length-1) ? seq[i+1] : '';
+                    if (nextId) {
+                      sessionStorage.setItem('report_edit_current', nextId);
+                      setTimeout(() => jumpToEditTx(nextId), 260);
+                    } else {
+                      sessionStorage.removeItem('report_edit_seq');
+                      sessionStorage.removeItem('report_edit_current');
+                      toast('已編輯到此子分類最後一筆 ✅');
+                    }
+                  } catch(e) {}
+                }
               }, 120);
             }
           }, 120);
@@ -846,6 +865,13 @@ function renderTagAnalysis() {
   }
 }
 
+
+function buildCurrentDrillSequence() {
+  if (document.getElementById('cat-drill')?.style?.display === 'none' || !window._drillCatId || !_openSubName) return [];
+  const list = txData.filter(t => t.cat===window._drillCatId && (_openSubName==='（未分類）' ? !t.subCat : t.subCat===_openSubName));
+  return [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).map(t=>t.id);
+}
+
 // ── 跳轉到列表頁編輯指定的記帳 ─────────────────────────
 function jumpToEditTx(txId) {
   if (!txId) return;
@@ -857,6 +883,11 @@ function jumpToEditTx(txId) {
     catId: document.getElementById('cat-drill')?.style?.display !== 'none' ? (window._drillCatId || '') : '',
     subName: window._openSubName || '',
   };
+  const seq = buildCurrentDrillSequence();
+  if (seq.length) {
+    sessionStorage.setItem('report_edit_seq', JSON.stringify(seq));
+    sessionStorage.setItem('report_edit_current', txId);
+  }
   sessionStorage.setItem('report_edit_tx', txId);
   sessionStorage.setItem('report_edit_state', JSON.stringify(state));
   sessionStorage.setItem('report_edit_return', '1');
