@@ -378,12 +378,20 @@ async function callClaude(text) {
     return `${c.id}(${c.name}${subStr})`;
   }).join(', ');
   const today = new Date();
-  const todayStr = fmtD(today.toISOString());
-  const yestStr  = fmtD(new Date(today.getTime()-864e5).toISOString());
+  // 用台灣本地日期（避免 UTC 時區導致今天/昨天偏移一天）
+  const _localDate = (d) => {
+    const offset = d.getTimezoneOffset() * -1; // 台灣是 +480
+    const local = new Date(d.getTime() + offset * 60000);
+    return local.toISOString().slice(0, 10);
+  };
+  const todayStr = _localDate(today);
+  const yestD = new Date(today); yestD.setDate(today.getDate()-1);
+  const yestStr  = _localDate(yestD);
+  const tomD  = new Date(today); tomD.setDate(today.getDate()+1);
+  const tomStr   = _localDate(tomD);
 
   const cardList  = getAllAvailableCards().map(cd=>`${cd.id}:${cd.name}(${cd.last4||''})[${cd._owner||'我'}]`).join(',') || '無';
   const icardList = getAllAvailableIcards().map(ic=>`${ic.id}:${ic.name}[${ic._owner||'我'}]`).join(',') || '無';
-  const tomStr    = fmtD(new Date(today.getTime()+864e5).toISOString());
 
   const prompt = `你是台灣記帳助理。從這段文字提取所有記帳資訊並回傳純 JSON 陣列（不要 markdown）。
 【重要】所有文字欄位必須使用台灣繁體中文，不可使用簡體中文字。

@@ -109,8 +109,16 @@ function txByMonth(y, m) {
   return getTx().filter(t => { const d=new Date(t.at); return d.getFullYear()===y && d.getMonth()+1===m; });
 }
 function txByRange(f, e) {
-  const s=new Date(f), en=new Date(e); en.setHours(23,59,59);
-  return getTx().filter(t => { const d=new Date(t.at); return d>=s && d<=en; });
+  // YYYY-MM-DD 字串直接用 new Date() 會解析成 UTC 午夜（台灣早 8 點）
+  // 改成本地時間解析：取年月日手動建 Date，確保是本地凌晨 0:00
+  const parseLocal = (s) => {
+    const [y,m,d] = s.split('-').map(Number);
+    return new Date(y, m-1, d, 0, 0, 0, 0);
+  };
+  const start = parseLocal(f);
+  const end   = parseLocal(e);
+  end.setHours(23, 59, 59, 999);
+  return getTx().filter(t => { const d=new Date(t.at); return d>=start && d<=end; });
 }
 function txByPeriod() {
   const {start,end} = getBudgetPeriod();
@@ -501,14 +509,39 @@ function calcStats(list) {
   const icard=list.filter(x=>x.pay==='icard').reduce((s,x)=>s+x.amount,0);
   const acct =list.filter(x=>x.pay==='acct' ).reduce((s,x)=>s+x.amount,0);
   const byCat={},byCard={},byIcard={},byAcct={},byPerson={};
+  // 孤兒記錄統計：pay=card/icard/acct 但對應 id 為空，或 id 存在但卡片已被刪除
+  let orphanCard=0, orphanIcard=0, orphanAcct=0;
   list.forEach(x=>{
     byCat[x.cat]=(byCat[x.cat]||0)+x.amount;
     byPerson[x.person]=(byPerson[x.person]||0)+x.amount;
-    if(x.pay==='card' &&x.cardId)  byCard[x.cardId] =(byCard[x.cardId]||0)+x.amount;
-    if(x.pay==='icard'&&x.icardId) byIcard[x.icardId]=(byIcard[x.icardId]||0)+x.amount;
-    if(x.pay==='acct' &&x.acctId)  byAcct[x.acctId] =(byAcct[x.acctId]||0)+x.amount;
+    if(x.pay==='card'){
+      // 孤兒條件：沒有 cardId，或有 cardId 但找不到對應卡片（已刪除）
+      if(x.cardId && (typeof cardFind==='function') && cardFind(x.cardId))
+        byCard[x.cardId]=(byCard[x.cardId]||0)+x.amount;
+      else
+        orphanCard += x.amount;
+    }
+    if(x.pay==='icard'){
+      if(x.icardId && (typeof icardFind==='function') && icardFind(x.icardId))
+        byIcard[x.icardId]=(byIcard[x.icardId]||0)+x.amount;
+      else
+        orphanIcard += x.amount;
+    }
+    if(x.pay==='acct'){
+      const aid = x.acctId;
+      const found = aid && (typeof getAccts==='function') && (
+        getAccts(false).find(a=>a.id===aid) || getAccts(true).find(a=>a.id===aid.replace('shared_',''))
+      );
+      if(found) byAcct[aid]=(byAcct[aid]||0)+x.amount;
+      else      orphanAcct += x.amount;
+    }
   });
-  return {total,cash,card,icard,acct,byCat,byCard,byIcard,byAcct,byPerson};
+  // 若有孤兒記錄，加到 byCard 的特殊 key '_orphan' 顯示
+  if (orphanCard > 0)  byCard['_orphan']  = orphanCard;
+  if (orphanIcard > 0) byIcard['_orphan'] = orphanIcard;
+  if (orphanAcct > 0)  byAcct['_orphan']  = orphanAcct;
+  return {total,cash,card,icard,acct,byCat,byCard,byIcard,byAcct,byPerson,
+          orphanCard,orphanIcard,orphanAcct};
 }
 
 // ── 標籤統計 ─────────────────────────────────────────
@@ -612,16 +645,19 @@ function fmt(n)  { return Number(n||0).toLocaleString('zh-TW'); }
 function fmtT(s) { const d=new Date(s); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtD(s) {
   try {
-    const str = String(s);
-    const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
-    const [yyyy, mo, dd] = datePart.split('-');
-    return `${yyyy}/${parseInt(mo)}/${parseInt(dd)}`;
+    const d = new Date(s);
+    // 用本地時間取年月日，避免 UTC 在台灣時區造成跨日偏移（凌晨 0~8 點）
+    return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
   } catch(e) { return s; }
 }
 function groupDay(list) {
   const g={};
   [...list].sort((a,b)=>new Date(b.at)-new Date(a.at)).forEach(t=>{
-    const k=fmtD(t.at); if(!g[k])g[k]=[]; g[k].push(t);
+    // 用本地時間取日期（避免 UTC+8 環境下 00:00~07:59 被歸到前一天）
+    const d = new Date(t.at);
+    const k = `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()}`;
+    if(!g[k])g[k]=[];
+    g[k].push(t);
   });
   return g;
 }
