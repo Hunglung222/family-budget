@@ -999,7 +999,7 @@ async function saveChatLog(userMsg, assistantMsg) {
     if (!CHAT_LOG_WEBHOOK) return;
 
     const char    = getChar();
-    const nowStr  = new Date().toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit' });
+    const nowStr  = new Date().toLocaleTimeString('zh-TW', { hour:'2-digit', minute:'2-digit', hour12: false });
     const person  = localStorage.getItem('current_user') || '';
 
     // ── 模型 / 等級標籤（顯示在訊息最前面的 fields 區）──

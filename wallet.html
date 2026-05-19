@@ -436,6 +436,13 @@
 <script src="./js/firebase.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
+function fmtDT(ts) {
+  const d = new Date(ts);
+  const date = d.getFullYear()+'/'+(d.getMonth()+1)+'/'+d.getDate();
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return date+' '+hh+':'+mm;
+}
 let pickedColor='#1d4ed8', pickedEditColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
 let payFromType='wallet', payBillId='';
@@ -491,13 +498,13 @@ function renderOverview() {
 function renderWallet() {
   const w = getWal();
   document.getElementById('wal-bal').textContent = fmt(w.balance);
-  if (w.history.length) document.getElementById('wal-upd').textContent = '更新：'+new Date(w.history[0].time).toLocaleString('zh-TW');
+  if (w.history.length) document.getElementById('wal-upd').textContent = '更新：'+fmtDT(w.history[0].time);
   const h = document.getElementById('wal-hist');
   if (!w.history.length) { h.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無記錄</div>'; return; }
   h.innerHTML = w.history.slice(0,20).map(e=>`
     <div class="hist-item">
       <div class="hist-ico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
-      <div class="hist-info"><div class="hist-note">${e.note||'現金'}</div><div class="hist-time">${new Date(e.time).toLocaleString('zh-TW')}</div></div>
+      <div class="hist-info"><div class="hist-note">${e.note||'現金'}</div><div class="hist-time">${fmtDT(e.time)}</div></div>
       <div class="hist-amt ${e.type}">${e.type==='in'?'+':'-'}$${fmt(e.amount)}</div>
     </div>`).join('');
 }
@@ -561,7 +568,7 @@ function renderAcctList(list, el, shared) {
         ${(a.history||[]).slice(0,5).map(h=>`
           <div class="hist-item">
             <div class="hist-ico ${h.type}">${h.type==='in'?'⬆️':'⬇️'}</div>
-            <div class="hist-info"><div class="hist-note">${h.note||''}</div><div class="hist-time">${new Date(h.time).toLocaleString('zh-TW')}</div></div>
+            <div class="hist-info"><div class="hist-note">${h.note||''}</div><div class="hist-time">${fmtDT(h.time)}</div></div>
             <div class="hist-amt ${h.type}">${h.type==='in'?'+':'-'}$${fmt(h.amount)}</div>
           </div>`).join('')}
       </div>
