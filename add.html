@@ -130,11 +130,20 @@
   <div id="s2" style="display:none">
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
-      <input type="datetime-local" id="tx-dt-raw" style="position:absolute;opacity:0;pointer-events:none" onchange="refreshDtDisp()">
-      <div class="fc" id="tx-dt-disp" onclick="openDtPicker()"
-        style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
-        <span id="tx-dt-txt" style="font-size:.95rem">--</span>
-        <span style="color:var(--t3);font-size:.8rem">✏️ 修改</span>
+      <!-- 隱藏的原生 picker -->
+      <input type="date" id="tx-dt-date-raw" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="onTxDateChange()">
+      <input type="time" id="tx-dt-time-raw" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="onTxTimeChange()">
+      <div style="display:flex;gap:8px">
+        <div class="fc" onclick="openTxDatePicker()"
+          style="flex:1.4;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
+          <span id="tx-dt-date-txt" style="font-size:.95rem">--</span>
+          <span style="font-size:1rem">📅</span>
+        </div>
+        <div class="fc" onclick="openTxTimePicker()"
+          style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
+          <span id="tx-dt-time-txt" style="font-size:.95rem">--</span>
+          <span style="font-size:1rem">🕐</span>
+        </div>
       </div>
     </div>
     <!-- 快捷範本（放在日期與分類之間） -->
@@ -326,28 +335,39 @@ if ('serviceWorker' in navigator) {
 // Gemini API（透過 CORS Proxy 呼叫）
 // Gemini API Key（從 localStorage 讀取，可在設定頁修改）
 // 日期時間選擇器
-function openDtPicker(){
-  const raw = document.getElementById('tx-dt-raw');
-  raw.focus();
-  raw.click();
-  raw.showPicker && raw.showPicker();
+function openTxDatePicker(){
+  const el = document.getElementById('tx-dt-date-raw');
+  el.focus(); el.click();
+  try { el.showPicker && el.showPicker(); } catch(e){}
 }
-
-function refreshDtDisp(){
-  const raw = document.getElementById('tx-dt-raw');
-  const txt = document.getElementById('tx-dt-txt');
-  if(!raw||!txt) return;
-  const v = raw.value; // 格式: "YYYY-MM-DDTHH:MM"
-  if(!v){ txt.textContent='--'; return; }
-  // iOS Safari 手動解析，不依賴 new Date()
-  try {
-    const [datePart, timePart='00:00'] = v.split('T');
-    const [yy, mo, dd] = datePart.split('-');
-    const [hh, mm] = timePart.split(':');
-    txt.textContent = `${yy}/${mo}/${dd} ${hh}:${mm}`;
-  } catch(e) {
-    txt.textContent = v; // fallback 直接顯示原值
-  }
+function openTxTimePicker(){
+  const el = document.getElementById('tx-dt-time-raw');
+  el.focus(); el.click();
+  try { el.showPicker && el.showPicker(); } catch(e){}
+}
+function onTxDateChange(){
+  const v = document.getElementById('tx-dt-date-raw').value;
+  if(!v) return;
+  const [yyyy,mm,dd] = v.split('-');
+  document.getElementById('tx-dt-date-txt').textContent = `${yyyy}/${mm}/${dd}`;
+}
+function onTxTimeChange(){
+  const v = document.getElementById('tx-dt-time-raw').value;
+  if(!v) return;
+  const [hh,mm] = v.split(':');
+  document.getElementById('tx-dt-time-txt').textContent =
+    String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+}
+// 同步兩個隱藏 input + 文字顯示（供外部呼叫設定日期時間用）
+function setTxDt(yyyy, mm, dd, hh, min){
+  const mo = String(mm).padStart(2,'0');
+  const dy = String(dd).padStart(2,'0');
+  const h  = String(hh).padStart(2,'0');
+  const i  = String(min).padStart(2,'0');
+  document.getElementById('tx-dt-date-raw').value = `${yyyy}-${mo}-${dy}`;
+  document.getElementById('tx-dt-time-raw').value = `${h}:${i}`;
+  document.getElementById('tx-dt-date-txt').textContent = `${yyyy}/${mo}/${dy}`;
+  document.getElementById('tx-dt-time-txt').textContent = `${h}:${i}`;
 }
 
 function getGeminiKey() {
@@ -618,8 +638,7 @@ function applySingleResult(r) {
         const now  = new Date();
         const hh   = String(now.getHours()).padStart(2,'0');
         const min  = String(now.getMinutes()).padStart(2,'0');
-        document.getElementById('tx-dt-raw').value = `${yyyy}-${mm}-${dd}T${hh}:${min}`;
-        refreshDtDisp();
+        setTxDt(yyyy, mm, dd, hh, min);
       }
     } catch(dateErr) { console.warn('[Date]', r.date, dateErr); }
   }
@@ -716,8 +735,7 @@ function init() {
   const dd   = String(now.getDate()).padStart(2,'0');
   const hh   = String(now.getHours()).padStart(2,'0');
   const min  = String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('tx-dt-raw').value = `${yyyy}-${mo}-${dd}T${hh}:${min}`;
-  refreshDtDisp();
+  setTxDt(yyyy, mo, dd, hh, min);
   // 依登入者預設記帳人
   person = currentUser();
   const pBtn = document.getElementById(person==='宏龍'?'p-hl':'p-yh');
@@ -1093,7 +1111,9 @@ function submit() {
   if (pay==='icard' && !selIcard){ toast('請先至錢包頁新增悠遊卡','warn');    return; }
   if (pay==='acct'  && !selAcct) { toast('請先至錢包頁新增銀行帳戶','warn');   return; }
 
-  const dtv = document.getElementById('tx-dt-raw').value;
+  const _txDate = document.getElementById('tx-dt-date-raw').value;
+  const _txTime = document.getElementById('tx-dt-time-raw').value || '00:00';
+  const dtv = _txDate ? `${_txDate}T${_txTime}` : '';
   const tx = {
     amount: amt, cat: selCat,
     subCat: document.getElementById('sub-sel').value,
@@ -1153,8 +1173,7 @@ function resetForm() {
   const _y=now.getFullYear(),_m=String(now.getMonth()+1).padStart(2,'0'),
         _d=String(now.getDate()).padStart(2,'0'),
         _h=String(now.getHours()).padStart(2,'0'),_i=String(now.getMinutes()).padStart(2,'0');
-  document.getElementById('tx-dt-raw').value = `${_y}-${_m}-${_d}T${_h}:${_i}`;
-  refreshDtDisp();
+  setTxDt(_y, _m, _d, _h, _i);
   setStep(0);
   buildCatChips(); buildIcardChips();
 }
