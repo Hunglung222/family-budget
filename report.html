@@ -182,21 +182,27 @@ function init(){
       if (s.dt) document.getElementById('dt').value = s.dt;
       clearPresetHighlight();
       load();
-      // 恢復 tab（小延遲讓資料先跑完）
-      if (s.tab) {
-        setTimeout(() => {
-          const tabs = document.querySelectorAll('.tab');
-          tabs.forEach(btn => {
-            if (btn.textContent.trim() === s.tab) btn.click();
-          });
-          if (s.catId) {
-            setTimeout(() => {
-              drillCat(s.catId);
-              if (s.subName) setTimeout(() => drillSubCat(s.catId, s.subName), 120);
-            }, 120);
-          }
-        }, 100);
-      }
+      // 恢復 panel + 分類下鑽位置（小延遲讓資料先跑完）
+      setTimeout(() => {
+        const panelKey = s.panel || 'ov';
+        const tabBtns = Array.from(document.querySelectorAll('.tab'));
+        const idxMap = { ov:0, cat:1, mon:2, bud:3, tag:4 };
+        const targetBtn = tabBtns[idxMap[panelKey]];
+        if (targetBtn) sw(panelKey, targetBtn);
+
+        if (panelKey==='cat' && s.catId) {
+          setTimeout(() => {
+            drillCat(s.catId);
+            if (s.subName) {
+              setTimeout(() => {
+                drillSubCat(s.catId, s.subName);
+                const detail = document.getElementById('drill-detail');
+                if (detail) detail.scrollIntoView({ behavior:'smooth', block:'start' });
+              }, 120);
+            }
+          }, 120);
+        }
+      }, 100);
       // 監聽日期變更
       ['df','dt'].forEach(id => {
         const el = document.getElementById(id);
@@ -847,7 +853,7 @@ function jumpToEditTx(txId) {
   const state = {
     df: document.getElementById('df')?.value || '',
     dt: document.getElementById('dt')?.value || '',
-    tab: document.querySelector('.tab.on')?.textContent?.trim() || '總覽',
+    panel: document.querySelector('.panel.on')?.id?.replace('p-','') || 'ov',
     catId: document.getElementById('cat-drill')?.style?.display !== 'none' ? (window._drillCatId || '') : '',
     subName: window._openSubName || '',
   };
