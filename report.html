@@ -13,9 +13,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <style>
 @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
-.sub-detail-wrap{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--card2);border:1px solid var(--border)}
-.sub-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding:8px 10px;border-radius:8px;background:rgba(0,0,0,.12);font-size:.72rem;color:var(--t2)}
-.tx-edit-card{display:flex;align-items:center;gap:10px;padding:10px 12px;margin-bottom:6px;background:var(--card);border:1px solid var(--border);border-radius:var(--rs);cursor:pointer;transition:background .12s,border-color .12s}
+.sub-detail-wrap{margin-top:8px;padding:10px 12px;background:var(--card2);border-left:3px solid var(--p);border-radius:6px}
+.sub-detail-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:.72rem;color:var(--t2)}
+.tx-edit-card{display:flex;align-items:center;justify-content:space-between;padding:7px 6px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px;gap:8px}
 .tx-edit-meta{font-size:.7rem;color:var(--t3);margin-top:2px}
 </style>
 </head>
@@ -166,6 +166,7 @@ Chart.defaults.color='#8896b3';
 Chart.defaults.font.family="'Noto Sans TC',sans-serif";
 const COLS=['#00e5b4','#4f8ef7','#f59e0b','#ec4899','#8b5cf6','#06b6d4','#84cc16','#f97316','#94a3b8'];
 let pieC=null,barC=null,personC=null,txData=[];
+window._drillCatId='';
 
 function init(){
   applyTheme();
@@ -188,6 +189,12 @@ function init(){
           tabs.forEach(btn => {
             if (btn.textContent.trim() === s.tab) btn.click();
           });
+          if (s.catId) {
+            setTimeout(() => {
+              drillCat(s.catId);
+              if (s.subName) setTimeout(() => drillSubCat(s.catId, s.subName), 120);
+            }, 120);
+          }
         }, 100);
       }
       // 監聽日期變更
@@ -341,20 +348,15 @@ function renderPie(){
 function payIcon(p) { return p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵'; }
 
 function renderEditableTxCard(t, accentColor, fallbackTitle) {
-  const bg = `${accentColor}22`;
   return `<div onclick="jumpToEditTx('${t.id}')" class="tx-edit-card"
-      style="border-left:3px solid ${accentColor}"
-      onmouseenter="this.style.background='var(--card2)';this.style.borderColor='${accentColor}55'"
-      onmouseleave="this.style.background='var(--card)';this.style.borderColor='var(--border)'">
-      <div style="width:34px;height:34px;border-radius:8px;background:${bg};display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0">${payIcon(t.pay)}</div>
+      onmouseenter="this.style.background='${accentColor}1f'"
+      onmouseleave="this.style.background=''">
       <div style="flex:1;min-width:0">
-        <div style="font-size:.88rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--t)">${t.detail||fallbackTitle||catName(t.cat)}</div>
-        <div class="tx-edit-meta">${fmtD(t.at)} · ${t.person} · ${fmtT(t.at)}</div>
+        <div style="font-size:.84rem;font-weight:600">${t.detail||fallbackTitle||catName(t.cat)}</div>
+        <div class="tx-edit-meta">${fmtD(t.at)} · ${t.person} · ${payIcon(t.pay)} ${fmtT(t.at)}</div>
       </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:.9rem;font-weight:900;color:#ff6b82">-$${fmt(t.amount)}</div>
-        <div style="font-size:.65rem;color:var(--p);margin-top:2px">✏️ 點擊編輯</div>
-      </div>
+      <div style="font-size:.88rem;font-weight:900;color:var(--danger);flex-shrink:0">$${fmt(t.amount)}</div>
+      <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>
     </div>`;
 }
 
@@ -429,6 +431,7 @@ function toggleTxDetail(itemEl, catId, subName) {
 
 // ── 分類下鑽明細 ──────────────────────────────────────
 function drillCat(catId) {
+  window._drillCatId = catId;
   const txs = txData.filter(t => t.cat === catId);
   const total = txs.reduce((s,t)=>s+t.amount,0);
   const cat = catFind(catId);
@@ -626,6 +629,7 @@ function collapseCard(cardId) {
 }
 
 function closeDrill() {
+  window._drillCatId = '';
   document.getElementById('cat-drill').style.display = 'none';
   document.querySelector('#p-cat .chart-card').style.display = 'block';
   document.getElementById('drill-detail').style.display = 'none';
@@ -844,9 +848,12 @@ function jumpToEditTx(txId) {
     df: document.getElementById('df')?.value || '',
     dt: document.getElementById('dt')?.value || '',
     tab: document.querySelector('.tab.on')?.textContent?.trim() || '總覽',
+    catId: document.getElementById('cat-drill')?.style?.display !== 'none' ? (window._drillCatId || '') : '',
+    subName: window._openSubName || '',
   };
   sessionStorage.setItem('report_edit_tx', txId);
   sessionStorage.setItem('report_edit_state', JSON.stringify(state));
+  sessionStorage.setItem('report_edit_return', '1');
   location.href = './index.html';
 }
 
