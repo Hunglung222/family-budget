@@ -100,10 +100,7 @@
     </div>
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
-      <div style="display:flex;gap:8px">
-        <input type="date" class="fc" id="e-dt-date" style="flex:1.4">
-        <input type="time" class="fc" id="e-dt-time" style="flex:1" oninput="updateTimeDisp()">
-      </div>
+      <input type="datetime-local" class="fc" id="e-dt" oninput="updateTimeDisp()">
       <div id="e-dt-disp" style="font-size:.78rem;color:var(--t2);margin-top:4px;padding-left:2px"></div>
     </div>
     <div class="fg">
@@ -349,8 +346,7 @@ function askEdit(id, e) {
   const _dd  = String(d.getDate()).padStart(2,'0');
   const _hh  = String(d.getHours()).padStart(2,'0');
   const _min = String(d.getMinutes()).padStart(2,'0');
-  document.getElementById('e-dt-date').value = `${_yr}-${_mo}-${_dd}`;
-  document.getElementById('e-dt-time').value = `${_hh}:${_min}`;
+  document.getElementById('e-dt').value = `${_yr}-${_mo}-${_dd}T${_hh}:${_min}`;
   updateTimeDisp();
   // 分類
   const catSel = document.getElementById('e-cat');
@@ -430,11 +426,12 @@ function closeEdit() {
 }
 
 function updateTimeDisp(){
-  const t = document.getElementById('e-dt-time').value;
+  const v = document.getElementById('e-dt').value; // "YYYY-MM-DDTHH:MM"
   const disp = document.getElementById('e-dt-disp');
   if(!disp) return;
-  if(t){
-    const [hh,mm] = t.split(':');
+  if(v && v.includes('T')){
+    const [,timePart] = v.split('T');
+    const [hh,mm] = timePart.split(':');
     disp.textContent = '⏰ 實際時間：' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
   } else {
     disp.textContent = '';
@@ -449,9 +446,7 @@ async function submitEdit() {
   if (idx < 0) return;
 
   const old = list[idx];
-  const _edtDate = document.getElementById('e-dt-date').value;
-  const _edtTime = document.getElementById('e-dt-time').value || '00:00';
-  const dtv = _edtDate ? `${_edtDate}T${_edtTime}` : '';
+  const dtv = document.getElementById('e-dt').value;
 
   // 新的付款方式與卡片
   const newPay    = editPay;
