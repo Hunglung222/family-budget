@@ -100,8 +100,21 @@
     </div>
     <div class="fg">
       <span class="flbl">📅 日期時間</span>
-      <input type="datetime-local" class="fc" id="e-dt" oninput="updateTimeDisp()">
-      <div id="e-dt-disp" style="font-size:.78rem;color:var(--t2);margin-top:4px;padding-left:2px"></div>
+      <!-- 隱藏的原生 picker，僅用於觸發系統選擇器 -->
+      <input type="date" id="e-dt-date-raw" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="onEditDateChange()">
+      <input type="time" id="e-dt-time-raw" style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" onchange="onEditTimeChange()">
+      <div style="display:flex;gap:8px">
+        <div class="fc" onclick="openEditDatePicker()"
+          style="flex:1.4;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
+          <span id="e-dt-date-txt" style="font-size:.95rem">--</span>
+          <span style="font-size:1rem">📅</span>
+        </div>
+        <div class="fc" onclick="openEditTimePicker()"
+          style="flex:1;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:12px 14px">
+          <span id="e-dt-time-txt" style="font-size:.95rem">--</span>
+          <span style="font-size:1rem">🕐</span>
+        </div>
+      </div>
     </div>
     <div class="fg">
       <span class="flbl">🏷️ 分類</span>
@@ -346,8 +359,10 @@ function askEdit(id, e) {
   const _dd  = String(d.getDate()).padStart(2,'0');
   const _hh  = String(d.getHours()).padStart(2,'0');
   const _min = String(d.getMinutes()).padStart(2,'0');
-  document.getElementById('e-dt').value = `${_yr}-${_mo}-${_dd}T${_hh}:${_min}`;
-  updateTimeDisp();
+  document.getElementById('e-dt-date-raw').value = `${_yr}-${_mo}-${_dd}`;
+  document.getElementById('e-dt-time-raw').value = `${_hh}:${_min}`;
+  document.getElementById('e-dt-date-txt').textContent = `${_yr}/${_mo}/${_dd}`;
+  document.getElementById('e-dt-time-txt').textContent = `${_hh}:${_min}`;
   // 分類
   const catSel = document.getElementById('e-cat');
   catSel.innerHTML = getCats().map(c =>
@@ -425,17 +440,28 @@ function closeEdit() {
   }
 }
 
-function updateTimeDisp(){
-  const v = document.getElementById('e-dt').value; // "YYYY-MM-DDTHH:MM"
-  const disp = document.getElementById('e-dt-disp');
-  if(!disp) return;
-  if(v && v.includes('T')){
-    const [,timePart] = v.split('T');
-    const [hh,mm] = timePart.split(':');
-    disp.textContent = '⏰ 實際時間：' + String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
-  } else {
-    disp.textContent = '';
-  }
+function openEditDatePicker(){
+  const el = document.getElementById('e-dt-date-raw');
+  el.focus(); el.click();
+  try { el.showPicker && el.showPicker(); } catch(e){}
+}
+function openEditTimePicker(){
+  const el = document.getElementById('e-dt-time-raw');
+  el.focus(); el.click();
+  try { el.showPicker && el.showPicker(); } catch(e){}
+}
+function onEditDateChange(){
+  const v = document.getElementById('e-dt-date-raw').value;
+  if(!v) return;
+  const [yyyy,mm,dd] = v.split('-');
+  document.getElementById('e-dt-date-txt').textContent = `${yyyy}/${mm}/${dd}`;
+}
+function onEditTimeChange(){
+  const v = document.getElementById('e-dt-time-raw').value;
+  if(!v) return;
+  const [hh,mm] = v.split(':');
+  document.getElementById('e-dt-time-txt').textContent =
+    String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
 }
 async function submitEdit() {
   const amt = parseInt(document.getElementById('e-amt').value) || 0;
@@ -446,7 +472,9 @@ async function submitEdit() {
   if (idx < 0) return;
 
   const old = list[idx];
-  const dtv = document.getElementById('e-dt').value;
+  const _edDate = document.getElementById('e-dt-date-raw').value;
+  const _edTime = document.getElementById('e-dt-time-raw').value || '00:00';
+  const dtv = _edDate ? `${_edDate}T${_edTime}` : '';
 
   // 新的付款方式與卡片
   const newPay    = editPay;
