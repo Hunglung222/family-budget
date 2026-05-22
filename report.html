@@ -37,7 +37,7 @@
       <button class="pb" data-preset="week"  onclick="preset('week',this)">本週</button>
       <button class="pb" data-preset="month" onclick="preset('month',this)">本月</button>
       <button class="pb" data-preset="7"     onclick="preset('7',this)">近7天</button>
-      <button class="pb" data-preset="30"    onclick="preset('30',this)">近30天</button>
+      <button class="pb" data-preset="period" onclick="preset('period',this)">週期月</button>
       <button class="btn-q" onclick="load()">查詢</button>
     </div>
   </div>
@@ -297,7 +297,7 @@ function preset(t, el){
   }
   else if(t==='month'){f=new Date(now.getFullYear(),now.getMonth(),1);e=new Date(now.getFullYear(),now.getMonth()+1,0);}
   else if(t==='7'){f=new Date(now-7*864e5);e=now;}
-  else if(t==='30'){f=new Date(now-30*864e5);e=now;}
+  else if(t==='period'){const bp=getBudgetPeriod();f=bp.start;e=bp.end;}
   else{f=new Date(now.getFullYear(),now.getMonth()-2,1);e=now;}
   document.getElementById('df').value=toLocalISO(f);
   document.getElementById('dt').value=toLocalISO(e);
