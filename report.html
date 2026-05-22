@@ -98,6 +98,10 @@
       <div class="ct">👥 雙人消費</div>
       <div class="chart-wrap" style="height:200px"><canvas id="person-c"></canvas></div>
     </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div class="ct">🏪 消費熱點商家 Top 10</div>
+      <div id="seller-rank-list"></div>
+    </div>
   </div>
 
   <div class="panel" id="p-cat">
@@ -137,6 +141,10 @@
     <div class="chart-card">
       <div class="ct">🔖 標籤支出分析</div>
       <div id="tag-analysis-list"></div>
+    </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div class="ct">🧠 想要 vs 需要</div>
+      <div id="want-need-analysis"></div>
     </div>
     <div class="chart-card" style="margin-top:12px">
       <div class="ct">💰 省錢大作戰 - 消費分析</div>
@@ -370,6 +378,7 @@ function renderOv(){
   personC=new Chart(document.getElementById('person-c'),{type:'doughnut',
     data:{labels:['宏龍','盈慧'],datasets:[{data:[p1,p2],backgroundColor:['#00e5b4','#4f8ef7'],borderColor:'#1a2235',borderWidth:3}]},
     options:{cutout:'65%',plugins:{legend:{position:'bottom'},tooltip:{callbacks:{label:c=>`$${fmt(c.raw)} (${Math.round(c.raw/(p1+p2||1)*100)}%)`}}}}});
+  renderSellerRank();
 }
 
 function renderPie(onDone){
@@ -719,7 +728,7 @@ function renderBud(){
 }
 
 function saveBud(id,v){setBudget(id,parseInt(v)||0);renderBud();toast('預算已儲存');}
-function sw(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');el.classList.add('on');if(id==='tag')renderTagAnalysis();}
+function sw(id,el){document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));document.getElementById('p-'+id).classList.add('on');el.classList.add('on');if(id==='tag'){renderTagAnalysis();renderWantNeed();}}
 
 let _tt;
 function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
@@ -803,6 +812,133 @@ function toggleWeekDetail() {
     tryBind();
   }
 })();
+
+
+// ── 商家排行 Top 10 ─────────────────────────────────────
+function renderSellerRank() {
+  const el = document.getElementById('seller-rank-list');
+  if (!el) return;
+  if (!txData.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無消費記錄</div>';
+    return;
+  }
+  // 建立商家群組：兩筆 detail 互相包含則視為同家，代表名取較短者
+  const groups = {};
+  for (const tx of txData) {
+    const d = (tx.detail || '').trim();
+    if (!d || d.length < 2) continue;
+    let matched = null;
+    for (const key of Object.keys(groups)) {
+      if (d.includes(key) || key.includes(d)) { matched = key; break; }
+    }
+    if (matched) {
+      const rep = d.length < matched.length ? d : matched;
+      if (rep !== matched) { groups[rep] = groups[matched]; delete groups[matched]; }
+      groups[rep].total += tx.amount;
+      groups[rep].count++;
+    } else {
+      groups[d] = { total: tx.amount, count: 1 };
+    }
+  }
+  const sorted = Object.entries(groups).sort((a, b) => b[1].total - a[1].total).slice(0, 10);
+  if (!sorted.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無填寫商家/明細的記錄</div>';
+    return;
+  }
+  const maxAmt = sorted[0][1].total;
+  el.innerHTML = sorted.map(([name, data], i) => {
+    const pct = maxAmt > 0 ? Math.round(data.total / maxAmt * 100) : 0;
+    const medals = ['🥇','🥈','🥉'];
+    const rank = i < 3 ? medals[i] : `<span style="font-size:.75rem;color:var(--t3);min-width:18px;text-align:center;display:inline-block">${i+1}</span>`;
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <div style="display:flex;align-items:center;gap:6px;min-width:0">
+          <span style="flex-shrink:0">${rank}</span>
+          <span style="font-size:.86rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:8px">
+          <span style="font-size:.72rem;color:var(--t3)">${data.count}筆</span>
+          <span style="font-weight:900;color:var(--p)">$${fmt(data.total)}</span>
+        </div>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px">
+        <div style="height:4px;width:${pct}%;background:var(--p);border-radius:2px;transition:.3s"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 想要 vs 需要分析 ─────────────────────────────────────
+function renderWantNeed() {
+  const el = document.getElementById('want-need-analysis');
+  if (!el) return;
+  if (!txData.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無消費記錄</div>';
+    return;
+  }
+  // want 標籤 id = 'want'；impulse/emotion/social 歸入衝動；其餘為需要
+  let wantAmt = 0, wantCnt = 0;
+  let impulseAmt = 0, impulseCnt = 0;
+  let needAmt = 0, needCnt = 0;
+  const WANT_TAGS = new Set(['want']);
+  const IMPULSE_TAGS = new Set(['impulse', 'emotion', 'social']);
+  for (const tx of txData) {
+    const tags = tx.tags || [];
+    const hasWant    = tags.some(id => WANT_TAGS.has(id));
+    const hasImpulse = tags.some(id => IMPULSE_TAGS.has(id));
+    if (hasWant || hasImpulse) {
+      if (hasImpulse) { impulseAmt += tx.amount; impulseCnt++; }
+      else            { wantAmt    += tx.amount; wantCnt++;    }
+    } else {
+      needAmt += tx.amount; needCnt++;
+    }
+  }
+  const total = wantAmt + impulseAmt + needAmt;
+  if (total === 0) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.84rem;text-align:center;padding:16px">此區間無消費記錄</div>';
+    return;
+  }
+  const wantPct    = Math.round(wantAmt    / total * 100);
+  const impulsePct = Math.round(impulseAmt / total * 100);
+  const needPct    = 100 - wantPct - impulsePct;
+  // 顏色
+  const C_NEED = '#00e5b4', C_WANT = '#4f8ef7', C_IMP = '#f59e0b';
+  const bars = [
+    { label: '✅ 需要', amt: needAmt,    cnt: needCnt,    pct: needPct,    color: C_NEED },
+    { label: '💝 想要', amt: wantAmt,    cnt: wantCnt,    pct: wantPct,    color: C_WANT },
+    { label: '⚡ 衝動', amt: impulseAmt, cnt: impulseCnt, pct: impulsePct, color: C_IMP  },
+  ];
+  // 小提示語
+  const nonNeedPct = wantPct + impulsePct;
+  let tip = '';
+  if (nonNeedPct === 0)       tip = '🎉 這段期間全是必要支出，超自律！';
+  else if (nonNeedPct <= 10)  tip = '👍 非必要消費控制得很好，繼續保持！';
+  else if (nonNeedPct <= 25)  tip = '💡 非必要消費佔 ' + nonNeedPct + '%，仍在合理範圍。';
+  else if (nonNeedPct <= 40)  tip = '⚠️ 非必要消費達 ' + nonNeedPct + '%，可以留意一下衝動消費喔。';
+  else                        tip = '🚨 非必要消費高達 ' + nonNeedPct + '%，建議下週更有意識地記帳。';
+
+  // 視覺：橫條圖 + 數字卡
+  el.innerHTML = `
+    <div style="margin-bottom:12px">
+      <div style="display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px">
+        ${bars.filter(b=>b.pct>0).map(b=>`<div style="width:${b.pct}%;background:${b.color};transition:.4s" title="${b.label} ${b.pct}%"></div>`).join('')}
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      ${bars.map(b=>`
+        <div style="background:${b.color}18;border:1px solid ${b.color}44;border-radius:10px;padding:9px 10px;text-align:center">
+          <div style="font-size:.72rem;color:var(--t3);margin-bottom:2px">${b.label}</div>
+          <div style="font-size:1rem;font-weight:900;color:${b.color}">${b.pct}%</div>
+          <div style="font-size:.68rem;color:var(--t3);margin-top:1px">$${fmt(b.amt)}</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:.78rem;color:var(--t2);background:var(--card2);border-radius:8px;padding:9px 12px">
+      ${tip}
+    </div>
+    <div style="font-size:.7rem;color:var(--t3);margin-top:8px;padding:0 2px">
+      💡 需要 = 無衝動/情緒/想要標籤的消費。若要提升準確度，請在記帳時標記消費動機。
+    </div>`;
+}
 
 // ── 標籤分析 ──────────────────────────────────────────
 window._expandedTagId = null;
