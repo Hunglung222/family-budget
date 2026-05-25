@@ -259,13 +259,21 @@ function render() {
   // 搜尋篩選
   if(searchQ) {
     const q = searchQ.toLowerCase();
-    list = list.filter(t =>
-      (t.detail||'').toLowerCase().includes(q) ||
-      catName(t.cat).toLowerCase().includes(q) ||
-      (t.subCat||'').toLowerCase().includes(q) ||
-      (t.person||'').includes(q) ||
-      String(t.amount).includes(q)
-    );
+    list = list.filter(t => {
+      // 日期比對：支援 M/D、M/DD、MM/D、MM/DD 各種格式
+      const d = new Date(t.at);
+      const dateSlash = `${d.getMonth()+1}/${d.getDate()}`;         // 5/12
+      const dateSlashZ = `${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`; // 05/12
+      const dateISO = t.at ? t.at.slice(0,10) : '';                 // 2026-05-12
+      return (t.detail||'').toLowerCase().includes(q) ||
+        catName(t.cat).toLowerCase().includes(q) ||
+        (t.subCat||'').toLowerCase().includes(q) ||
+        (t.person||'').includes(q) ||
+        String(t.amount).includes(q) ||
+        dateSlash.includes(q) ||
+        dateSlashZ.includes(q) ||
+        dateISO.includes(q);
+    });
   }
 
   const el=document.getElementById('list');

@@ -54,16 +54,16 @@
   <!-- 本週支出預測 -->
   <div id="week-pred-card" style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
         <div id="pred-title" style="font-size:.88rem;font-weight:900;color:var(--t)">📅 本週支出預測</div>
-        <div style="display:flex;background:var(--card2);border-radius:20px;padding:2px">
+        <div style="display:flex;background:var(--card2);border-radius:20px;padding:2px;gap:2px">
           <button id="pred-week-btn" onclick="switchPredMode('week')"
-            style="font-size:.68rem;padding:3px 10px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:var(--p);color:#000;font-weight:700">本週</button>
+            style="font-size:.72rem;padding:4px 14px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:var(--p);color:#000;font-weight:700;white-space:nowrap">本週</button>
           <button id="pred-mon-btn" onclick="switchPredMode('month')"
-            style="font-size:.68rem;padding:3px 10px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3)">本月</button>
+            style="font-size:.72rem;padding:4px 14px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);white-space:nowrap">本月</button>
         </div>
       </div>
-      <div id="week-pred-range" style="font-size:.72rem;color:var(--t3)"></div>
+      <div id="week-pred-range" style="font-size:.72rem;color:var(--t3);margin-top:2px"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="background:var(--card2);border-radius:10px;padding:10px 12px">
@@ -756,12 +756,22 @@ function renderMonthDetail(monthKey) {
   // 每日長條+曲線圖
   if (dayBarC) dayBarC.destroy();
   const ctx = document.getElementById('day-bar-c');
+  // 讀取目前主題色
+  const themeP = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#00e5b4';
+  const hex2rgba = (hex, a) => {
+    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+  // --p 可能是 #rrggbb 或其他格式，容錯處理
+  let barBg = hex2rgba(themeP.startsWith('#') && themeP.length===7 ? themeP : '#00e5b4', 0.35);
+  let barBd = themeP.startsWith('#') && themeP.length===7 ? themeP : '#00e5b4';
+
   dayBarC = new Chart(ctx, {
     data: {
       labels,
       datasets: [
-        { type:'bar',  data: dayAmt, backgroundColor:'rgba(79,142,247,.4)', borderColor:'#4f8ef7', borderWidth:1.2, borderRadius:4, yAxisID:'y' },
-        { type:'line', data: dayAmt, borderColor:'#00e5b4', borderWidth:2, pointRadius:0, tension:0.35, fill:false, yAxisID:'y' }
+        { type:'bar',  data: dayAmt, backgroundColor: barBg, borderColor: barBd, borderWidth:1.2, borderRadius:4, yAxisID:'y' },
+        { type:'line', data: dayAmt, borderColor: barBd, borderWidth:2, pointRadius:0, tension:0.35, fill:false, yAxisID:'y' }
       ]
     },
     options: {
@@ -806,7 +816,11 @@ function renderMonthCal(y, m, dayAmt) {
     const amt = dayAmt[d-1];
     const isToday = today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d;
     const intensity = amt > 0 ? Math.max(0.15, amt / maxAmt) : 0;
-    const bg = amt > 0 ? `rgba(0,229,180,${intensity.toFixed(2)})` : 'var(--card2)';
+    // 日曆格子跟隨主題色
+    const calP = getComputedStyle(document.documentElement).getPropertyValue('--p').trim() || '#00e5b4';
+    const calHex = calP.startsWith('#') && calP.length===7 ? calP : '#00e5b4';
+    const cr = parseInt(calHex.slice(1,3),16), cg = parseInt(calHex.slice(3,5),16), cb = parseInt(calHex.slice(5,7),16);
+    const bg = amt > 0 ? `rgba(${cr},${cg},${cb},${intensity.toFixed(2)})` : 'var(--card2)';
     const txtColor = intensity > 0.6 ? '#000' : 'var(--t)';
     const border = isToday ? '1.5px solid var(--p)' : '1px solid var(--border)';
     html += `<div onclick="goToDateList('${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}')"
