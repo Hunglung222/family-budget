@@ -611,6 +611,28 @@ if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
 
+// ── 從報表日曆跳轉：偵測 localStorage 並自動篩選日期 ──
+(function _checkCalJump() {
+  const dateStr = localStorage.getItem('list_filter_date');
+  if (!dateStr) return;
+  localStorage.removeItem('list_filter_date');
+  // dateStr: 'YYYY-MM-DD'，切換到對應月份並搜尋該日期
+  const [y, m, d] = dateStr.split('-').map(Number);
+  cy = y; cm = m;
+  // 用搜尋框篩選該日（月/日格式）
+  const searchEl = document.getElementById('search-input');
+  if (searchEl) {
+    const label = `${m}/${d}`;
+    searchEl.value = label;
+    searchQ = label;
+    document.getElementById('search-clear').style.display = 'block';
+    document.getElementById('filter-pills').style.display = 'none';
+  }
+  render();
+  // 捲到頂部讓使用者看到結果
+  window.scrollTo({top:0, behavior:'smooth'});
+})();
+
 // ── 從報表頁跳轉過來編輯：偵測 sessionStorage 並自動展開編輯 modal ──
 function _checkReportEditJump() {
   const txId = sessionStorage.getItem('report_edit_tx');

@@ -54,16 +54,24 @@
   <!-- 本週支出預測 -->
   <div id="week-pred-card" style="background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px 16px;margin-bottom:12px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:.88rem;font-weight:900;color:var(--t)">📅 本週支出預測</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div id="pred-title" style="font-size:.88rem;font-weight:900;color:var(--t)">📅 本週支出預測</div>
+        <div style="display:flex;background:var(--card2);border-radius:20px;padding:2px">
+          <button id="pred-week-btn" onclick="switchPredMode('week')"
+            style="font-size:.68rem;padding:3px 10px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:var(--p);color:#000;font-weight:700">本週</button>
+          <button id="pred-mon-btn" onclick="switchPredMode('month')"
+            style="font-size:.68rem;padding:3px 10px;border:none;border-radius:18px;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3)">本月</button>
+        </div>
+      </div>
       <div id="week-pred-range" style="font-size:.72rem;color:var(--t3)"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
       <div style="background:var(--card2);border-radius:10px;padding:10px 12px">
-        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px">本週已花</div>
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px" id="pred-spent-label">本週已花</div>
         <div id="week-spent" style="font-size:1.15rem;font-weight:900;color:var(--danger)">$0</div>
       </div>
       <div style="background:var(--card2);border-radius:10px;padding:10px 12px">
-        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px">預估還會花（<span id="week-days-left">0</span>天）</div>
+        <div style="font-size:.7rem;color:var(--t3);margin-bottom:3px" id="pred-right-label">預估還會花（<span id="week-days-left">0</span>天）</div>
         <div id="week-predicted" style="font-size:1.15rem;font-weight:900;color:#f59e0b">$0</div>
       </div>
     </div>
@@ -127,6 +135,19 @@
     <div class="chart-card">
       <div class="ct">每月支出趨勢</div>
       <div class="chart-wrap"><canvas id="bar-c"></canvas></div>
+    </div>
+    <div id="month-detail-wrap" style="display:none;margin-top:12px">
+      <div class="chart-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div class="ct" id="month-detail-title" style="margin-bottom:0">每日支出</div>
+          <button onclick="closeMDDetail()" style="background:none;border:none;color:var(--t3);font-size:.8rem;cursor:pointer;padding:2px 6px">✕</button>
+        </div>
+        <div class="chart-wrap" style="height:160px"><canvas id="day-bar-c"></canvas></div>
+      </div>
+      <div class="chart-card" style="margin-top:10px">
+        <div class="ct" id="month-cal-title">日曆</div>
+        <div id="month-cal-grid"></div>
+      </div>
     </div>
   </div>
 
@@ -712,7 +733,97 @@ function renderBar(){
   if(barC)barC.destroy();
   barC=new Chart(document.getElementById('bar-c'),{type:'bar',
     data:{labels:ks.map(k=>k.slice(2)),datasets:[{data:vs,backgroundColor:ks.map((_,i)=>i===ks.length-1?'rgba(0,229,180,.7)':'rgba(79,142,247,.35)'),borderColor:ks.map((_,i)=>i===ks.length-1?'#00e5b4':'#4f8ef7'),borderWidth:1.5,borderRadius:8}]},
-    options:{plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(42,53,80,.5)'},ticks:{callback:v=>'$'+fmt(v)}},x:{grid:{display:false}}}}});
+    options:{plugins:{legend:{display:false}},onClick:(_,els)=>{if(els.length){const k=ks[els[0].index];renderMonthDetail(k);}},scales:{y:{grid:{color:'rgba(42,53,80,.5)'},ticks:{callback:v=>'$'+fmt(v)}},x:{grid:{display:false}}}}});
+}
+
+// ── 月份點擊：每日長條+曲線+日曆 ──────────────────────────
+let dayBarC = null;
+function renderMonthDetail(monthKey) {
+  // monthKey: 'YYYY/MM'
+  const [y, m] = monthKey.split('/').map(Number);
+  const txs = txByMonth(y, m);
+  const daysInMonth = new Date(y, m, 0).getDate();
+
+  // 建每日金額陣列
+  const dayAmt = Array(daysInMonth).fill(0);
+  txs.forEach(t => { const d = new Date(t.at); dayAmt[d.getDate()-1] += t.amount; });
+  const labels = Array.from({length: daysInMonth}, (_,i) => i+1);
+
+  // 標題
+  document.getElementById('month-detail-title').textContent = `${y}/${m} 每日支出`;
+  document.getElementById('month-cal-title').textContent = `${y}年${m}月 日曆`;
+
+  // 每日長條+曲線圖
+  if (dayBarC) dayBarC.destroy();
+  const ctx = document.getElementById('day-bar-c');
+  dayBarC = new Chart(ctx, {
+    data: {
+      labels,
+      datasets: [
+        { type:'bar',  data: dayAmt, backgroundColor:'rgba(79,142,247,.4)', borderColor:'#4f8ef7', borderWidth:1.2, borderRadius:4, yAxisID:'y' },
+        { type:'line', data: dayAmt, borderColor:'#00e5b4', borderWidth:2, pointRadius:0, tension:0.35, fill:false, yAxisID:'y' }
+      ]
+    },
+    options: {
+      plugins:{ legend:{display:false} },
+      scales:{
+        y:{ grid:{color:'rgba(42,53,80,.5)'}, ticks:{callback:v=>'$'+fmt(v)}, beginAtZero:true },
+        x:{ grid:{display:false}, ticks:{font:{size:9}} }
+      }
+    }
+  });
+
+  // 日曆
+  renderMonthCal(y, m, dayAmt);
+
+  // 顯示區塊並捲動到日曆
+  document.getElementById('month-detail-wrap').style.display = 'block';
+  setTimeout(() => document.getElementById('month-detail-wrap').scrollIntoView({behavior:'smooth', block:'nearest'}), 100);
+}
+
+function closeMDDetail() {
+  document.getElementById('month-detail-wrap').style.display = 'none';
+  if (dayBarC) { dayBarC.destroy(); dayBarC = null; }
+}
+
+function renderMonthCal(y, m, dayAmt) {
+  const grid = document.getElementById('month-cal-grid');
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const firstDow = new Date(y, m-1, 1).getDay(); // 0=日
+  const maxAmt = Math.max(...dayAmt, 1);
+  const today = new Date();
+
+  let html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:6px">';
+  ['日','一','二','三','四','五','六'].forEach(d => {
+    html += `<div style="text-align:center;font-size:.65rem;color:var(--t3);padding:2px 0">${d}</div>`;
+  });
+  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">';
+
+  // 空格補位
+  for (let i = 0; i < firstDow; i++) html += '<div></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const amt = dayAmt[d-1];
+    const isToday = today.getFullYear()===y && today.getMonth()+1===m && today.getDate()===d;
+    const intensity = amt > 0 ? Math.max(0.15, amt / maxAmt) : 0;
+    const bg = amt > 0 ? `rgba(0,229,180,${intensity.toFixed(2)})` : 'var(--card2)';
+    const txtColor = intensity > 0.6 ? '#000' : 'var(--t)';
+    const border = isToday ? '1.5px solid var(--p)' : '1px solid var(--border)';
+    html += `<div onclick="goToDateList('${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}')"
+      style="border-radius:6px;padding:4px 2px;text-align:center;cursor:${amt>0?'pointer':'default'};
+             background:${bg};border:${border};min-height:36px;display:flex;flex-direction:column;align-items:center;justify-content:center">
+      <div style="font-size:.72rem;font-weight:${isToday?'900':'400'};color:${isToday?'var(--p)':txtColor}">${d}</div>
+      ${amt > 0 ? `<div style="font-size:.58rem;color:${txtColor};margin-top:1px">$${fmt(amt)}</div>` : ''}
+    </div>`;
+  }
+  html += '</div>';
+  grid.innerHTML = html;
+}
+
+function goToDateList(dateStr) {
+  // dateStr: 'YYYY-MM-DD'，跳轉到首頁列表並篩選該日期
+  localStorage.setItem('list_filter_date', dateStr);
+  window.location.href = 'index.html';
 }
 
 function renderBud(){
@@ -735,24 +846,102 @@ function toast(msg,type=''){const el=document.getElementById('toast');el.textCon
 
 init();
 
+
+// ── 預測卡本週/本月切換 ──────────────────────────────────
+window._predMode = 'week';
+function switchPredMode(mode) {
+  window._predMode = mode;
+  const wBtn = document.getElementById('pred-week-btn');
+  const mBtn = document.getElementById('pred-mon-btn');
+  if (wBtn && mBtn) {
+    wBtn.style.background = mode==='week' ? 'var(--p)' : 'transparent';
+    wBtn.style.color      = mode==='week' ? '#000' : 'var(--t3)';
+    wBtn.style.fontWeight = mode==='week' ? '700' : '400';
+    mBtn.style.background = mode==='month' ? 'var(--p)' : 'transparent';
+    mBtn.style.color      = mode==='month' ? '#000' : 'var(--t3)';
+    mBtn.style.fontWeight = mode==='month' ? '700' : '400';
+  }
+  renderWeekPred();
+}
+
+function getMonthPrediction() {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth() + 1;
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const today = now.getDate();
+  const daysLeft = daysInMonth - today;
+
+  const allTx = getTx();
+  const thisMonthTx = txByMonth(y, m);
+  const totalSpent = thisMonthTx.reduce((s,t) => s+t.amount, 0);
+
+  // 歷史日均（今天之前）
+  const todayStart = new Date(now); todayStart.setHours(0,0,0,0);
+  const histTx = allTx.filter(t => new Date(t.at) < todayStart);
+  let histDays = 0;
+  if (histTx.length > 0) {
+    const oldest = new Date(Math.min(...histTx.map(t => new Date(t.at))));
+    histDays = Math.max(1, Math.ceil((todayStart - oldest) / 86400000));
+  }
+
+  const cats = getCats();
+  const catResults = cats.map(cat => {
+    const spentThisMonth = thisMonthTx.filter(t=>t.cat===cat.id).reduce((s,t)=>s+t.amount, 0);
+    let predicted = 0;
+    if (histTx.length > 0 && histDays > 0) {
+      const histTotal = histTx.filter(t=>t.cat===cat.id).reduce((s,t)=>s+t.amount, 0);
+      predicted = Math.round(histTotal / histDays * daysLeft);
+    }
+    return { cat, spentThisWeek: spentThisMonth, predicted, total: spentThisMonth + predicted };
+  }).filter(r => r.spentThisWeek > 0 || r.predicted > 0);
+
+  const totalPredicted = catResults.reduce((s,r) => s+r.predicted, 0);
+  return { daysLeft, totalSpent, totalPredicted, catResults };
+}
+
 // ── 本週支出預測 ──────────────────────────────────────
 window._weekDetailOpen = false;
 function renderWeekPred() {
-  const pred = getWeekPrediction();
-  const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
-  document.getElementById('week-pred-range').textContent =
-    `${fmtDate(pred.weekStart)} 週一 ～ ${fmtDate(pred.weekEnd)} 週日`;
+  const isMonth = window._predMode === 'month';
+  const pred = isMonth ? getMonthPrediction() : getWeekPrediction();
+
+  // 標題與範圍
+  const titleEl = document.getElementById('pred-title');
+  const rangeEl = document.getElementById('week-pred-range');
+  const spentLabelEl = document.getElementById('pred-spent-label');
+  const rightLabelEl = document.getElementById('pred-right-label');
+  const daysLeftEl = document.getElementById('week-days-left');
+
+  if (isMonth) {
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth()+1;
+    const daysInMonth = new Date(y, m, 0).getDate();
+    if (titleEl) titleEl.textContent = '📅 本月支出預測';
+    if (rangeEl) rangeEl.textContent = `${y}/${m}/1 ～ ${y}/${m}/${daysInMonth}`;
+    if (spentLabelEl) spentLabelEl.textContent = '本月已花';
+    if (rightLabelEl) rightLabelEl.innerHTML = '預估還會花（<span id="week-days-left">0</span>天）';
+  } else {
+    const fmtDate = d => `${d.getMonth()+1}/${d.getDate()}`;
+    if (titleEl) titleEl.textContent = '📅 本週支出預測';
+    if (rangeEl) rangeEl.textContent =
+      `${fmtDate(pred.weekStart)} 週一 ～ ${fmtDate(pred.weekEnd)} 週日`;
+    if (spentLabelEl) spentLabelEl.textContent = '本週已花';
+    if (rightLabelEl) rightLabelEl.innerHTML = '預估還會花（<span id="week-days-left">0</span>天）';
+  }
+  if (document.getElementById('week-days-left'))
+    document.getElementById('week-days-left').textContent = pred.daysLeft;
+
   document.getElementById('week-spent').textContent = '$' + fmt(pred.totalSpent);
   document.getElementById('week-predicted').textContent = '$' + fmt(pred.totalPredicted);
-  document.getElementById('week-days-left').textContent = pred.daysLeft;
 
   // 前3大分類摘要
+  const noDataMsg = isMonth ? '本月尚無記帳' : '本週尚無記帳';
   const top = [...pred.catResults].sort((a,b)=>b.total-a.total).slice(0,3);
   document.getElementById('week-pred-cats').innerHTML = top.length
     ? top.map(r => `<span style="margin-right:10px">${r.cat.name.slice(0,2)} <b>$${fmt(r.spentThisWeek)}</b>` +
         (r.predicted > 0 ? ` <span style="color:#f59e0b">+$${fmt(r.predicted)}</span>` : '') + '</span>'
       ).join('')
-    : '<span style="color:var(--t3)">本週尚無記帳</span>';
+    : `<span style="color:var(--t3)">${noDataMsg}</span>`;
 
   // 詳細分類表（hidden by default）
   if (window._weekDetailOpen) renderWeekDetail(pred);
