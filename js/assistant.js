@@ -520,7 +520,11 @@ async function buildSystemPrompt(level, dateRange, includeRecordRules = false, u
     dataDesc = '（記帳模式，無需歷史資料）';
   } else if (dateRange && dateRange.from && dateRange.to) {
     const totalCount = fullStats ? fullStats.count : txData.length;
-    dataDesc = `精準區間 ${dateRange.from} ～ ${dateRange.to}（共 ${totalCount} 筆）`;
+    // 若是單日查詢，明確標示「XXXX-XX-XX 這一天」避免 AI 自己推算日期造成混亂
+    const isSingleDay = dateRange.from === dateRange.to;
+    dataDesc = isSingleDay
+      ? `${dateRange.from} 這一天的資料（共 ${totalCount} 筆）`
+      : `精準區間 ${dateRange.from} ～ ${dateRange.to}（共 ${totalCount} 筆）`;
   } else {
     const totalCount = fullStats ? fullStats.count : txData.length;
     dataDesc = `最近 ${lvInfo.days} 天（共 ${totalCount} 筆）`;
