@@ -217,6 +217,11 @@ function parseDateRange(msg) {
     const s = toStr(yest.getFullYear(), yest.getMonth()+1, yest.getDate());
     return { from: s, to: s };
   }
+  if (/前天|前日/.test(msg)) {
+    const db = new Date(now); db.setDate(now.getDate()-2);
+    const s = toStr(db.getFullYear(), db.getMonth()+1, db.getDate());
+    return { from: s, to: s };
+  }
 
   // ── 比較型優先（本X vs 上X）── 要先比多詞組合再比單詞 ──
   // 本週 vs 上週 → from=上週一，to=本週日（14 天精準區間）
@@ -667,7 +672,9 @@ async function callClaude(userMsg) {
   const forcedLevel = getForcedDataLevel();
   const useForced   = !!forcedLevel;
   const dataLevel   = useForced ? forcedLevel : autoLevel;
-  const dateRange   = useForced ? null : parsedRange;
+  // 若使用者問的是精確日期（單日/區間），優先用 dateRange，不受強制模式影響
+  // 強制模式（季/半年）只影響「沒有明確日期」的查詢
+  const dateRange   = parsedRange || (useForced ? null : null);
   const levelDesc   = dateRange
     ? `精準區間（${dataLevel}）`
     : { L1:'記帳模式', L2:'近7天', L3:'近35天', L4:'近90天', L5:'近180天' }[dataLevel];
