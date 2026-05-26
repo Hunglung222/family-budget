@@ -60,6 +60,34 @@
 </header>
 
 <div class="w">
+  <!-- 寄杯追蹤 -->
+  <div id="cup-section" style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:.9rem;font-weight:900;color:var(--t)">☕ 寄杯追蹤</div>
+      <button onclick="openAddCup()" style="padding:5px 13px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:50px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit">＋ 新增</button>
+    </div>
+    <div id="cup-list"></div>
+  </div>
+
+  <!-- 新增/編輯寄杯 modal -->
+  <div id="cup-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeCupModal()">
+    <div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-width:480px">
+      <div style="font-size:.95rem;font-weight:900;color:var(--t);margin-bottom:16px" id="cup-modal-title">新增寄杯</div>
+      <div style="margin-bottom:12px">
+        <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">☕ 名稱（例：Q Burger 拿鐵）</div>
+        <input id="cup-name-input" class="fc" type="text" placeholder="輸入飲料名稱" style="width:100%;box-sizing:border-box">
+      </div>
+      <div style="margin-bottom:16px">
+        <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">📦 總杯數</div>
+        <input id="cup-total-input" class="fc" type="number" placeholder="例：60" min="1" style="width:100%;box-sizing:border-box">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeCupModal()" style="flex:1;padding:12px;background:var(--card2);color:var(--t2);border:none;border-radius:var(--rs);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit">取消</button>
+        <button onclick="saveCup()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-size:.88rem;font-weight:900;cursor:pointer;font-family:inherit">儲存</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 統計 -->
   <div class="stats-row">
     <div class="stat-box"><div class="v" id="st-active">0</div><div class="l">進行中</div></div>
@@ -247,6 +275,8 @@ let filterPlat='', filterStat='', editOrderId='', selPlatformName='';
 let bmPay='cash', bmOrderId='';
 
 function init() {
+  fbPullCups().then(() => renderCups());
+  fbListenCups();
   applyTheme();
   render();
   checkDueReminders();
@@ -596,6 +626,175 @@ function filterStatus(s,el){
   filterStat=s;
   document.querySelectorAll('.pills .pill').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');render();
+}
+
+
+// ============================================================
+// 寄杯追蹤
+// ============================================================
+function getCups() { return DB.get('deposit_cups') || []; }
+function saveCups(list) { DB.set('deposit_cups', list); }
+
+function genCupId() { return 'cup_' + Date.now() + '_' + Math.random().toString(36).slice(2,6); }
+
+// ── Firebase 同步 ──
+async function fbSyncCups() {
+  try {
+    await getDb().collection('shared').doc('deposit_cups').set({ list: getCups(), updatedAt: Date.now() });
+  } catch(e) { console.warn('[FB]cups', e); }
+}
+async function fbPullCups() {
+  try {
+    const d = await getDb().collection('shared').doc('deposit_cups').get();
+    if (d.exists && d.data().list) { saveCups(d.data().list); }
+  } catch(e) {}
+}
+let _cupsUnsub = null;
+function fbListenCups() {
+  if (_cupsUnsub) _cupsUnsub();
+  try {
+    _cupsUnsub = getDb().collection('shared').doc('deposit_cups')
+      .onSnapshot(snap => {
+        if (snap.exists && snap.data().list) {
+          saveCups(snap.data().list);
+          renderCups();
+        }
+      });
+  } catch(e) { console.warn('[FB]listen cups', e); }
+}
+
+// ── 渲染 ──
+function renderCups() {
+  const el = document.getElementById('cup-list');
+  if (!el) return;
+  const cups = getCups();
+  if (!cups.length) {
+    el.innerHTML = '<div style="color:var(--t3);font-size:.82rem;text-align:center;padding:14px 0">還沒有寄杯記錄，點右上角「＋ 新增」建立第一筆！</div>';
+    return;
+  }
+  el.innerHTML = cups.map(cup => {
+    const used = cup.claimed || 0;
+    const total = cup.total || 0;
+    const left = Math.max(0, total - used);
+    const pct = total > 0 ? Math.round(used / total * 100) : 0;
+    const isDone = left === 0;
+
+    // 格子點點（最多顯示60格，超過縮小）
+    const dotSize = total <= 30 ? 18 : total <= 60 ? 13 : 10;
+    const dots = Array.from({length: total}, (_, i) => {
+      const claimed = i < used;
+      return `<div onclick="toggleCupDot('${cup.id}',${i})" style="width:${dotSize}px;height:${dotSize}px;border-radius:50%;cursor:pointer;transition:.15s;flex-shrink:0;
+        background:${claimed ? 'var(--p)' : 'var(--card2)'};border:1.5px solid ${claimed ? 'var(--p)' : 'var(--border)'}"></div>`;
+    }).join('');
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px${isDone ? ';opacity:.55' : ''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:.88rem;font-weight:900;color:var(--t)">${isDone ? '✅ ' : '☕ '}${cup.name}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-size:.8rem;font-weight:700;color:${isDone ? 'var(--t3)' : 'var(--p)'}">
+            ${isDone ? '已領完！' : `剩 <span style="font-size:1rem">${left}</span> 杯`}
+          </div>
+          <button onclick="editCup('${cup.id}')" style="background:none;border:none;color:var(--t3);font-size:.85rem;cursor:pointer;padding:2px 5px">✏️</button>
+          <button onclick="deleteCup('${cup.id}')" style="background:none;border:none;color:var(--t3);font-size:.85rem;cursor:pointer;padding:2px 5px">🗑️</button>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-bottom:8px">已領 ${used} / 共 ${total} 杯（${pct}%）</div>
+      <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px">
+        <div style="height:4px;width:${pct}%;background:var(--p);border-radius:2px;transition:.3s"></div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px">${dots}</div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="claimCup('${cup.id}')" ${isDone ? 'disabled' : ''}
+          style="flex:1;padding:9px;background:${isDone ? 'var(--card2)' : 'linear-gradient(135deg,var(--p),var(--p2))'};color:${isDone ? 'var(--t3)' : '#000'};border:none;border-radius:var(--rs);font-size:.82rem;font-weight:900;cursor:${isDone ? 'default' : 'pointer'};font-family:inherit">
+          ${isDone ? '已領完' : '✓ 領取一杯'}
+        </button>
+        ${used > 0 ? `<button onclick="unclaimCup('${cup.id}')" style="padding:9px 14px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.82rem;cursor:pointer;font-family:inherit">↩ 撤回</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── 領取操作 ──
+function claimCup(id) {
+  const cups = getCups();
+  const cup = cups.find(c => c.id === id);
+  if (!cup) return;
+  if ((cup.claimed || 0) >= cup.total) { toast('已全部領完囉！', 'warn'); return; }
+  cup.claimed = (cup.claimed || 0) + 1;
+  cup.lastAt = Date.now();
+  saveCups(cups); fbSyncCups(); renderCups();
+  const left = cup.total - cup.claimed;
+  toast(left > 0 ? `✓ 已領取！還剩 ${left} 杯` : '🎉 全部領完了！');
+}
+function unclaimCup(id) {
+  const cups = getCups();
+  const cup = cups.find(c => c.id === id);
+  if (!cup || !cup.claimed) return;
+  cup.claimed = Math.max(0, cup.claimed - 1);
+  saveCups(cups); fbSyncCups(); renderCups();
+  toast('↩ 已撤回一杯');
+}
+function toggleCupDot(id, idx) {
+  const cups = getCups();
+  const cup = cups.find(c => c.id === id);
+  if (!cup) return;
+  const claimed = cup.claimed || 0;
+  // 點已領的最後一格 = 撤回；點下一格 = 領取
+  if (idx === claimed - 1) {
+    cup.claimed = Math.max(0, claimed - 1);
+    toast('↩ 已撤回一杯');
+  } else if (idx === claimed && claimed < cup.total) {
+    cup.claimed = claimed + 1;
+    const left = cup.total - cup.claimed;
+    toast(left > 0 ? `✓ 已領取！還剩 ${left} 杯` : '🎉 全部領完了！');
+  } else { return; }
+  cup.lastAt = Date.now();
+  saveCups(cups); fbSyncCups(); renderCups();
+}
+
+// ── 新增/編輯 ──
+let _editCupId = null;
+function openAddCup() {
+  _editCupId = null;
+  document.getElementById('cup-modal-title').textContent = '新增寄杯';
+  document.getElementById('cup-name-input').value = '';
+  document.getElementById('cup-total-input').value = '';
+  document.getElementById('cup-modal').style.display = 'flex';
+}
+function editCup(id) {
+  const cup = getCups().find(c => c.id === id);
+  if (!cup) return;
+  _editCupId = id;
+  document.getElementById('cup-modal-title').textContent = '編輯寄杯';
+  document.getElementById('cup-name-input').value = cup.name;
+  document.getElementById('cup-total-input').value = cup.total;
+  document.getElementById('cup-modal').style.display = 'flex';
+}
+function closeCupModal() {
+  document.getElementById('cup-modal').style.display = 'none';
+}
+function saveCup() {
+  const name = document.getElementById('cup-name-input').value.trim();
+  const total = parseInt(document.getElementById('cup-total-input').value);
+  if (!name) { toast('請輸入名稱', 'warn'); return; }
+  if (!total || total < 1) { toast('請輸入正確杯數', 'warn'); return; }
+  const cups = getCups();
+  if (_editCupId) {
+    const cup = cups.find(c => c.id === _editCupId);
+    if (cup) { cup.name = name; cup.total = total; }
+  } else {
+    cups.unshift({ id: genCupId(), name, total, claimed: 0, createdAt: Date.now() });
+  }
+  saveCups(cups); fbSyncCups(); closeCupModal(); renderCups();
+  toast(_editCupId ? '已更新寄杯' : `已新增「${name}」${total} 杯`);
+}
+function deleteCup(id) {
+  const cup = getCups().find(c => c.id === id);
+  if (!cup) return;
+  if (!confirm(`確定刪除「${cup.name}」的寄杯記錄？`)) return;
+  saveCups(getCups().filter(c => c.id !== id));
+  fbSyncCups(); renderCups();
+  toast('已刪除', 'err');
 }
 
 // ── Firebase 同步 ─────────────────────────────────────
