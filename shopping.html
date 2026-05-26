@@ -60,14 +60,39 @@
 </header>
 
 <div class="w">
-  <!-- 寄杯追蹤 -->
-  <div id="cup-section" style="margin-bottom:14px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:.9rem;font-weight:900;color:var(--t)">☕ 寄杯追蹤</div>
+
+  <!-- 分頁 Tab -->
+  <div style="display:flex;background:var(--card2);border-radius:12px;padding:3px;margin-bottom:14px;gap:3px">
+    <button id="tab-cup" onclick="switchShopTab('cup')"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#000;transition:.18s">☕ 寄杯追蹤</button>
+    <button id="tab-order" onclick="switchShopTab('order')"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">📦 網購管理</button>
+  </div>
+
+  <!-- ══ 寄杯追蹤 分頁 ══ -->
+  <div id="panel-cup">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:.88rem;font-weight:900;color:var(--t)">☕ 寄杯追蹤</div>
       <button onclick="openAddCup()" style="padding:5px 13px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:50px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit">＋ 新增</button>
     </div>
     <div id="cup-list"></div>
+    <div style="height:80px"></div>
   </div>
+
+  <!-- ══ 網購管理 分頁 ══ -->
+  <div id="panel-order" style="display:none">
+    <!-- 統計 -->
+    <div class="stats-row" style="margin-bottom:12px">
+      <div class="stat-box"><div class="v" id="st-active">0</div><div class="l">進行中</div></div>
+      <div class="stat-box"><div class="v" id="st-arrive" style="color:var(--danger)">0</div><div class="l">⚠️ 待取貨</div></div>
+      <div class="stat-box"><div class="v" id="st-month">$0</div><div class="l">本月消費</div></div>
+    </div>
+    <!-- 月份切換 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">
+      <button onclick="orderPrevMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">‹</button>
+      <div id="order-month-label" style="font-size:.9rem;font-weight:900;color:var(--t);min-width:90px;text-align:center"></div>
+      <button onclick="orderNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
+    </div>
 
   <!-- 新增/編輯寄杯 modal -->
   <div id="cup-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeCupModal()">
@@ -88,14 +113,7 @@
     </div>
   </div>
 
-  <!-- 統計 -->
-  <div class="stats-row">
-    <div class="stat-box"><div class="v" id="st-active">0</div><div class="l">進行中</div></div>
-    <div class="stat-box"><div class="v" id="st-arrive" style="color:var(--danger)">0</div><div class="l">⚠️ 待取貨</div></div>
-    <div class="stat-box"><div class="v" id="st-month">$0</div><div class="l">本月消費</div></div>
-  </div>
-
-  <!-- 一次性合併按鈕（合併後自動消失）-->
+    <!-- 一次性合併按鈕（合併後自動消失）-->
   <div id="migrate-bar" style="background:#f59e0b22;border:1.5px solid #f59e0b;border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px">
     <span style="font-size:.8rem;color:#f59e0b;flex:1">首次使用共用網購：請合併兩人舊資料</span>
     <button id="btn-migrate" onclick="migrateOrdersToShared()" style="padding:6px 14px;background:#f59e0b;color:#000;border:none;border-radius:50px;font-weight:700;font-size:.78rem;cursor:pointer;font-family:inherit;white-space:nowrap">立即合併</button>
@@ -116,8 +134,10 @@
     <button class="pill" onclick="filterStatus('done',this)">已完成</button>
   </div>
 
-  <div id="order-list"></div>
-  <div style="height:10px"></div>
+    <div id="order-list"></div>
+    <div style="height:80px"></div>
+  </div><!-- end panel-order -->
+
 </div>
 
 <!-- 新增/編輯訂單 Modal -->
@@ -244,7 +264,7 @@
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
-  <a class="ni on" href="./shopping.html"><span class="ic">🛒</span><span>網購</span></a>
+  <a class="ni on" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -274,7 +294,53 @@ const DELIVERY_MAP = {pickup:'超商取貨', home:'宅配到府', group:'團購�
 let filterPlat='', filterStat='', editOrderId='', selPlatformName='';
 let bmPay='cash', bmOrderId='';
 
+
+// ── 分頁切換 ──────────────────────────────────────────
+let _shopTab = 'cup';
+function switchShopTab(tab) {
+  _shopTab = tab;
+  document.getElementById('panel-cup').style.display   = tab === 'cup'   ? 'block' : 'none';
+  document.getElementById('panel-order').style.display = tab === 'order' ? 'block' : 'none';
+  const tCup   = document.getElementById('tab-cup');
+  const tOrder = document.getElementById('tab-order');
+  tCup.style.background   = tab === 'cup'   ? 'var(--p)' : 'transparent';
+  tCup.style.color        = tab === 'cup'   ? '#000' : 'var(--t3)';
+  tOrder.style.background = tab === 'order' ? 'var(--p)' : 'transparent';
+  tOrder.style.color      = tab === 'order' ? '#000' : 'var(--t3)';
+  // header ＋ 按鈕只在網購管理分頁顯示
+  const addBtn = document.getElementById('hdr-add-btn');
+  if (addBtn) addBtn.style.display = tab === 'order' ? 'flex' : 'none';
+  // 副標題
+  const sub = document.getElementById('shop-sub');
+  if (sub) sub.textContent = tab === 'cup' ? '' : (document.getElementById('order-count')?.textContent || '');
+  if (tab === 'order') render();
+}
+
+// ── 網購月份切換 ──────────────────────────────────────
+let _orderYear  = new Date().getFullYear();
+let _orderMonth = new Date().getMonth() + 1;
+function updateOrderMonthLabel() {
+  const el = document.getElementById('order-month-label');
+  if (el) el.textContent = `${_orderYear} 年 ${_orderMonth} 月`;
+}
+function orderPrevMonth() {
+  _orderMonth--;
+  if (_orderMonth < 1) { _orderMonth = 12; _orderYear--; }
+  updateOrderMonthLabel(); render();
+}
+function orderNextMonth() {
+  const now = new Date();
+  if (_orderYear === now.getFullYear() && _orderMonth >= now.getMonth() + 1) return;
+  _orderMonth++;
+  if (_orderMonth > 12) { _orderMonth = 1; _orderYear++; }
+  updateOrderMonthLabel(); render();
+}
+
 function init() {
+  updateOrderMonthLabel();
+  // 預設顯示寄杯分頁，隱藏 header ＋ 按鈕
+  const addBtn = document.getElementById('hdr-add-btn');
+  if (addBtn) addBtn.style.display = 'none';
   fbPullCups().then(() => renderCups());
   fbListenCups();
   applyTheme();
@@ -283,38 +349,52 @@ function init() {
 }
 
 function render() {
-  let list = getOrders();
-  // 統計
-  const active  = list.filter(o=>!['done','cancel'].includes(o.status)).length;
-  const arrives = list.filter(o=>o.status==='arrive').length;
+  let allList = getOrders();
+  // 全域統計（不受月份影響）
+  const active  = allList.filter(o=>!['done','cancel'].includes(o.status)).length;
+  const arrives = allList.filter(o=>o.status==='arrive').length;
   const now = new Date();
-  const monthAmt = list.filter(o=>{
+  // 本月消費統計跟月份切換同步
+  const monthAmt = allList.filter(o=>{
     if(o.status==='cancel')return false;
     const d=new Date(o.createdAt||0);
-    return d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth();
+    return d.getFullYear()===_orderYear && d.getMonth()+1===_orderMonth;
   }).reduce((s,o)=>s+(o.amount||0),0);
   document.getElementById('st-active').textContent = active;
   document.getElementById('st-arrive').textContent = arrives;
   document.getElementById('st-month').textContent  = '$'+fmt(monthAmt);
-  document.getElementById('order-count').textContent = `共 ${list.length} 筆`;
+  const orderCount = document.getElementById('order-count');
+  if (orderCount) orderCount.textContent = `共 ${allList.length} 筆`;
 
-  // 平台篩選按鈕
+  // 月份篩選（以 createdAt 為準）
+  let list = allList.filter(o=>{
+    const d = new Date(o.createdAt||0);
+    return d.getFullYear()===_orderYear && d.getMonth()+1===_orderMonth;
+  });
+
+  // 平台篩選按鈕（只顯示當月有的平台）
   const platforms = [...new Set(list.map(o=>o.platform).filter(Boolean))];
   const pfEl = document.getElementById('platform-filter');
-  pfEl.innerHTML = `<button class="platform-chip${filterPlat===''?' on':''}" onclick="filterPlatform('',this)">全部</button>` +
-    platforms.map(p=>`<button class="platform-chip${filterPlat===p?' on':''}" onclick="filterPlatform('${p}',this)">${p}</button>`).join('');
+  if (pfEl) {
+    pfEl.innerHTML = `<button class="platform-chip${filterPlat===''?' on':''}" onclick="filterPlatform('',this)">全部</button>` +
+      platforms.map(p=>`<button class="platform-chip${filterPlat===p?' on':''}" onclick="filterPlatform('${p}',this)">${p}</button>`).join('');
+  }
 
-  // 篩選
+  // 狀態/平台篩選
   if (filterPlat) list = list.filter(o=>o.platform===filterPlat);
   if (filterStat) list = list.filter(o=>o.status===filterStat);
   list = [...list].sort((a,b)=>new Date(b.createdAt||0)-new Date(a.createdAt||0));
 
   const el = document.getElementById('order-list');
   if (!list.length) {
-    el.innerHTML='<div class="empty"><div class="ei">🛒</div><p>尚無訂單<br>點右上角 ＋ 新增</p></div>';
+    el.innerHTML=`<div class="empty"><div class="ei">🛒</div><p>${_orderYear}年${_orderMonth}月尚無訂單</p></div>`;
     return;
   }
   el.innerHTML = list.map(o=>orderHTML(o)).join('');
+
+  // 同步副標題
+  const sub = document.getElementById('shop-sub');
+  if (sub && _shopTab==='order') sub.textContent = `共 ${allList.length} 筆`;
 }
 
 function orderHTML(o) {
