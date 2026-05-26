@@ -52,9 +52,9 @@
 </head>
 <body>
 <header class="hdr">
-  <div><h1>🛒 網購管理</h1><div class="hdr-sub" id="order-count">載入中...</div></div>
+  <div><h1>🛒 購物</h1><div class="hdr-sub" id="shop-sub"></div></div>
   <div style="display:flex;align-items:center;gap:8px">
-    <button onclick="showAddOrder()" class="hdr-btn" style="background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0">＋</button>
+    <button id="hdr-add-btn" onclick="showAddOrder()" class="hdr-btn" style="display:none;background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;align-items:center;justify-content:center;padding:0">＋</button>
     <a href="./settings.html" class="hdr-btn">⚙️</a>
   </div>
 </header>
@@ -71,9 +71,8 @@
 
   <!-- ══ 寄杯追蹤 分頁 ══ -->
   <div id="panel-cup">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:.88rem;font-weight:900;color:var(--t)">☕ 寄杯追蹤</div>
-      <button onclick="openAddCup()" style="padding:5px 13px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:50px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit">＋ 新增</button>
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:10px">
+      <button onclick="openAddCup()" style="padding:5px 13px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:50px;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit">＋ 新增寄杯</button>
     </div>
     <div id="cup-list"></div>
     <div style="height:80px"></div>
@@ -452,6 +451,16 @@ function nextStatusBtn(o) {
 
 function diff(a, b) { return Math.ceil((a-b)/864e5); }
 
+
+function toggleCupLog(id) {
+  const logEl   = document.getElementById('cup-log-' + id);
+  const arrowEl = document.getElementById('cup-log-arrow-' + id);
+  if (!logEl) return;
+  const open = logEl.style.display === 'none';
+  logEl.style.display   = open ? 'block' : 'none';
+  if (arrowEl) arrowEl.textContent = open ? '▾' : '▸';
+}
+
 // ── 新增/編輯 ─────────────────────────────────────────
 function showAddOrder() {
   editOrderId=''; selPlatformName='';
@@ -790,6 +799,23 @@ function renderCups() {
         </button>
         ${used > 0 ? `<button onclick="unclaimCup('${cup.id}')" style="padding:9px 14px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.82rem;cursor:pointer;font-family:inherit">↩ 撤回</button>` : ''}
       </div>
+      ${(cup.log && cup.log.length > 0) ? `
+      <button onclick="toggleCupLog('${cup.id}')" style="width:100%;margin-top:10px;padding:7px;background:none;border:1px solid var(--border);border-radius:var(--rs);font-size:.75rem;color:var(--t3);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:5px">
+        <span id="cup-log-arrow-${cup.id}" style="transition:.2s">▸</span>
+        <span>領取明細（${cup.log.filter(l=>l.action==='claim').length} 筆）</span>
+      </button>
+      <div id="cup-log-${cup.id}" style="display:none;margin-top:6px;background:var(--card2);border-radius:var(--rs);padding:8px 10px;max-height:180px;overflow-y:auto">
+        ${[...cup.log].reverse().map((l,i) => {
+          const d = new Date(l.at);
+          const dtStr = d.toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'}) + ' ' +
+            d.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit',hour12:false});
+          return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:${i < cup.log.length-1 ? '1px solid var(--border)' : 'none'}">
+            <span style="font-size:.8rem">${l.action==='claim' ? '☕' : '↩'}</span>
+            <span style="font-size:.78rem;color:${l.action==='claim' ? 'var(--p)' : 'var(--t3)'}">${l.action==='claim' ? '領取' : '撤回'}</span>
+            <span style="font-size:.72rem;color:var(--t3);margin-left:auto">${dtStr}</span>
+          </div>`;
+        }).join('')}
+      </div>` : ''}
     </div>`;
   }).join('');
 }
@@ -802,6 +828,8 @@ function claimCup(id) {
   if ((cup.claimed || 0) >= cup.total) { toast('已全部領完囉！', 'warn'); return; }
   cup.claimed = (cup.claimed || 0) + 1;
   cup.lastAt = Date.now();
+  if (!cup.log) cup.log = [];
+  cup.log.push({ at: Date.now(), action: 'claim' });
   saveCups(cups); fbSyncCups(); renderCups();
   const left = cup.total - cup.claimed;
   toast(left > 0 ? `✓ 已領取！還剩 ${left} 杯` : '🎉 全部領完了！');
@@ -811,6 +839,8 @@ function unclaimCup(id) {
   const cup = cups.find(c => c.id === id);
   if (!cup || !cup.claimed) return;
   cup.claimed = Math.max(0, cup.claimed - 1);
+  if (!cup.log) cup.log = [];
+  cup.log.push({ at: Date.now(), action: 'unclaim' });
   saveCups(cups); fbSyncCups(); renderCups();
   toast('↩ 已撤回一杯');
 }
@@ -829,6 +859,8 @@ function toggleCupDot(id, idx) {
     toast(left > 0 ? `✓ 已領取！還剩 ${left} 杯` : '🎉 全部領完了！');
   } else { return; }
   cup.lastAt = Date.now();
+  if (!cup.log) cup.log = [];
+  cup.log.push({ at: Date.now(), action: claimed > (cup.claimed || 0) ? 'unclaim' : 'claim' });
   saveCups(cups); fbSyncCups(); renderCups();
 }
 
