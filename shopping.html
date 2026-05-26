@@ -93,25 +93,6 @@
       <button onclick="orderNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
     </div>
 
-  <!-- 新增/編輯寄杯 modal -->
-  <div id="cup-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeCupModal()">
-    <div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-width:480px">
-      <div style="font-size:.95rem;font-weight:900;color:var(--t);margin-bottom:16px" id="cup-modal-title">新增寄杯</div>
-      <div style="margin-bottom:12px">
-        <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">☕ 名稱（例：Q Burger 拿鐵）</div>
-        <input id="cup-name-input" class="fc" type="text" placeholder="輸入飲料名稱" style="width:100%;box-sizing:border-box">
-      </div>
-      <div style="margin-bottom:16px">
-        <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">📦 總杯數</div>
-        <input id="cup-total-input" class="fc" type="number" placeholder="例：60" min="1" style="width:100%;box-sizing:border-box">
-      </div>
-      <div style="display:flex;gap:10px">
-        <button onclick="closeCupModal()" style="flex:1;padding:12px;background:var(--card2);color:var(--t2);border:none;border-radius:var(--rs);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit">取消</button>
-        <button onclick="saveCup()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-size:.88rem;font-weight:900;cursor:pointer;font-family:inherit">儲存</button>
-      </div>
-    </div>
-  </div>
-
     <!-- 一次性合併按鈕（合併後自動消失）-->
   <div id="migrate-bar" style="background:#f59e0b22;border:1.5px solid #f59e0b;border-radius:var(--rs);padding:10px 12px;margin-bottom:10px;display:none;align-items:center;justify-content:space-between;gap:8px">
     <span style="font-size:.8rem;color:#f59e0b;flex:1">首次使用共用網購：請合併兩人舊資料</span>
@@ -137,6 +118,25 @@
     <div style="height:80px"></div>
   </div><!-- end panel-order -->
 
+</div>
+
+<!-- 新增/編輯寄杯 Modal（放最外層，不受 panel display 影響）-->
+<div id="cup-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;align-items:flex-end;justify-content:center" onclick="if(event.target===this)closeCupModal()">
+  <div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 32px;width:100%;max-width:480px">
+    <div style="font-size:.95rem;font-weight:900;color:var(--t);margin-bottom:16px" id="cup-modal-title">新增寄杯</div>
+    <div style="margin-bottom:12px">
+      <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">☕ 名稱（例：Q Burger 拿鐵）</div>
+      <input id="cup-name-input" class="fc" type="text" placeholder="輸入飲料名稱" style="width:100%;box-sizing:border-box">
+    </div>
+    <div style="margin-bottom:16px">
+      <div style="font-size:.78rem;color:var(--t3);margin-bottom:5px">📦 總杯數</div>
+      <input id="cup-total-input" class="fc" type="number" placeholder="例：60" min="1" style="width:100%;box-sizing:border-box">
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeCupModal()" style="flex:1;padding:12px;background:var(--card2);color:var(--t2);border:none;border-radius:var(--rs);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit">取消</button>
+      <button onclick="saveCup()" style="flex:2;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-size:.88rem;font-weight:900;cursor:pointer;font-family:inherit">儲存</button>
+    </div>
+  </div>
 </div>
 
 <!-- 新增/編輯訂單 Modal -->
