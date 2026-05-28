@@ -327,9 +327,14 @@ function classifyDataLevel(msg, preParsedRange) {
   if (!msg) return 'L3';
   const m = msg.toLowerCase();
 
+  // ── L1 優先判斷（必須在 dateRange 判斷之前）──────────────────
+  // 含有「昨天/前天」的記帳指令（如「昨天買尿布389元」）不能被 dateRange 劫持成查詢
+  const hasAmount = /\d+\s*(元|塊|円|$|USD)?/.test(msg) &&
+    !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢|總額|筆數|明細|消費|紀錄|記錄|統計|查/.test(m);
+  const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|我要記|我要記帳|買了|吃了|花了\d|付了\d)/;
+  if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
+
   // 若有明確日期區間（含自然語言解析後的結果），直接依範圍天數決定等級
-  // 比較型問題（本週vs上週=14天、本月vs上月≈60天、本季vs上季≈180天）都會在
-  // parseDateRange 產生精準 dateRange，classifyDataLevel 只負責決定 fallback 等級
   const dr = preParsedRange !== undefined ? preParsedRange : parseDateRange(msg);
   if (dr) {
     const days = Math.ceil((new Date(dr.to) - new Date(dr.from)) / 864e5);
@@ -338,12 +343,6 @@ function classifyDataLevel(msg, preParsedRange) {
     if (days <= 95)  return 'L4';
     return 'L5';
   }
-
-  // L1：明確記帳意圖（有金額數字 或 記帳關鍵字）
-  const hasAmount = /\d+\s*(元|塊|円|$|USD)?/.test(msg) &&
-    !/分析|報告|趨勢|比較|比|建議|查詢|查一下|花了多少|多少錢|總額|筆數|明細|消費|紀錄|記錄|統計|查/.test(m);
-  const recordKeywords = /^(幫我記|記帳|記一筆|剛剛|買了|吃了|花了\d|付了\d)/;
-  if (recordKeywords.test(m) || (hasAmount && !/分析|比較|趨勢|建議|查/.test(m))) return 'L1';
 
   // L5：長期或完整分析（含年度比較）
   if (/半年|六個月|一年|年度|長期|今年|去年|信用卡.*規劃|規劃.*信用卡|完整報告|詳細報告|全部分析|財務報告|資產|所有.*記帳|所有.*記錄|全部.*記帳|全部.*記錄|完整.*分析|完整.*財務|所有資料|全部資料|預算上限|建議.*預算|幫我設定.*預算/.test(m)) return 'L5';
@@ -602,7 +601,8 @@ ${shouldShowRecordRules ? `
 A. 大分類（cat 欄位）：必須從上方「可用分類」清單中選一個 id。如果都不適合，一律歸類到「other」（其他），不要自己編造新的 cat id。
 B. 子分類處理：
    - 步驟一：先嘗試從該分類的「已知子分類清單」中找最匹配的（包含同義詞）。例如「煤氣費」=「瓦斯」、「Uber」=「計程車」、「7-11買飲料」=「飲料」、「晚餐飯糰」=「晚餐」。寬鬆匹配，意思相近就用現有的，避免重複建立同一件事的不同名稱。這時 newSubCat = false。
-   - 步驟二：如果完全找不到合適的現有子分類，建議新增一個簡短（2~6字）的子分類名稱，並把 newSubCat 設為 true。例如「換手錶電池」→ 新增子分類「手錶電池」歸到「其他」(other)。
+   - ⚠️ 重要：只有「已知子分類清單」裡真實存在的名稱才能用，不可自行創造不在清單內的子分類名稱然後設 newSubCat = false。如果用了清單內沒有的名稱，必須設 newSubCat = true。
+   - 步驟二：如果完全找不到合適的現有子分類，建議新增一個簡短（2~6字）的子分類名稱，並把 newSubCat 設為 true。例如「換手錶電池」→ 新增子分類「手錶電池」歸到「其他」(other)。系統會自動跳到確認頁讓使用者確認新子分類。
    - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
 C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如「換手錶電池200元」→ subCat="手錶電池"、detail="換手錶電池"；「晚餐飯糰111」→ subCat="晚餐"、detail="晚餐飯糰"。
 
@@ -839,7 +839,14 @@ window._assistantConfirm = function() {
     icardId: tx.icardId || null,
     acctId:  tx.acctId || null,
     person:  tx.person || localStorage.getItem('current_user') || '宏龍',
-    at:      new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0).toISOString()
+    // 若記帳日期是今天，用當下時間；否則用該日 12:00（無法知道確切時間）
+    at: (() => {
+      const now = new Date();
+      const isToday = parts[0] === now.getFullYear() && parts[1]-1 === now.getMonth() && parts[2] === now.getDate();
+      return isToday
+        ? now.toISOString()
+        : new Date(parts[0], parts[1]-1, parts[2], 12, 0, 0).toISOString();
+    })()
   };
 
   if (typeof addTx === 'function')    addTx(txObj);
@@ -919,11 +926,13 @@ window._assistantGoEdit = function() {
 async function sendMsg(text) {
   if (!text.trim() || isLoading) return;
 
-  // ── 有待確認記帳時，攔截確認／取消詞，不送 API ──────────────
+  // ── 有待確認記帳時，攔截確認／取消／補充詞，不送 API ──────────────
   if (pendingTx) {
     const t = text.trim().toLowerCase();
     const isConfirm = /^(是|對|好|yes|ok|沒錯|確認|記帳|對的|是的|沒問題|就這樣|save|yep|yup|👍)/.test(t);
     const isCancel  = /^(不|取消|cancel|算了|不要|不用|重來|錯了|改一下|修改|不對)/.test(t);
+    // 補充付款方式：現金/信用卡/悠遊卡/帳戶/卡名
+    const isPaySuppl = /現金|信用卡|刷卡|悠遊卡|帳戶|轉帳|將將卡|cube|line pay|jko|街口|pay|cash/.test(t);
     if (isConfirm) {
       appendMsg('user', text);
       clearInput();
@@ -934,6 +943,37 @@ async function sendMsg(text) {
       appendMsg('user', text);
       clearInput();
       window._assistantCancel();
+      return;
+    }
+    if (isPaySuppl) {
+      // 把補充資訊合併到原始記帳訊息重新送 AI
+      appendMsg('user', text);
+      clearInput();
+      const merged = `（補充付款方式：${text}）請根據這個資訊更新剛才的記帳`;
+      pendingTx = null;
+      updateConfirmBar();
+      isLoading = true;
+      showTyping();
+      try {
+        const reply = await callClaude(merged);
+        hideTyping();
+        const record = parseRecord(reply);
+        const displayReply = getDisplayReply(reply);
+        if (record && record.amount > 0) {
+          pendingTx = record;
+          appendMsg('assistant', displayReply, buildConfirmCard(record));
+          updateConfirmBar();
+        } else {
+          appendMsg('assistant', displayReply);
+        }
+        saveChatLog(text, displayReply);
+        saveChatToStorage();
+      } catch(e) {
+        hideTyping();
+        appendMsg('assistant', '發生錯誤，請再試一次');
+      } finally {
+        isLoading = false;
+      }
       return;
     }
     // 其他文字（修改內容）→ 清掉 pendingTx，讓 AI 重新解析
@@ -1264,18 +1304,41 @@ function toggleVoice() {
   const rec = new SR();
   rec.lang = 'zh-TW'; rec.interimResults = false; rec.continuous = false;
 
+  let _voiceFinal = false;  // 避免 onend/onresult 競爭條件
+  rec.interimResults = true;  // 開啟中間結果顯示
+
   rec.onstart = () => {
     voiceRec = rec;
+    _voiceFinal = false;
     if (btn) { btn.textContent = '🔴'; btn.style.color = '#f43f5e'; }
   };
   rec.onresult = (e) => {
-    const text = e.results[0][0].transcript;
-    const inp  = document.getElementById('ast-input');
-    if (inp) inp.value = text;
-    sendMsg(text);
+    const inp = document.getElementById('ast-input');
+    // 顯示中間結果（灰色預覽）
+    let interim = '';
+    let final = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) final += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (inp) inp.value = final || interim;
+    if (final) {
+      _voiceFinal = true;
+      voiceRec = null;
+      if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+      sendMsg(final);
+    }
   };
-  rec.onerror = () => { voiceRec = null; if (btn) { btn.textContent = '🎤'; btn.style.color = ''; } };
-  rec.onend   = () => { voiceRec = null; if (btn) { btn.textContent = '🎤'; btn.style.color = ''; } };
+  rec.onerror = (e) => {
+    voiceRec = null;
+    if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+    const inp = document.getElementById('ast-input');
+    if (inp && !_voiceFinal) inp.value = '';
+  };
+  rec.onend = () => {
+    voiceRec = null;
+    if (btn) { btn.textContent = '🎤'; btn.style.color = ''; }
+  };
   rec.start();
 }
 
