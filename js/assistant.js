@@ -812,15 +812,72 @@ if (typeof window.showMascot !== 'function') {
 function showMascot(text) { return window.showMascot(text); }
 
 // ── 確認記帳 ────────────────────────────────────────────────
+
+// ── 新子分類確認 sheet（不跳頁，直接在助理內確認）────────────
+function _showNewSubCatSheet(catId, subName, callback) {
+  // 移除舊的 sheet
+  const old = document.getElementById('ast-subcat-sheet');
+  if (old) old.remove();
+
+  const catName = (typeof getCatName === 'function') ? getCatName(catId) : catId;
+
+  const sheet = document.createElement('div');
+  sheet.id = 'ast-subcat-sheet';
+  sheet.style.cssText = `
+    position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;
+    display:flex;align-items:flex-end;justify-content:center
+  `;
+  sheet.innerHTML = `
+    <div style="background:var(--bg);border-radius:20px 20px 0 0;padding:20px 16px 36px;width:100%;max-width:480px">
+      <div style="font-size:.92rem;font-weight:900;color:var(--t);margin-bottom:6px">💡 偵測到新子分類</div>
+      <div style="font-size:.82rem;color:var(--t2);margin-bottom:16px">
+        「<b style="color:var(--p)">${subName}</b>」不在「${catName}」現有子分類中，要新增嗎？
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="
+          document.getElementById('ast-subcat-sheet').remove();
+          _astSubCatCb(false);
+        " style="flex:1;padding:12px;background:var(--card2);color:var(--t2);border:none;border-radius:var(--rs);font-size:.86rem;font-weight:700;cursor:pointer;font-family:inherit">
+          略過，不新增
+        </button>
+        <button onclick="
+          document.getElementById('ast-subcat-sheet').remove();
+          _astSubCatCb(true);
+        " style="flex:2;padding:12px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-size:.86rem;font-weight:900;cursor:pointer;font-family:inherit">
+          ✅ 新增「${subName}」
+        </button>
+      </div>
+    </div>
+  `;
+  // 點背景關閉 = 略過
+  sheet.addEventListener('click', (e) => {
+    if (e.target === sheet) {
+      sheet.remove();
+      callback(false);
+    }
+  });
+  window._astSubCatCb = callback;
+  document.body.appendChild(sheet);
+}
+
 window._assistantConfirm = function() {
   if (!pendingTx) return;
 
-  // 若是新子分類，自動轉到 add.html 讓使用者透過既有「新增子分類」流程確認
+  // 若是新子分類，直接在助理裡彈出確認 sheet，不跳頁
   if (pendingTx.newSubCat === true && pendingTx.subCat) {
-    if (typeof toast === 'function') {
-      toast(`偵測到新子分類「${pendingTx.subCat}」，導向修改頁確認`, 'info');
-    }
-    setTimeout(() => window._assistantGoEdit(), 600);
+    _showNewSubCatSheet(pendingTx.cat, pendingTx.subCat, function(confirmed) {
+      if (confirmed) {
+        // 使用者確認新增 → 寫入子分類清單，然後繼續記帳
+        if (typeof addSubCat === 'function') addSubCat(pendingTx.cat, pendingTx.subCat);
+        pendingTx.newSubCat = false;  // 已處理，不再跳頁
+        window._assistantConfirm();  // 重新呼叫，這次不會再進這個分支
+      } else {
+        // 使用者取消 → 把子分類清空，仍然記帳
+        pendingTx.subCat = '';
+        pendingTx.newSubCat = false;
+        window._assistantConfirm();
+      }
+    });
     return;
   }
 

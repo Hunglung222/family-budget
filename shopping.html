@@ -190,12 +190,20 @@
       <input type="text" class="fc" id="om-note" placeholder="例：尺寸M，記得取貨" maxlength="60">
     </div>
     <div class="fg">
+      <span class="flbl">💰 付款類型</span>
+      <div class="tg" style="gap:8px">
+        <button class="tb on" id="om-pt-cod"     onclick="setPayType('cod',this)"     style="flex:1;padding:10px 0">📦 取貨付款</button>
+        <button class="tb"    id="om-pt-prepaid" onclick="setPayType('prepaid',this)" style="flex:1;padding:10px 0">💳 立即付款</button>
+      </div>
+    </div>
+    <div class="fg">
       <span class="flbl">狀態</span>
       <select class="fc" id="om-status">
-        <option value="pending">待付款</option>
-        <option value="paid">已付款</option>
+        <option value="pending">待出貨</option>
         <option value="shipping">運送中</option>
-        <option value="arrive">待取貨</option>
+        <option value="cod">待取貨付款</option>
+        <option value="paid">已付款（立即付款）</option>
+        <option value="arrive">待取貨（已付款）</option>
         <option value="done">已完成</option>
         <option value="cancel">已取消</option>
       </select>
@@ -243,8 +251,11 @@
         <button class="tb" id="bm-cash"  onclick="setBmPay('cash',this)"  style="flex:none;padding:10px 14px">💵 現金</button>
         <button class="tb" id="bm-card"  onclick="setBmPay('card',this)"  style="flex:none;padding:10px 14px">💳 信用卡</button>
         <button class="tb" id="bm-icard" onclick="setBmPay('icard',this)" style="flex:none;padding:10px 14px">🎫 悠遊卡</button>
+        <button class="tb" id="bm-acct"  onclick="setBmPay('acct',this)"  style="flex:none;padding:10px 14px">🏦 帳戶</button>
       </div>
     </div>
+    <div class="fg" id="bm-acct-fg" style="display:none"><span class="flbl">🏦 選擇帳戶</span>
+      <select class="fc" id="bm-acct-sel"></select></div>
     <div class="fg" id="bm-card-fg" style="display:none"><span class="flbl">🃏 選擇信用卡</span>
       <select class="fc" id="bm-card-sel"></select></div>
     <div class="fg" id="bm-icard-fg" style="display:none"><span class="flbl">🎫 選擇悠遊卡</span>
@@ -280,14 +291,24 @@ function getOrders()    { return DB.get('orders') || []; }
 function saveOrders(l)  { DB.set('orders', l); }
 
 const STATUS_MAP = {
-  pending:  { label:'待付款', cls:'s-pending',  icon:'🕐' },
-  paid:     { label:'已付款', cls:'s-paid',     icon:'💳' },
-  shipping: { label:'運送中', cls:'s-shipping', icon:'🚚' },
-  arrive:   { label:'待取貨', cls:'s-arrive',   icon:'📦' },
-  done:     { label:'已完成', cls:'s-done',     icon:'✅' },
-  cancel:   { label:'已取消', cls:'s-cancel',   icon:'❌' },
+  pending:  { label:'待出貨',    cls:'s-pending',  icon:'🕐' },
+  paid:     { label:'已付款',    cls:'s-paid',     icon:'💳' },
+  shipping: { label:'運送中',    cls:'s-shipping', icon:'🚚' },
+  arrive:   { label:'待取貨',    cls:'s-arrive',   icon:'📦' },
+  cod:      { label:'待取貨付款', cls:'s-cod',      icon:'💵' },
+  done:     { label:'已完成',    cls:'s-done',     icon:'✅' },
+  cancel:   { label:'已取消',    cls:'s-cancel',   icon:'❌' },
 };
-const STEPS = ['pending','paid','shipping','arrive','done'];
+// 流程依付款類型分兩條
+// payType='prepaid'（立即付款）: paid → shipping → arrive → done
+// payType='cod'（取貨付款，預設）: pending → shipping → cod → done
+function getSteps(o) {
+  const pt = o.payType || 'cod';
+  return pt === 'prepaid'
+    ? ['paid','shipping','arrive','done']
+    : ['pending','shipping','cod','done'];
+}
+const STEPS = ['pending','paid','shipping','arrive','cod','done']; // 相容舊資料用
 const DELIVERY_MAP = {pickup:'超商取貨', home:'宅配到府', group:'團購自取', onsite:'現場取貨', other:'其他'};
 
 let filterPlat='', filterStat='', editOrderId='', selPlatformName='';
@@ -442,6 +463,25 @@ function orderHTML(o) {
   </div>`;
 }
 
+
+// ── 付款類型切換 ──────────────────────────────────────
+let _curPayType = 'cod';
+function setPayType(type, el) {
+  _curPayType = type;
+  ['om-pt-cod','om-pt-prepaid'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.classList.remove('on'); }
+  });
+  if (el) el.classList.add('on');
+  // 依付款類型自動切換預設狀態
+  const statusEl = document.getElementById('om-status');
+  if (!statusEl) return;
+  const cur = statusEl.value;
+  // 只有在「預設起始狀態」時才自動切換，不干擾使用者手動選的
+  if (type === 'cod' && (cur === 'paid')) statusEl.value = 'pending';
+  if (type === 'prepaid' && (cur === 'pending')) statusEl.value = 'paid';
+}
+
 function nextStatusBtn(o) {
   const map = {pending:'已付款',paid:'運送中',shipping:'待取貨',arrive:'已完成'};
   const next = {pending:'paid',paid:'shipping',shipping:'arrive',arrive:'done'};
@@ -471,6 +511,7 @@ function showAddOrder() {
   document.getElementById('om-amt').value='';
   document.getElementById('om-due').value='';
   document.getElementById('om-status').value='pending';
+  setPayType('cod', document.getElementById('om-pt-cod'));
   document.getElementById('om-delivery').value='pickup';
   document.querySelectorAll('#om-platforms .platform-chip').forEach(b=>b.classList.remove('on'));
   showModal('order-modal');
@@ -490,6 +531,8 @@ function editOrder(id) {
   document.getElementById('om-note').value=o.note||'';
   document.getElementById('om-due').value=o.dueDate||'';
   document.getElementById('om-status').value=o.status||'pending';
+  const pt = o.payType || 'cod';
+  setPayType(pt, document.getElementById(pt==='cod'?'om-pt-cod':'om-pt-prepaid'));
   document.getElementById('om-delivery').value=o.delivery||'pickup';
   selPlatformName=o.platform||'';
   document.querySelectorAll('#om-platforms .platform-chip').forEach(b=>{
@@ -512,6 +555,7 @@ function submitOrder() {
     dueDate:  document.getElementById('om-due').value,
     note:     document.getElementById('om-note').value.trim(),
     status:   document.getElementById('om-status').value,
+    payType:  document.getElementById('om-pt-cod')?.classList.contains('on') ? 'cod' : 'prepaid',
     user:     currentUser(),
     createdAt: editOrderId ? (getOrders().find(x=>x.id===editOrderId)?.createdAt||new Date().toISOString()) : new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -527,9 +571,11 @@ function submitOrder() {
 }
 
 function advanceStatus(id) {
-  const next={pending:'paid',paid:'shipping',shipping:'arrive',arrive:'done'};
   const list=getOrders(),idx=list.findIndex(x=>x.id===id);if(idx<0)return;
-  list[idx].status=next[list[idx].status]||list[idx].status;
+  const steps=getSteps(list[idx]);
+  const cur=steps.indexOf(list[idx].status);
+  if(cur<0||cur>=steps.length-1)return;
+  list[idx].status=steps[cur+1];
   list[idx].updatedAt=new Date().toISOString();
   saveOrders(list);fbSyncOrders();render();
   toast('狀態已更新：'+STATUS_MAP[list[idx].status].label);
@@ -563,8 +609,11 @@ function showBillOrder(id) {
   // 金額
   document.getElementById('bm-amt').value = o.amount || '';
 
-  // 預設日期 = 訂單日（or 今天）
-  const defaultDate = o.orderDate || toLocalISO();
+  // 問題2：日期預設
+  // 取貨付款 → 用今天（取貨時才付款，記帳應為取貨日）
+  // 立即付款 → 用訂單日（下單時就付了）
+  const isCod = (o.payType || 'cod') === 'cod';
+  const defaultDate = isCod ? toLocalISO() : (o.orderDate || toLocalISO());
   const dt = new Date(defaultDate + 'T12:00:00');
   document.getElementById('bm-dt').value = new Date(dt.getTime() - dt.getTimezoneOffset()*60000).toISOString().slice(0,16);
 
@@ -598,12 +647,27 @@ function showBillOrder(id) {
     `<option value="${c.id}">${c.name}${c._owner!=='我的'?' ('+c._owner+')':''}</option>`
   ).join('') || '<option value="">尚無悠遊卡</option>';
 
-  // 重設付款按鈕
-  ['cash','card','icard'].forEach(p => {
-    document.getElementById('bm-'+p).classList.toggle('on', p==='cash');
+  // 帳戶選單
+  const acctSel = document.getElementById('bm-acct-sel');
+  const accts = typeof getAccts==='function' ? getAccts(true) : [];
+  acctSel.innerHTML = accts.map(a =>
+    `<option value="${a.id}">${a.name}</option>`
+  ).join('') || '<option value="">尚無帳戶</option>';
+
+  // 問題3：依付款類型自動帶入預設付款方式
+  // 取貨付款 → 預設現金（超商取貨付款最常見）
+  // 立即付款 → 若訂單有記錄信用卡就預設信用卡，否則現金
+  let defaultPay = 'cash';
+  if (!isCod && getCards().length > 0) defaultPay = 'card';
+
+  bmPay = defaultPay;
+  ['cash','card','icard','acct'].forEach(p => {
+    const btn = document.getElementById('bm-'+p);
+    if (btn) btn.classList.toggle('on', p===defaultPay);
   });
-  document.getElementById('bm-card-fg').style.display = 'none';
-  document.getElementById('bm-icard-fg').style.display = 'none';
+  document.getElementById('bm-card-fg').style.display  = defaultPay==='card'  ? 'block' : 'none';
+  document.getElementById('bm-icard-fg').style.display = defaultPay==='icard' ? 'block' : 'none';
+  document.getElementById('bm-acct-fg').style.display  = defaultPay==='acct'  ? 'block' : 'none';
 
   showModal('bill-modal');
 }
@@ -616,10 +680,11 @@ function setBmPerson(p, el) {
 
 function setBmPay(p, el) {
   bmPay = p;
-  document.querySelectorAll('#bm-cash,#bm-card,#bm-icard').forEach(b=>b.classList.remove('on'));
+  document.querySelectorAll('#bm-cash,#bm-card,#bm-icard,#bm-acct').forEach(b=>b.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('bm-card-fg').style.display  = p==='card'  ? 'block' : 'none';
   document.getElementById('bm-icard-fg').style.display = p==='icard' ? 'block' : 'none';
+  document.getElementById('bm-acct-fg').style.display  = p==='acct'  ? 'block' : 'none';
 }
 
 async function submitBill() {
@@ -636,6 +701,7 @@ async function submitBill() {
   const subCat   = document.getElementById('bm-subcat').value.trim();
   const cardId   = bmPay === 'card'  ? (document.getElementById('bm-card-sel').value  || null) : null;
   const icardId  = bmPay === 'icard' ? (document.getElementById('bm-icard-sel').value || null) : null;
+  const acctId   = bmPay === 'acct'  ? (document.getElementById('bm-acct-sel').value  || null) : null;
 
   const tx = {
     amount: amt,
@@ -646,8 +712,9 @@ async function submitBill() {
     pay:    bmPay,
     cardId,
     icardId,
+    acctId,
     at,
-    fromOrder: o.id,  // 記錄來源訂單，方便追蹤
+    fromOrder: o.id,
   };
 
   // 加入記帳（這會自動處理現金/悠遊卡/信用卡的扣款）
