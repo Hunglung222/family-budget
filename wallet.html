@@ -85,6 +85,7 @@
   <!-- 頁籤 -->
   <div class="tab-bar">
     <button class="tab-btn on" onclick="sw('overview',this)">📊 總覽</button>
+    <button class="tab-btn" onclick="sw('income',this)">💵 收入</button>
     <button class="tab-btn" onclick="sw('wallet',this)">👛 錢包</button>
     <button class="tab-btn" onclick="sw('accounts',this)">🏦 帳戶</button>
     <button class="tab-btn" onclick="sw('cards',this)">💳 信用卡</button>
@@ -105,7 +106,38 @@
     </div>
     <div class="sec-t">💳 待繳信用卡帳單</div>
     <div id="pending-bills"></div>
-    <div style="height:80px"></div>
+    <div style="height:120px"></div>
+  </div>
+
+  <!-- 收入 -->
+  <div class="panel" id="p-income">
+    <!-- 月份切換 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">
+      <button onclick="incPrevPeriod()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">‹</button>
+      <div id="inc-period-nav" style="font-size:.88rem;font-weight:900;color:var(--t);min-width:140px;text-align:center"></div>
+      <button onclick="incNextPeriod()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
+    </div>
+    <!-- 本期儀表板 -->
+    <div class="nw-hero">
+      <div class="nw-lbl">💵 週期月收入　<span id="inc-period-lbl" style="font-size:.72rem;opacity:.7"></span></div>
+      <div class="nw-amt">$<span id="inc-total">0</span></div>
+      <div class="nw-grid">
+        <div class="nw-item"><div class="v" id="inc-expense" style="color:#ff6b82">$0</div><div class="l">本期支出</div></div>
+        <div class="nw-item"><div class="v" id="inc-balance">$0</div><div class="l">本期結餘</div></div>
+        <div class="nw-item"><div class="v" id="inc-rate">0%</div><div class="l">儲蓄率</div></div>
+      </div>
+      <div id="inc-rate-bar" style="margin-top:12px;height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden">
+        <div id="inc-rate-fill" style="height:100%;width:0%;border-radius:4px;transition:.4s"></div>
+      </div>
+      <div id="inc-rate-tip" style="font-size:.74rem;margin-top:8px;opacity:.9"></div>
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div class="sec-t" style="margin:0">📋 收入明細</div>
+      <button class="acct-btn in" style="width:auto;padding:7px 14px" onclick="showAddIncome()">＋ 記一筆收入</button>
+    </div>
+    <div id="income-list"></div>
+    <div style="height:120px"></div>
   </div>
 
   <!-- 錢包 -->
@@ -122,6 +154,7 @@
     </div>
     <div class="sec-t">📋 現金記錄</div>
     <div class="data-card" style="padding:14px 16px" id="wal-hist"></div>
+    <div style="height:120px"></div>
   </div>
 
   <!-- 帳戶 -->
@@ -136,6 +169,7 @@
       <button class="acct-btn xfer" onclick="showAddAcct(true)">＋ 新增</button>
     </div>
     <div id="shared-accts"></div>
+    <div style="height:120px"></div>
   </div>
 
   <!-- 信用卡 -->
@@ -147,6 +181,7 @@
     <div id="card-list-full"></div>
     <div class="sec-t">📋 帳單記錄</div>
     <div id="all-bills"></div>
+    <div style="height:120px"></div>
   </div>
 
   <!-- 悠遊卡 -->
@@ -156,6 +191,7 @@
       <button class="acct-btn xfer" onclick="showModal('add-icard-modal')">＋ 新增</button>
     </div>
     <div id="icard-list"></div>
+    <div style="height:120px"></div>
   </div>
 </div>
 
@@ -201,6 +237,36 @@
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('walout-modal')">取消</button>
       <button class="btn btn-p" onclick="submitWalAdj()">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- 收入記錄 modal -->
+<div class="ov" id="income-modal">
+  <div class="sheet"><div class="sh"></div><div class="st" id="income-modal-title">💵 記一筆收入</div>
+    <div class="fg"><span class="flbl">金額</span>
+      <input type="number" class="fc" id="inc-amt" placeholder="收入金額" inputmode="numeric"></div>
+    <div class="fg"><span class="flbl">💼 收入來源</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="inc-sources"></div>
+      <div style="display:flex;gap:6px">
+        <input type="text" class="fc" id="inc-source-custom" placeholder="新增來源（如：兼職、紅利）" maxlength="20" style="flex:1">
+        <button onclick="addIncSource()" style="padding:0 14px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">＋ 新增</button>
+      </div>
+      <div style="font-size:.68rem;color:var(--t3);margin-top:4px">長按來源可刪除</div>
+    </div>
+    <div class="fg"><span class="flbl">👤 記錄人</span>
+      <div class="tg">
+        <button class="tb on" id="inc-p-kevin" onclick="setIncPerson('宏龍',this)">🧑 宏龍</button>
+        <button class="tb"    id="inc-p-hui"   onclick="setIncPerson('盈慧',this)">👩 盈慧</button>
+      </div>
+    </div>
+    <div class="fg"><span class="flbl">📅 日期</span>
+      <input type="date" class="fc" id="inc-date"></div>
+    <div class="fg"><span class="flbl">備註（可略）</span>
+      <input type="text" class="fc" id="inc-note" placeholder="例：5月薪水" maxlength="30"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('income-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitIncome()">確認</button>
     </div>
   </div>
 </div>
@@ -453,6 +519,10 @@ function init() {
   document.getElementById('user-lbl').textContent = currentUser() + ' 的財務';
   render();
   fbPullAll().then(()=>render());
+  // 收入資料同步
+  if (typeof fbPullIncomeSources === 'function') fbPullIncomeSources();
+  if (typeof fbPullIncomes === 'function') fbPullIncomes().then(()=>{ if(document.getElementById('p-income')?.classList.contains('on')) renderIncome(); });
+  if (typeof fbListenIncomes === 'function') fbListenIncomes(()=>{ if(document.getElementById('p-income')?.classList.contains('on')) renderIncome(); });
 }
 
 function render() {
@@ -923,6 +993,237 @@ function sw(id,el){
   document.querySelectorAll('.tab-btn').forEach(t=>t.classList.remove('on'));
   document.getElementById('p-'+id).classList.add('on');
   el.classList.add('on');
+  if(id==='income') renderIncome();
+}
+
+
+// ── 收入管理 ─────────────────────────────────────────
+let _incPerson = '宏龍';
+let _incSource = '';
+let _incLongPressTimer = null;
+
+let _incPeriodOffset = 0;  // 0=本期, -1=上期, -2=上上期...
+
+function getIncPeriod() {
+  // 依 offset 計算對應的週期月
+  const base = new Date();
+  base.setMonth(base.getMonth() + _incPeriodOffset);
+  return getBudgetPeriod(base);
+}
+
+function incPrevPeriod() { _incPeriodOffset--; renderIncome(); }
+function incNextPeriod() {
+  if (_incPeriodOffset >= 0) return;  // 不能超過本期
+  _incPeriodOffset++;
+  renderIncome();
+}
+
+function renderIncome() {
+  // 週期月儀表板（依 offset）
+  const period = getIncPeriod();
+  const fmtD = d => `${d.getMonth()+1}/${d.getDate()}`;
+  document.getElementById('inc-period-lbl').textContent = `${fmtD(period.start)} ～ ${fmtD(period.end)}`;
+
+  // 月份導覽標題
+  const navEl = document.getElementById('inc-period-nav');
+  if (navEl) {
+    const y = period.start.getFullYear();
+    const label = _incPeriodOffset === 0 ? '本期' : `${-_incPeriodOffset} 期前`;
+    navEl.textContent = `${y}/${fmtD(period.start)}～${fmtD(period.end)}`;
+  }
+
+  const allInc = getIncomes();
+  const incomes = allInc.filter(i => { const d = new Date(i.at); return d >= period.start && d <= period.end; });
+  const totalInc = incomes.reduce((s,i)=>s+(i.amount||0), 0);
+
+  // 本期支出（複用 txByRange）
+  const periodTx = (typeof txByRange === 'function')
+    ? txByRange(toLocalISO(period.start), toLocalISO(period.end))
+    : getTx().filter(t=>{const d=new Date(t.at);return d>=period.start&&d<=period.end;});
+  const totalExp = periodTx.reduce((s,t)=>s+(t.amount||0), 0);
+
+  const balance = totalInc - totalExp;
+  const rate = totalInc > 0 ? Math.round(balance / totalInc * 100) : 0;
+
+  document.getElementById('inc-total').textContent = fmt(totalInc);
+  document.getElementById('inc-expense').textContent = '$' + fmt(totalExp);
+  document.getElementById('inc-balance').textContent = '$' + fmt(balance);
+  document.getElementById('inc-balance').style.color = balance >= 0 ? '#4ade80' : '#ff6b82';
+  document.getElementById('inc-rate').textContent = rate + '%';
+
+  // 儲蓄率紅黃綠燈
+  const fill = document.getElementById('inc-rate-fill');
+  const tip  = document.getElementById('inc-rate-tip');
+  const rateEl = document.getElementById('inc-rate');
+  let color, msg;
+  if (totalInc === 0) {
+    color = '#94a3b8'; msg = '本期尚未記錄收入，先記一筆吧！';
+    fill.style.width = '0%';
+  } else if (rate < 0) {
+    color = '#ff6b82'; msg = '⚠️ 本期支出已超過收入，要留意囉！';
+    fill.style.width = '100%';
+  } else {
+    fill.style.width = Math.min(100, rate) + '%';
+    if (rate < 10)      { color = '#ff6b82'; msg = '🔴 儲蓄率偏低（<10%），試著省一點？'; }
+    else if (rate < 20) { color = '#fbbf24'; msg = '🟡 儲蓄率尚可（10-20%），再加油！'; }
+    else                { color = '#4ade80'; msg = '🟢 儲蓄率很棒（>20%），繼續保持！'; }
+  }
+  fill.style.background = color;
+  rateEl.style.color = color;
+  tip.textContent = msg;
+
+  // 收入明細列表
+  const listEl = document.getElementById('income-list');
+  if (!incomes.length) {
+    listEl.innerHTML = '<div class="data-card" style="padding:24px;text-align:center;color:var(--t3);font-size:.84rem">本期尚無收入記錄</div>';
+    return;
+  }
+  listEl.innerHTML = incomes.map(i => {
+    const d = new Date(i.at);
+    const dtStr = `${d.getMonth()+1}/${d.getDate()}`;
+    const personIcon = i.person === '盈慧' ? '👩' : '🧑';
+    return `<div class="data-card" style="padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <div style="min-width:0;flex:1">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+          <span style="font-size:.85rem;font-weight:800;color:var(--t)">💼 ${i.source||'其他'}</span>
+          <span style="font-size:.7rem;color:var(--t3)">${personIcon} ${i.person||''}</span>
+        </div>
+        <div style="font-size:.72rem;color:var(--t3)">${dtStr}${i.note?'・'+i.note:''}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <span style="font-size:1.05rem;font-weight:900;color:#4ade80">+$${fmt(i.amount)}</span>
+        <button onclick="editIncome('${i.id}')" style="background:none;border:none;color:var(--t3);font-size:.85rem;cursor:pointer;padding:2px 4px">✏️</button>
+        <button onclick="removeIncome('${i.id}')" style="background:none;border:none;color:var(--t3);font-size:.85rem;cursor:pointer;padding:2px 4px">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// 來源 chip
+function renderIncSourceChips(selected='') {
+  const el = document.getElementById('inc-sources');
+  if (!el) return;
+  const sources = getIncomeSources();
+  el.innerHTML = sources.map(s =>
+    `<button class="tb${s===selected?' on':''}"
+      style="flex:none;padding:8px 14px"
+      onclick="selIncSource('${s.replace(/'/g,"\\'")}',this)"
+      oncontextmenu="delIncSourceChip(event,'${s.replace(/'/g,"\\'")}')"
+      ontouchstart="startIncSrcLongPress('${s.replace(/'/g,"\\'")}')"
+      ontouchend="cancelIncSrcLongPress()" ontouchmove="cancelIncSrcLongPress()">${s}</button>`
+  ).join('');
+}
+function selIncSource(name, el) {
+  _incSource = name;
+  document.querySelectorAll('#inc-sources .tb').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('inc-source-custom').value='';
+}
+function addIncSource() {
+  const input = document.getElementById('inc-source-custom');
+  const name = input.value.trim();
+  if (!name) { toast('請輸入來源名稱','warn'); return; }
+  if (getIncomeSources().includes(name)) { toast('來源已存在','warn'); return; }
+  addIncomeSource(name);
+  if (typeof fbSyncIncomeSources==='function') fbSyncIncomeSources();
+  _incSource = name;
+  renderIncSourceChips(name);
+  input.value='';
+  toast(`已新增來源「${name}」`);
+}
+function delIncSourceChip(e, name) {
+  e.preventDefault();
+  if (!confirm(`刪除收入來源「${name}」？`)) return;
+  delIncomeSource(name);
+  if (typeof fbSyncIncomeSources==='function') fbSyncIncomeSources();
+  if (_incSource===name) _incSource='';
+  renderIncSourceChips(_incSource);
+  toast('已刪除','err');
+}
+function startIncSrcLongPress(name) {
+  _incLongPressTimer = setTimeout(()=>{
+    if (!confirm(`刪除收入來源「${name}」？`)) return;
+    delIncomeSource(name);
+    if (typeof fbSyncIncomeSources==='function') fbSyncIncomeSources();
+    if (_incSource===name) _incSource='';
+    renderIncSourceChips(_incSource);
+    toast('已刪除','err');
+  }, 700);
+}
+function cancelIncSrcLongPress() { clearTimeout(_incLongPressTimer); }
+
+function setIncPerson(p, el) {
+  _incPerson = p;
+  document.querySelectorAll('#inc-p-kevin,#inc-p-hui').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+let _editIncId = null;
+function showAddIncome() {
+  _editIncId = null;
+  document.getElementById('income-modal-title').textContent = '💵 記一筆收入';
+  document.getElementById('inc-amt').value = '';
+  document.getElementById('inc-note').value = '';
+  document.getElementById('inc-source-custom').value = '';
+  document.getElementById('inc-date').value = toLocalISO();
+  _incPerson = currentUser ? currentUser() : '宏龍';
+  document.querySelectorAll('#inc-p-kevin,#inc-p-hui').forEach(b=>b.classList.remove('on'));
+  document.getElementById(_incPerson==='盈慧'?'inc-p-hui':'inc-p-kevin').classList.add('on');
+  const sources = getIncomeSources();
+  _incSource = sources[0] || '';
+  renderIncSourceChips(_incSource);
+  showModal('income-modal');
+}
+function editIncome(id) {
+  const inc = getIncomes().find(i=>i.id===id);
+  if (!inc) return;
+  _editIncId = id;
+  document.getElementById('income-modal-title').textContent = '✏️ 編輯收入';
+  document.getElementById('inc-amt').value = inc.amount || '';
+  document.getElementById('inc-note').value = inc.note || '';
+  document.getElementById('inc-source-custom').value = '';
+  document.getElementById('inc-date').value = (inc.at||'').slice(0,10) || toLocalISO();
+  _incPerson = inc.person || '宏龍';
+  document.querySelectorAll('#inc-p-kevin,#inc-p-hui').forEach(b=>b.classList.remove('on'));
+  document.getElementById(_incPerson==='盈慧'?'inc-p-hui':'inc-p-kevin').classList.add('on');
+  _incSource = inc.source || (getIncomeSources()[0]||'');
+  renderIncSourceChips(_incSource);
+  showModal('income-modal');
+}
+function submitIncome() {
+  const amt = parseInt(document.getElementById('inc-amt').value);
+  if (!amt || amt <= 0) { toast('請輸入正確金額','warn'); return; }
+  const source = _incSource || document.getElementById('inc-source-custom').value.trim() || '其他';
+  // 自動記憶新來源
+  if (!getIncomeSources().includes(source)) {
+    addIncomeSource(source);
+    if (typeof fbSyncIncomeSources==='function') fbSyncIncomeSources();
+  }
+  const dateVal = document.getElementById('inc-date').value || toLocalISO();
+  const note = document.getElementById('inc-note').value.trim();
+  // 日期轉 ISO（用當天中午，避免時區跨日）
+  const [y,m,d] = dateVal.split('-').map(Number);
+  const atISO = new Date(y, m-1, d, 12, 0, 0).toISOString();
+
+  if (_editIncId) {
+    updateIncome(_editIncId, {amount:amt, source, person:_incPerson, note, at:atISO});
+    toast('已更新收入');
+  } else {
+    addIncome({amount:amt, source, person:_incPerson, note, at:atISO});
+    toast(`已記錄收入 +$${fmt(amt)}`);
+  }
+  if (typeof fbSyncIncomes==='function') fbSyncIncomes();
+  closeModal('income-modal');
+  renderIncome();
+}
+function removeIncome(id) {
+  const inc = getIncomes().find(i=>i.id===id);
+  if (!inc) return;
+  if (!confirm(`刪除這筆收入 $${fmt(inc.amount)}（${inc.source}）？`)) return;
+  delIncome(id);
+  if (typeof fbSyncIncomes==='function') fbSyncIncomes();
+  renderIncome();
+  toast('已刪除','err');
 }
 
 let _tt;
