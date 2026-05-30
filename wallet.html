@@ -11,8 +11,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./css/style.css">
 <style>
-.tab-bar{display:flex;gap:4px;background:var(--card);border:1px solid var(--border);padding:4px;border-radius:12px;margin-bottom:14px}
-.tab-btn{flex:1;padding:9px 4px;border-radius:9px;background:none;border:none;color:var(--t2);font-size:.75rem;font-weight:700;cursor:pointer;transition:.18s;font-family:inherit;text-align:center}
+.tab-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;background:var(--card);border:1px solid var(--border);padding:5px;border-radius:12px;margin-bottom:14px}
+.tab-btn{padding:11px 4px;border-radius:9px;background:none;border:none;color:var(--t2);font-size:.8rem;font-weight:700;cursor:pointer;transition:.18s;font-family:inherit;text-align:center;white-space:nowrap}
 .tab-btn.on{background:var(--pdim);color:var(--p)}
 .panel{display:none}.panel.on{display:block}
 
