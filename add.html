@@ -36,11 +36,26 @@
   <div id="s1">
     <!-- AI 文字輸入（直接顯示，不需要多按一鍵） -->
     <div style="margin-bottom:10px">
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-bottom:6px">
+        <button id="mode-single-btn" onclick="setAiMode('single',this)"
+          style="flex:1;padding:9px 4px;border-radius:9px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);font-size:.8rem;font-weight:900;cursor:pointer;font-family:inherit">✏️ 單筆輸入</button>
+        <button id="mode-batch-btn" onclick="setAiMode('batch',this)"
+          style="flex:1;padding:9px 4px;border-radius:9px;background:none;color:var(--t2);border:1.5px solid var(--border);font-size:.8rem;font-weight:900;cursor:pointer;font-family:inherit">📋 批次貼入</button>
+      </div>
+      <!-- 單筆模式 -->
+      <div id="ai-single-row" style="display:flex;gap:8px">
         <input type="text" class="fc" id="ai-input" placeholder="說話或輸入，例：今天早餐蛋餅100元" style="flex:1;font-size:.85rem">
         <button id="ai-btn" onclick="submitAI()" style="padding:12px 16px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap;min-width:80px">AI 記帳</button>
       </div>
-      <div style="font-size:.7rem;color:var(--t3);margin-top:4px">輸入自然語言，AI 自動辨識分類・金額・日期</div>
+      <!-- 批次模式 -->
+      <div id="ai-batch-row" style="display:none">
+        <textarea id="ai-batch-input" class="fc"
+          placeholder="貼入多筆記帳文字，一行一筆或自由格式，例：&#10;晚餐 300元&#10;計程車費 150元 信用卡&#10;飲料 50元 現金&#10;早餐 375元 (2026-05-31)"
+          style="width:100%;height:120px;resize:none;font-size:.83rem;line-height:1.6;padding:10px 12px;box-sizing:border-box"></textarea>
+        <button onclick="submitBatch()"
+          style="width:100%;margin-top:7px;padding:13px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;font-size:.88rem">🤖 AI 解析並記帳</button>
+      </div>
+      <div id="ai-mode-hint" style="font-size:.7rem;color:var(--t3);margin-top:4px">輸入自然語言，AI 自動辨識分類・金額・日期</div>
       <div id="api-hint" style="display:none;margin-top:8px;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.3);border-radius:8px;padding:10px 12px;font-size:.76rem;color:var(--warn);line-height:1.6">
         ⚠️ <b>API Key 需要解除限制：</b><br>
         1. 打開 <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--p)">Google Cloud Console</a><br>
@@ -546,6 +561,55 @@ function startVoiceInput() {
 
   // iOS 關鍵：直接呼叫 start()，不包在 try/catch 裡
   recognition.start();
+}
+
+
+// ── 批次貼入模式切換 ──────────────────────────────────
+let _aiMode = 'single';
+function setAiMode(mode, el) {
+  _aiMode = mode;
+  const isBatch = mode === 'batch';
+  document.getElementById('ai-single-row').style.display = isBatch ? 'none' : 'flex';
+  document.getElementById('ai-batch-row').style.display  = isBatch ? 'block' : 'none';
+  document.getElementById('mode-single-btn').style.background = isBatch ? 'none' : 'var(--pdim)';
+  document.getElementById('mode-single-btn').style.color = isBatch ? 'var(--t2)' : 'var(--p)';
+  document.getElementById('mode-single-btn').style.borderColor = isBatch ? 'var(--border)' : 'var(--p)';
+  document.getElementById('mode-batch-btn').style.background = isBatch ? 'var(--pdim)' : 'none';
+  document.getElementById('mode-batch-btn').style.color = isBatch ? 'var(--p)' : 'var(--t2)';
+  document.getElementById('mode-batch-btn').style.borderColor = isBatch ? 'var(--p)' : 'var(--border)';
+  const hint = document.getElementById('ai-mode-hint');
+  if (hint) hint.textContent = isBatch
+    ? '貼入任意格式的多筆消費文字，AI 自動解析每一筆'
+    : '輸入自然語言，AI 自動辨識分類・金額・日期';
+  if (isBatch) setTimeout(()=>document.getElementById('ai-batch-input').focus(), 100);
+}
+
+// ── 批次解析送出 ─────────────────────────────────────
+async function submitBatch() {
+  const text = document.getElementById('ai-batch-input').value.trim();
+  if (!text) { toast('請貼入記帳文字', 'warn'); return; }
+  const btn = document.querySelector('#ai-batch-row button[onclick="submitBatch()"]');
+  if (btn) { btn.textContent = '🤖 AI 解析中...'; btn.disabled = true; }
+  try {
+    const results = await callClaude(text);
+    if (!results || !results.length) throw new Error('AI 未辨識到任何記帳資料');
+    document.getElementById('ai-batch-input').value = '';
+    if (results.length === 1) {
+      applySingleResult(results[0]);
+      toast('已解析 1 筆，請確認後記帳');
+    } else {
+      openMultiConfirmModal(results);
+    }
+    // 解析完自動切回單筆模式
+    setAiMode('single', document.getElementById('mode-single-btn'));
+  } catch(e) {
+    console.warn('[批次記帳]', e);
+    const msg = e.message || '';
+    if (msg.includes('429')) toast('⏳ AI 使用頻繁，請稍待 1 分鐘再試', 'warn');
+    else toast('AI 解析失敗：' + msg.slice(0,40), 'err');
+  } finally {
+    if (btn) { btn.textContent = '🤖 AI 解析並記帳'; btn.disabled = false; }
+  }
 }
 
 async function submitAI() {
