@@ -477,6 +477,44 @@ function fmtPeriod() {
   return `${s.getMonth()+1}/${s.getDate()} ～ ${e.getMonth()+1}/${e.getDate()}`;
 }
 
+
+// ── 收入管理 ─────────────────────────────────────────
+const DEF_INCOME_SOURCES = ['薪資','獎金','投資','其他'];
+function getIncomeSources() { return DB.get('income_sources') || DEF_INCOME_SOURCES.slice(); }
+function saveIncomeSources(list) { DB.set('income_sources', list); }
+function addIncomeSource(name) {
+  const list = getIncomeSources();
+  if (!list.includes(name)) { list.push(name); saveIncomeSources(list); }
+  return list;
+}
+function delIncomeSource(name) {
+  saveIncomeSources(getIncomeSources().filter(s => s !== name));
+}
+
+function getIncomes() { return DB.get('incomes') || []; }
+function saveIncomes(list) { DB.set('incomes', list); }
+function addIncome(inc) {
+  const list = getIncomes();
+  inc.id = inc.id || ('inc_' + Date.now() + '_' + Math.random().toString(36).slice(2,6));
+  inc.at = inc.at || new Date().toISOString();
+  list.unshift(inc);
+  saveIncomes(list);
+  return inc;
+}
+function updateIncome(id, patch) {
+  const list = getIncomes();
+  const item = list.find(i => i.id === id);
+  if (item) { Object.assign(item, patch); saveIncomes(list); }
+}
+function delIncome(id) {
+  saveIncomes(getIncomes().filter(i => i.id !== id));
+}
+// 依週期月取收入
+function incomesByPeriod(now) {
+  const {start, end} = getBudgetPeriod(now);
+  return getIncomes().filter(i => { const d = new Date(i.at); return d >= start && d <= end; });
+}
+
 // ── Discord 設定 ─────────────────────────────────────
 function getDiscord() {
   return DB.get('discord') || {webhook:'',onAdd:true,onDaily:true,dailyHour:21,onBudget:true,budgetPct:80,onWeekly:false,onMonthly:false,monthlyDay:11};

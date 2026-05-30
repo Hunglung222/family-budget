@@ -72,6 +72,35 @@ async function fbPullSharedAccts(){
   }catch(e){}
 }
 
+
+// ── 收入同步（兩人共用）──────────────────────────────
+async function fbSyncIncomes(){
+  try{await getDb().collection('shared').doc('incomes').set({list:getIncomes(),updatedAt:Date.now()});}
+  catch(e){console.warn('[FB]incomes',e);}
+}
+async function fbPullIncomes(){
+  try{
+    const d=await getDb().collection('shared').doc('incomes').get();
+    if(d.exists&&d.data().list) saveIncomes(d.data().list);
+  }catch(e){}
+}
+async function fbSyncIncomeSources(){
+  try{await getDb().collection('shared').doc('income_sources').set({list:getIncomeSources(),updatedAt:Date.now()});}
+  catch(e){console.warn('[FB]income_sources',e);}
+}
+async function fbPullIncomeSources(){
+  try{
+    const d=await getDb().collection('shared').doc('income_sources').get();
+    if(d.exists&&d.data().list) saveIncomeSources(d.data().list);
+  }catch(e){}
+}
+function fbListenIncomes(cb){
+  try{return getDb().collection('shared').doc('incomes').onSnapshot(snap=>{
+    if(snap.exists&&snap.data().list){ saveIncomes(snap.data().list); cb&&cb(); }
+  },e=>console.warn('[FB]listen incomes',e));}
+  catch(e){return()=>{};}
+}
+
 // ── 信用卡名稱共用對照表（讓盈慧看到宏龍的卡名）────
 async function fbSyncCardNames(){
   try{
