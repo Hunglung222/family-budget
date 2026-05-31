@@ -81,7 +81,7 @@
       <button class="nk del" onclick="nkd()">⌫</button>
       <button class="nk z" onclick="nk(0)">0</button>
       <button class="nk go" onclick="goStep2()" style="grid-row:span 2">確認<br>金額</button>
-      <button class="nk" id="voice-btn" onclick="startVoiceInput()"
+      <button class="nk" id="voice-btn" onclick="startVoiceInput(this)"
         style="grid-column:span 2;padding:16px;font-size:1.4rem;display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card2);border:1.5px solid var(--border)">
         🎤 <span id="voice-txt" style="font-size:.88rem;font-weight:700;color:var(--t2)">語音記帳</span>
       </button>
@@ -499,7 +499,21 @@ clean = clean.trim();
 // ── 語音輸入 ─────────────────────────────────────────
 let voiceRec = null;
 
-function startVoiceInput() {
+// 恢復語音按鈕到預設狀態（依按鈕 id 不同恢復對應文字）
+function restoreVoiceBtn(btn) {
+  if (!btn) return;
+  btn.style.background = btn.id === 'voice-btn' ? 'var(--card2)' : 'linear-gradient(135deg,var(--p),var(--p2))';
+  btn.style.borderColor = btn.id === 'voice-btn' ? 'var(--border)' : 'transparent';
+  if (btn.id === 'ai-btn') {
+    // ai-btn：依輸入框有無文字決定顯示
+    const hasText = (document.getElementById('ai-input')?.value || '').trim().length > 0;
+    btn.textContent = hasText ? 'AI 記帳' : '🎤 語音';
+  } else {
+    btn.innerHTML = '🎤 <span id="voice-txt" style="font-size:.88rem;font-weight:700;color:var(--t2)">語音記帳</span>';
+  }
+}
+
+function startVoiceInput(sourceBtn) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
     toast('此裝置不支援語音，請直接輸入文字', 'warn');
@@ -514,7 +528,8 @@ function startVoiceInput() {
     return;
   }
 
-  const btn = document.getElementById('voice-btn');
+  // 決定要顯示錄音狀態的按鈕：誰觸發就改誰，fallback 到 voice-btn
+  const btn = sourceBtn || document.getElementById('voice-btn');
   const recognition = new SR();
   recognition.lang = 'zh-TW';
   recognition.interimResults = false;
@@ -522,7 +537,12 @@ function startVoiceInput() {
 
   recognition.onstart = () => {
     voiceRec = recognition;
-    btn.textContent = '🔴';
+    // ai-btn 顯示文字提示，voice-btn 只顯示圓點
+    if (btn.id === 'ai-btn') {
+      btn.textContent = '🔴 聆聽中';
+    } else {
+      btn.innerHTML = '🔴 <span style="font-size:.88rem;font-weight:700;color:var(--danger)">聆聽中</span>';
+    }
     btn.style.background = 'rgba(244,63,94,.15)';
     btn.style.borderColor = 'var(--danger)';
     toast('聆聽中…說完會自動送出', 'info');
@@ -537,9 +557,7 @@ function startVoiceInput() {
   recognition.onerror = (e) => {
     console.warn('[Voice] error:', e.error);
     voiceRec = null;
-    btn.textContent = '🎤';
-    btn.style.background = 'var(--card)';
-    btn.style.borderColor = 'var(--border)';
+    restoreVoiceBtn(btn);
     if (e.error === 'aborted') return;
     const errMap = {
       'not-allowed':         '請允許麥克風權限，並確認已按「允許」',
@@ -554,9 +572,7 @@ function startVoiceInput() {
 
   recognition.onend = () => {
     voiceRec = null;
-    btn.textContent = '🎤';
-    btn.style.background = 'var(--card)';
-    btn.style.borderColor = 'var(--border)';
+    restoreVoiceBtn(btn);
   };
 
   // iOS 關鍵：直接呼叫 start()，不包在 try/catch 裡
@@ -617,7 +633,7 @@ async function submitAI() {
   // 沒輸入文字 → 自動切換成語音輸入模式（雙用按鈕）
   if (!text) {
     if (typeof startVoiceInput === 'function') {
-      startVoiceInput();
+      startVoiceInput(document.getElementById('ai-btn'));
       return;
     }
     toast('請輸入描述', 'warn'); return;
