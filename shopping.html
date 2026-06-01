@@ -362,8 +362,8 @@ function orderNextMonth() {
 
 function init() {
   updateOrderMonthLabel();
-  // 預設顯示網購管理分頁
-  switchShopTab('order');
+  // 預設停留在寄杯追蹤分頁
+  switchShopTab('cup');
   fbPullCups().then(() => renderCups());
   fbListenCups();
   applyTheme();
