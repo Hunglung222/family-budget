@@ -360,6 +360,62 @@
   </div>
 </div>
 
+<!-- ══ K 線圖 Modal ══ -->
+<div class="ov" id="kline-modal">
+  <div class="sheet" style="height:92dvh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)">
+    <div class="sh"></div>
+    <!-- 標頭 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:.95rem;font-weight:900;color:var(--t)" id="kl-name"></div>
+        <div style="font-size:.72rem;color:var(--t3);margin-top:2px" id="kl-symbol"></div>
+      </div>
+      <button onclick="closeModal('kline-modal')"
+        style="width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:.9rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <!-- K 線週期選擇 -->
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button class="pill-sm" id="kl-tab-5"  onclick="setKlineInterval('5')" >分K（5分）</button>
+      <button class="pill-sm" id="kl-tab-60" onclick="setKlineInterval('60')">時K</button>
+      <button class="pill-sm on" id="kl-tab-D" onclick="setKlineInterval('D')" >日K</button>
+      <button class="pill-sm" id="kl-tab-W"  onclick="setKlineInterval('W')" >週K</button>
+      <button class="pill-sm" id="kl-tab-M"  onclick="setKlineInterval('M')" >月K</button>
+    </div>
+    <!-- 技術指標選擇 -->
+    <div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.72rem;color:var(--t3);font-weight:700">📊 技術指標 <span id="kl-ind-count" style="color:var(--p)"></span></span>
+        <button onclick="resetKlIndicators()" style="padding:3px 10px;background:var(--card2);color:var(--t3);border:1px solid var(--border);border-radius:50px;font-size:.7rem;cursor:pointer;font-family:inherit">重置</button>
+      </div>
+      <!-- 指標 chips（JS 動態生成）-->
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:3px">
+        <div id="kl-ind-chips" style="display:flex;gap:5px;width:max-content"></div>
+      </div>
+    </div>
+    <!-- 圖表區 -->
+    <div style="flex:1;position:relative;min-height:0;border-radius:10px;overflow:hidden;background:var(--card)">
+      <div id="kl-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);font-size:.82rem;z-index:1">
+        <div style="font-size:1.5rem">📊</div>
+        <div>圖表載入中…</div>
+      </div>
+      <div id="kl-unsupported" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:10px;color:var(--t3);text-align:center;padding:20px">
+        <div style="font-size:2rem">📋</div>
+        <div style="font-size:.85rem;font-weight:700;color:var(--t2)">此投資類型無 K 線圖</div>
+        <div style="font-size:.76rem;line-height:1.6">定存、基金、不動產等非交易所標的<br>無法透過 TradingView 顯示 K 線</div>
+      </div>
+      <iframe id="kline-iframe"
+        style="width:100%;height:100%;border:none;display:none"
+        allow="fullscreen"
+        onload="document.getElementById('kl-loading').style.display='none';this.style.display='block'">
+      </iframe>
+    </div>
+    <!-- 說明 -->
+    <div style="font-size:.68rem;color:var(--t3);text-align:center;padding:8px 0 2px;line-height:1.5">
+      圖表資料來源：TradingView　·　台股格式 <code style="background:var(--card2);padding:1px 5px;border-radius:3px;font-size:.68rem">TWSE:2330</code>　上櫃 <code style="background:var(--card2);padding:1px 5px;border-radius:3px;font-size:.68rem">TPEX:代號</code>
+    </div>
+  </div>
+</div>
+
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
@@ -593,8 +649,10 @@ function invCardHTML(inv) {
 
     <!-- 操作 -->
     <div style="display:flex;gap:7px">
+      <button onclick="openKlineModal('${inv.id}')"
+        style="flex:1;padding:9px;background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.3);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">📈 K線</button>
       <button onclick="showPriceUpdate('${inv.id}')"
-        style="flex:1;padding:9px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">💹 更新市值</button>
+        style="flex:1;padding:9px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">💹 更新</button>
       <button onclick="editInv('${inv.id}')"
         style="padding:9px 12px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">✏️</button>
       <button onclick="confirmDelInv('${inv.id}')"
@@ -710,6 +768,183 @@ function confirmDelInv(id) {
     render();
     toast('已刪除', 'err');
   };
+}
+
+
+// ══ K 線圖功能 ════════════════════════════════════════
+
+let _klSymbol   = '';
+let _klInterval = 'D';
+let _klStudies  = new Set();   // 目前已選的指標 id
+let _klApplyTimer = null;
+const KL_CHART_TYPES = new Set(['stock','etf','us_stock','crypto']);
+
+// 14 個技術指標定義（TradingView study ID）
+const KL_INDICATORS = [
+  // ── 趨勢 / 均線 ──
+  { id:'ma',   label:'均線(MA)',  tv:'MASimple@tv-basicstudies',  group:'趨勢' },
+  { id:'ema',  label:'EMA',       tv:'MAExp@tv-basicstudies',     group:'趨勢' },
+  { id:'bb',   label:'布林帶',    tv:'BB@tv-basicstudies',        group:'趨勢' },
+  { id:'vwap', label:'VWAP',      tv:'VWAP@tv-basicstudies',      group:'趨勢' },
+  { id:'sar',  label:'SAR',       tv:'SAR@tv-basicstudies',       group:'趨勢' },
+  // ── 動能 / 震盪 ──
+  { id:'rsi',  label:'RSI',       tv:'RSI@tv-basicstudies',       group:'動能' },
+  { id:'macd', label:'MACD',      tv:'MACD@tv-basicstudies',      group:'動能' },
+  { id:'kd',   label:'KD',        tv:'Stoch@tv-basicstudies',     group:'動能' },
+  { id:'cci',  label:'CCI',       tv:'CCI@tv-basicstudies',       group:'動能' },
+  { id:'wr',   label:'W%R',       tv:'WilliamsR@tv-basicstudies', group:'動能' },
+  { id:'adx',  label:'ADX/DMI',   tv:'DMI@tv-basicstudies',       group:'動能' },
+  // ── 量能 ──
+  { id:'vol',  label:'成交量',    tv:'Volume@tv-basicstudies',    group:'量能' },
+  { id:'obv',  label:'OBV',       tv:'OBV@tv-basicstudies',       group:'量能' },
+  // ── 波動 ──
+  { id:'atr',  label:'ATR',       tv:'ATR@tv-basicstudies',       group:'波動' },
+];
+
+// 建立指標 chips（依分組顯示分隔線）
+function buildKlIndicatorChips() {
+  const el = document.getElementById('kl-ind-chips');
+  if (!el) return;
+  let lastGroup = '';
+  el.innerHTML = KL_INDICATORS.map(ind => {
+    let sep = '';
+    if (ind.group !== lastGroup && lastGroup !== '') {
+      sep = '<div style="width:1px;height:26px;background:var(--border);flex-shrink:0;align-self:center"></div>';
+    }
+    lastGroup = ind.group;
+    const isOn = _klStudies.has(ind.id);
+    return sep + `<button class="pill-sm kl-ind-btn${isOn?' on':''}" id="kl-ind-${ind.id}"
+      onclick="toggleKlIndicator('${ind.id}',this)"
+      style="padding:5px 10px;font-size:.72rem;white-space:nowrap;flex-shrink:0">${ind.label}</button>`;
+  }).join('');
+}
+
+// 切換指標
+function toggleKlIndicator(id, el) {
+  if (_klStudies.has(id)) { _klStudies.delete(id); el.classList.remove('on'); }
+  else                    { _klStudies.add(id);    el.classList.add('on'); }
+  const countEl = document.getElementById('kl-ind-count');
+  if (countEl) countEl.textContent = _klStudies.size > 0 ? `(${_klStudies.size} 個)` : '';
+  clearTimeout(_klApplyTimer);
+  _klApplyTimer = setTimeout(applyKlIndicators, 700);  // 700ms debounce
+}
+
+// 重置全部指標
+function resetKlIndicators() {
+  _klStudies.clear();
+  document.querySelectorAll('.kl-ind-btn').forEach(b => b.classList.remove('on'));
+  const countEl = document.getElementById('kl-ind-count');
+  if (countEl) countEl.textContent = '';
+  updateKlineChart();
+}
+
+// 套用（debounce 後呼叫）
+function applyKlIndicators() { updateKlineChart(); }
+
+// 依投資類型建立 TradingView symbol
+function buildTVSymbol(inv) {
+  const ticker = (inv.name || '').toUpperCase().replace(/\s/g,'');
+  const type   = inv.type || 'stock';
+  if (type === 'us_stock')  return ticker;              // 美股：直接代號，TV 自動找交易所
+  if (type === 'crypto') {
+    const t = ticker.replace(/USD.*$/,'');
+    return 'BINANCE:' + t + 'USDT';
+  }
+  // 台股 / ETF：預設 TWSE（上市），上櫃需手動改搜尋
+  return 'TWSE:' + ticker;
+}
+
+// 開啟 K 線 Modal
+function openKlineModal(invId) {
+  const inv = getInvestments().find(i => i.id === invId);
+  if (!inv) return;
+
+  const nameEl   = document.getElementById('kl-name');
+  const symbolEl = document.getElementById('kl-symbol');
+  const unsup    = document.getElementById('kl-unsupported');
+  const iframe   = document.getElementById('kline-iframe');
+  const loading  = document.getElementById('kl-loading');
+
+  if (nameEl)   nameEl.textContent   = inv.name + (inv.fullName ? '（' + inv.fullName + '）' : '');
+
+  // 判斷是否支援 K 線
+  if (!KL_CHART_TYPES.has(inv.type || 'stock')) {
+    if (symbolEl)  symbolEl.textContent = '';
+    if (unsup)     unsup.style.display  = 'flex';
+    if (iframe)    iframe.style.display = 'none';
+    if (loading)   loading.style.display= 'none';
+    showModal('kline-modal');
+    return;
+  }
+
+  if (unsup) unsup.style.display = 'none';
+
+  _klSymbol   = buildTVSymbol(inv);
+  _klInterval = 'D';
+  _klStudies.clear();   // 每次開啟重置指標選擇
+
+  if (symbolEl) symbolEl.textContent = 'TradingView · ' + _klSymbol;
+
+  // 建立指標 chips
+  buildKlIndicatorChips();
+  const countEl = document.getElementById('kl-ind-count');
+  if (countEl) countEl.textContent = '';
+
+  // 重置 tab 按鈕，預設日K
+  setKlineInterval('D', true);
+
+  showModal('kline-modal');
+}
+
+// 切換週期
+function setKlineInterval(interval, skipModal) {
+  _klInterval = interval;
+
+  // 更新 tab 樣式
+  ['5','60','D','W','M'].forEach(k => {
+    document.getElementById('kl-tab-' + k)?.classList.remove('on');
+  });
+  document.getElementById('kl-tab-' + interval)?.classList.add('on');
+
+  if (!_klSymbol) return;
+
+  // 更新 iframe
+  const iframe  = document.getElementById('kline-iframe');
+  const loading = document.getElementById('kl-loading');
+  if (!iframe) return;
+
+  // 顯示 loading，隱藏舊圖
+  if (loading) loading.style.display = 'flex';
+  iframe.style.display = 'none';
+
+  // 依週期設定預設顯示範圍
+  const rangeMap = { '5':'1D', '60':'5D', 'D':'6M', 'W':'3Y', 'M':'all' };
+  const range    = rangeMap[interval] || '6M';
+
+  const params = new URLSearchParams({
+    frameElementId: 'kl_tv',
+    symbol:         _klSymbol,
+    interval:       interval,
+    hidesidetoolbar:'1',
+    saveimage:      '0',
+    theme:          'dark',
+    style:          '1',
+    timezone:       'Asia/Taipei',
+    locale:         'zh_TW',
+    withdateranges: '1',
+    range:          range,
+    hide_legend:    '0',
+  });
+
+  // 附加選中的技術指標
+  if (_klStudies.size > 0) {
+    const studiesArr = Array.from(_klStudies)
+      .map(id => KL_INDICATORS.find(i => i.id === id)?.tv)
+      .filter(Boolean);
+    if (studiesArr.length) params.set('studies', JSON.stringify(studiesArr));
+  }
+
+  iframe.src = 'https://s.tradingview.com/widgetembed/?' + params.toString();
 }
 
 // ── 工具 ─────────────────────────────────────────────

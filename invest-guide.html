@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>投資大師說明書</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.g-hero{background:linear-gradient(135deg,rgba(0,229,180,.12),rgba(79,142,247,.08));border:1px solid rgba(0,229,180,.2);border-radius:var(--r);padding:20px 16px;margin-bottom:20px;text-align:center}
+.g-hero-icon{font-size:2.8rem;margin-bottom:8px}
+.g-hero-title{font-size:1.2rem;font-weight:900;color:var(--p);margin-bottom:4px}
+.g-hero-sub{font-size:.78rem;color:var(--t3)}
+.g-sec{margin-bottom:24px}
+.g-sec-title{font-size:.82rem;font-weight:900;color:var(--t2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.g-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px}
+.g-card-head{font-size:.88rem;font-weight:700;color:var(--t);margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.g-card-body{font-size:.8rem;color:var(--t2);line-height:1.7}
+.g-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:8px}
+.g-step-num{background:var(--p);color:#000;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;flex-shrink:0;margin-top:1px}
+.g-step-text{font-size:.82rem;color:var(--t2);line-height:1.5}
+.g-tip{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--warn);line-height:1.5;margin-top:8px}
+.g-warn{background:rgba(244,63,94,.08);border:1px solid rgba(244,63,94,.25);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--danger);line-height:1.5;margin-top:8px}
+.g-ok{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);border-radius:8px;padding:10px 12px;font-size:.78rem;color:var(--ok);line-height:1.5;margin-top:8px}
+.tab-badge{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:50px;font-size:.78rem;font-weight:700;margin-right:6px;margin-bottom:6px}
+.tb-p{background:rgba(0,229,180,.12);color:var(--p)}
+.tb-h{background:rgba(79,142,247,.12);color:#7dd3fc}
+.tb-y{background:rgba(245,158,11,.12);color:var(--warn)}
+.g-table{width:100%;border-collapse:collapse;font-size:.8rem;margin:8px 0}
+.g-table th{background:var(--card2);color:var(--t2);padding:7px 10px;text-align:left;border-bottom:1px solid var(--border)}
+.g-table td{padding:7px 10px;border-bottom:1px solid var(--bg);color:var(--t2);vertical-align:top}
+.g-table tr:last-child td{border-bottom:none}
+.light-tag{font-size:.7rem;padding:2px 8px;border-radius:50px;font-weight:700}
+.lt-done{background:rgba(34,197,94,.12);color:var(--ok)}
+.lt-plan{background:rgba(251,191,36,.12);color:var(--warn)}
+code{background:var(--card2);color:var(--p);padding:1px 6px;border-radius:4px;font-size:.82rem}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button onclick="history.back()" class="hdr-btn">‹</button>
+    <div>
+      <h1 style="font-size:1rem;margin:0">📈 投資大師說明書</h1>
+      <div style="font-size:.68rem;color:var(--t3);margin-top:1px">使用指南・功能說明</div>
+    </div>
+  </div>
+</header>
+
+<div class="w">
+
+  <!-- Hero -->
+  <div class="g-hero">
+    <div class="g-hero-icon">📈</div>
+    <div class="g-hero-title">投資大師</div>
+    <div class="g-hero-sub">持倉追蹤 · 財務健康診斷 · 老余 AI 顧問</div>
+    <div style="margin-top:12px">
+      <span class="tab-badge tb-p">📊 持倉</span>
+      <span class="tab-badge tb-h">🏥 財務健康</span>
+      <span class="tab-badge tb-y">🦁 老余</span>
+    </div>
+  </div>
+
+  <!-- 入口 -->
+  <div class="g-sec">
+    <div class="g-sec-title">🔍 如何進入</div>
+    <div class="g-card">
+      <div class="g-card-body">
+        底部導覽列點 <code>📈 投資</code>，進入後切換三個分頁使用。
+      </div>
+    </div>
+  </div>
+
+  <!-- 持倉 -->
+  <div class="g-sec">
+    <div class="g-sec-title">📊 持倉分頁</div>
+
+    <div class="g-card">
+      <div class="g-card-head">➕ 新增投資記錄</div>
+      <div class="g-step"><div class="g-step-num">1</div><div class="g-step-text">點右上角「＋」按鈕</div></div>
+      <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">選投資類型（台股、ETF、美股、基金、定存、加密貨幣、不動產、其他）</div></div>
+      <div class="g-step"><div class="g-step-num">3</div><div class="g-step-text">輸入代號，常見標的會自動帶入中文名稱（0050、2330、00878 等）</div></div>
+      <div class="g-step"><div class="g-step-num">4</div><div class="g-step-text">填買入總金額（必填）和股數（選填，填了自動算均價）</div></div>
+      <div class="g-step"><div class="g-step-num">5</div><div class="g-step-text">填目前市值 → 新增</div></div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">💹 更新市值（最重要的日常操作）</div>
+      <div class="g-card-body">市值不會自動更新，需手動維護，損益計算才準確。</div>
+      <div class="g-step" style="margin-top:10px"><div class="g-step-num">1</div><div class="g-step-text">在持倉列表找到該標的，點「💹 更新市值」</div></div>
+      <div class="g-step"><div class="g-step-num">2</div><div class="g-step-text">系統顯示目前成本和現值供參考，輸入最新市值後點更新</div></div>
+      <div class="g-tip">💡 <b>計算範例</b>：持有 1,000 股 0050，今天收盤 $202.5，市值輸入 <code>202500</code></div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">📋 持倉卡片欄位說明</div>
+      <table class="g-table">
+        <tr><th>欄位</th><th>說明</th></tr>
+        <tr><td>買入成本</td><td>當初花的錢（固定不變）</td></tr>
+        <tr><td>目前市值</td><td>現在值多少（手動更新）</td></tr>
+        <tr><td>損益</td><td>市值 − 成本，正數綠色/負數紅色</td></tr>
+        <tr><td>報酬率</td><td>損益 ÷ 成本 × 100%，含進度條</td></tr>
+      </table>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">📊 頂部總覽卡片</div>
+      <table class="g-table">
+        <tr><th>欄位</th><th>說明</th></tr>
+        <tr><td>總投入成本</td><td>所有持倉買入成本加總</td></tr>
+        <tr><td>當前市值</td><td>所有持倉現值加總</td></tr>
+        <tr><td>未實現損益</td><td>市值 − 成本（帳面損益，尚未賣出）</td></tr>
+        <tr><td>整體報酬率</td><td>全部持倉平均報酬率</td></tr>
+      </table>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">🥧 資產配置圓餅圖</div>
+      <div class="g-card-body">依投資類型（台股/ETF/美股/基金等）自動統計各類占比，有持倉才顯示。可看出資產是否過度集中。</div>
+    </div>
+  </div>
+
+  <!-- 財務健康 -->
+  <div class="g-sec">
+    <div class="g-sec-title">🏥 財務健康分頁</div>
+    <div class="g-warn">⚠️ 需先在 <code>錢包 → 💵 收入</code> 記錄收入，計算才準確。若顯示「尚無收入記錄」，請先補記。</div>
+
+    <div class="g-card" style="margin-top:10px">
+      <div class="g-card-head">① 近3個月收支快照</div>
+      <table class="g-table">
+        <tr><th>項目</th><th>說明</th></tr>
+        <tr><td>月均收入</td><td>錢包收入記錄近3個月平均</td></tr>
+        <tr><td>月均支出</td><td>記帳交易近3個月平均</td></tr>
+        <tr><td>分期月付</td><td>進行中分期的每月負擔合計</td></tr>
+        <tr><td><b>月可投資金額</b></td><td>收入 − 支出 − 分期<br>🟢 綠色=健康　🟡 橙色=打平　🔴 紅色=入不敷出</td></tr>
+      </table>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">② 緊急備用金（紅黃綠燈）</div>
+      <div class="g-card-body" style="margin-bottom:8px">現金（錢包＋帳戶）÷（月均支出 × 6）= 幾個月份的備用金</div>
+      <table class="g-table">
+        <tr><th>燈號</th><th>比例</th><th>意義</th></tr>
+        <tr><td>🟢 綠燈</td><td>100% 以上</td><td>充足，安心投資</td></tr>
+        <tr><td>🟡 黃燈</td><td>50 ～ 100%</td><td>尚可，繼續存</td></tr>
+        <tr><td>🔴 紅燈</td><td>50% 以下</td><td>不足，優先補備用金</td></tr>
+      </table>
+      <div class="g-tip">💡 一般建議備用金要有 6 個月生活費再積極投資。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">③ 負債壓力指數</div>
+      <div class="g-card-body" style="margin-bottom:8px">計算內容：信用卡未繳帳單 ＋ 分期剩餘總額，除以月均收入</div>
+      <table class="g-table">
+        <tr><th>燈號</th><th>比例</th><th>建議</th></tr>
+        <tr><td>🟢 ≤ 20%</td><td>負債健康</td><td>可安心投資</td></tr>
+        <tr><td>🟡 20～35%</td><td>稍高</td><td>留意，勿擴大負債</td></tr>
+        <tr><td>🔴 > 35%</td><td>壓力偏重</td><td>建議先清債再投資</td></tr>
+      </table>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">④ 投資現況 ＋ 1 年預估</div>
+      <div class="g-card-body">連結持倉資料，顯示總市值、未實現損益，以及若每月持續投入、年化 5% 複利的 1 年後預估值。</div>
+      <div class="g-warn">⚠️ 5% 年化只是試算參考，不代表保證獲利。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">⑤ 老余的建議</div>
+      <div class="g-card-body">根據儲蓄率、備用金缺口、負債比率自動生成文字建議，每次進入即時計算。</div>
+    </div>
+  </div>
+
+  <!-- 老余 AI -->
+  <div class="g-sec">
+    <div class="g-sec-title">🦁 老余 AI 顧問分頁</div>
+    <div class="g-warn">⚠️ 需在 <code>設定 → API 設定</code> 填入 Claude API Key，老余才能開口說話。</div>
+
+    <div class="g-card" style="margin-top:10px">
+      <div class="g-card-head">🦁 老余是誰？</div>
+      <div class="g-card-body">台灣在地投資理財顧問 AI，個性務實、穩重，偶爾說一句台語。<br>他不報明牌、不預測漲跌，專注幫你守財、規劃、分析。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">💬 快速提問（6 個常用問題）</div>
+      <div class="g-card-body">進入分頁後顯示，點一下就問：</div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:.8rem;color:var(--t2)">
+        <li>我每個月應該投資多少？</li>
+        <li>我的投資組合健康嗎？</li>
+        <li>0050 和 00878 該怎麼選？</li>
+        <li>如何加快存到緊急備用金？</li>
+        <li>現在適合買股票嗎？</li>
+        <li>幫我做一個整體財務分析</li>
+      </ul>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">📊 老余每次對話帶入的資料</div>
+      <div class="g-card-body">老余不是泛用 AI，開口前已看過你的：</div>
+      <ul style="margin:8px 0 0;padding-left:18px;font-size:.8rem;color:var(--t2)">
+        <li>月均收入、支出、可投資金額、儲蓄率</li>
+        <li>緊急備用金狀況（幾個月份）</li>
+        <li>負債比率（信用卡 ＋ 分期）</li>
+        <li>每筆持倉成本 / 現值 / 損益</li>
+        <li>進行中分期清單</li>
+      </ul>
+      <div class="g-ok">✅ <b>最有效的問法</b>：「我現在財務狀況適合買 00878 嗎？」「我每月有 $18,000 可投資，建議怎麼配置？」— 結合個人情況，老余回答最準。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">🔄 對話記憶</div>
+      <div class="g-card-body">同一次開啟 App 期間，老余記住最近 10 輪對話，可以追問細節。關掉 App 重開後對話歸零，每次都是全新的財務快照。</div>
+    </div>
+  </div>
+
+  <!-- 注意事項 -->
+  <div class="g-sec">
+    <div class="g-sec-title">⚠️ 重要注意事項</div>
+
+    <div class="g-card">
+      <div class="g-card-head">市值需要手動更新</div>
+      <div class="g-card-body">沒有即時股價（需外部 API），建議每週或重大漲跌時更新一次，損益計算才有意義。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">只有你看得到</div>
+      <div class="g-card-body">投資記錄儲存在你的私密路徑（uid），盈慧看不到。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">資料品質影響計算準確度</div>
+      <div class="g-card-body">收支記帳越完整，財務健康診斷越準確，老余的建議越有參考價值。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">老余不是正式財務顧問</div>
+      <div class="g-card-body">所有建議僅供參考，不構成正式投資建議。重大決策請自行評估或諮詢專業人士。</div>
+    </div>
+  </div>
+
+  <!-- K 線圖 -->
+  <div class="g-sec">
+    <div class="g-sec-title">📈 K 線圖查詢</div>
+
+    <div class="g-card">
+      <div class="g-card-head">怎麼開</div>
+      <div class="g-card-body">持倉列表每張卡片有「📈 K線」按鈕，點開後顯示 TradingView 圖表。</div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">⏱ K 線週期</div>
+      <table class="g-table">
+        <tr><th>按鈕</th><th>說明</th><th>預設顯示範圍</th></tr>
+        <tr><td><b>分K（5分）</b></td><td>5 分鐘 K 棒</td><td>近 1 天</td></tr>
+        <tr><td><b>時K</b></td><td>60 分鐘 K 棒</td><td>近 5 天</td></tr>
+        <tr><td><b>日K</b>（預設）</td><td>每日 K 棒</td><td>近 6 個月</td></tr>
+        <tr><td><b>週K</b></td><td>每週 K 棒</td><td>近 3 年</td></tr>
+        <tr><td><b>月K</b></td><td>每月 K 棒</td><td>全部歷史</td></tr>
+      </table>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">📊 技術指標（14 個，多選）</div>
+      <div class="g-card-body" style="margin-bottom:10px">指標 chips 在週期選擇下方，點選後 0.7 秒自動重載圖表，可同時選多個。點「重置」清除全部。</div>
+      <table class="g-table">
+        <tr><th>分類</th><th>指標</th><th>用途說明</th></tr>
+        <tr><td rowspan="5" style="color:var(--p);font-weight:700">趨勢</td><td>均線（MA）</td><td>簡單移動平均，判斷趨勢方向</td></tr>
+        <tr><td>EMA</td><td>指數移動平均，對近期價格更敏感</td></tr>
+        <tr><td>布林帶（BB）</td><td>顯示價格波動區間，突破上下軌是訊號</td></tr>
+        <tr><td>VWAP</td><td>成交量加權均價，機構法人常用參考</td></tr>
+        <tr><td>SAR</td><td>拋物線 SAR，判斷趨勢反轉點</td></tr>
+        <tr><td rowspan="6" style="color:#fbbf24;font-weight:700">動能</td><td>RSI</td><td>相對強弱指標，70以上超買、30以下超賣</td></tr>
+        <tr><td>MACD</td><td>趨勢動能指標，金叉/死叉是常見訊號</td></tr>
+        <tr><td>KD</td><td>隨機指標，台灣投資人最常用</td></tr>
+        <tr><td>CCI</td><td>商品通道指標，判斷超買超賣</td></tr>
+        <tr><td>W%R</td><td>威廉指標，類似KD的動能指標</td></tr>
+        <tr><td>ADX/DMI</td><td>趨勢強度指標，判斷趨勢是否成立</td></tr>
+        <tr><td rowspan="2" style="color:var(--ok);font-weight:700">量能</td><td>成交量</td><td>最基本的量能指標，量價配合看趨勢</td></tr>
+        <tr><td>OBV</td><td>能量潮，用成交量累積判斷資金流向</td></tr>
+        <tr><td style="color:#7dd3fc;font-weight:700">波動</td><td>ATR</td><td>平均真實區間，衡量市場波動程度</td></tr>
+      </table>
+      <div class="g-tip">💡 <b>常用組合建議</b>：
+        <br>趨勢判斷：均線 + MACD + 成交量
+        <br>短線當沖：VWAP + RSI + 成交量
+        <br>台灣散戶慣用：KD + MACD + 成交量
+        <br>完整技術分析：布林帶 + RSI + KD + 成交量
+      </div>
+    </div>
+
+    <div class="g-card">
+      <div class="g-card-head">🌏 支援標的</div>
+      <table class="g-table">
+        <tr><th>投資類型</th><th>格式範例</th><th>說明</th></tr>
+        <tr><td>🇹🇼 台股 / ETF</td><td>TWSE:2330</td><td>上市股票，預設格式</td></tr>
+        <tr><td>🇹🇼 上櫃股票</td><td>TPEX:6547</td><td>若圖表空白，代號前加 TPEX:</td></tr>
+        <tr><td>🇺🇸 美股</td><td>AAPL、VOO</td><td>TradingView 自動識別</td></tr>
+        <tr><td>₿ 加密貨幣</td><td>BINANCE:BTCUSDT</td><td>自動加 USDT 後綴</td></tr>
+        <tr><td>基金/定存/不動產</td><td>—</td><td>顯示「此類型無 K 線圖」</td></tr>
+      </table>
+    </div>
+
+    <div class="g-warn">⚠️ 若上市(TWSE)股票圖表顯示不到，可能是上櫃股票，試試在持倉名稱前加 <code>TPEX:</code> 前綴再重開 K 線圖。</div>
+  </div>
+
+  <!-- 功能路線圖 -->
+  <div class="g-sec">
+    <div class="g-sec-title">🗺️ 功能狀態</div>
+    <div class="g-card">
+      <table class="g-table">
+        <tr><th>功能</th><th>狀態</th></tr>
+        <tr><td>投資記錄 CRUD</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>損益計算 ＋ 圓餅圖</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>Firebase 同步</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>財務健康診斷</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>老余 AI 對話</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>K 線圖查詢（TradingView）</td><td><span class="light-tag lt-done">✅ 完成</span></td></tr>
+        <tr><td>股價自動更新（GAS）</td><td><span class="light-tag lt-plan">📋 可加入</span></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div style="height:80px"></div>
+</div>
+
+<script src="./js/auth.js"></script>
+</body>
+</html>
