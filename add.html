@@ -202,6 +202,47 @@
       <div class="card-chips" id="card-chips"></div>
       <div id="no-card-hint" style="display:none;font-size:.78rem;color:var(--warn);margin-top:6px">⚠️ 尚未設定信用卡，請至<a href="./wallet.html" style="color:var(--p)">錢包頁</a>新增</div>
     </div>
+    <!-- 分期付款 toggle（信用卡時才顯示）-->
+    <div class="fg" id="installment-fg" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span class="flbl" style="margin:0">🔀 分期付款</span>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <span style="font-size:.8rem;color:var(--t3)" id="inst-toggle-lbl">關閉</span>
+          <div id="inst-toggle" onclick="toggleInstallment()" style="width:40px;height:22px;border-radius:11px;background:var(--border);position:relative;cursor:pointer;transition:.2s">
+            <div id="inst-toggle-knob" style="width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:.2s"></div>
+          </div>
+        </label>
+      </div>
+      <div id="inst-detail" style="display:none;background:var(--card2);border-radius:10px;padding:12px;margin-top:4px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+          <div>
+            <div style="font-size:.75rem;color:var(--t3);margin-bottom:4px">期數</div>
+            <select id="inst-months" class="fc" style="font-size:.9rem" onchange="updateInstCalc()">
+              <option value="3">3 期</option>
+              <option value="6">6 期</option>
+              <option value="10">10 期</option>
+              <option value="12" selected>12 期</option>
+              <option value="18">18 期</option>
+              <option value="24">24 期</option>
+              <option value="30">30 期</option>
+              <option value="36">36 期</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:.75rem;color:var(--t3);margin-bottom:4px">首期月份</div>
+            <input type="month" id="inst-startym" class="fc" style="font-size:.9rem;color-scheme:dark" onchange="updateInstCalc()">
+          </div>
+        </div>
+        <div id="inst-calc" style="font-size:.82rem;color:var(--t2);margin-bottom:10px;line-height:1.7"></div>
+        <div>
+          <div style="font-size:.75rem;color:var(--t3);margin-bottom:6px">零頭計入</div>
+          <div class="tg" style="gap:6px">
+            <button class="tb on" id="inst-rem-first" onclick="setInstRemainder('first',this)" style="flex:1;padding:8px 0;font-size:.8rem">第 1 期</button>
+            <button class="tb"    id="inst-rem-last"  onclick="setInstRemainder('last',this)"  style="flex:1;padding:8px 0;font-size:.8rem">最後 1 期</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="fg" id="icard-fg" style="display:none">
       <span class="flbl">🎫 選擇悠遊卡</span>
       <div class="card-chips" id="icard-chips"></div>
@@ -228,6 +269,7 @@
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add on" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
 </nav>
@@ -494,6 +536,82 @@ clean = clean.trim();
     console.warn('[Claude] JSON parse failed:', clean);
     throw new Error('AI 回傳格式錯誤，請再試一次');
   }
+}
+
+// ── 分期付款邏輯 ─────────────────────────────────────
+let _instOn = false;
+let _instRemOn = 'first';
+
+function toggleInstallment() {
+  _instOn = !_instOn;
+  const tog   = document.getElementById('inst-toggle');
+  const knob  = document.getElementById('inst-toggle-knob');
+  const lbl   = document.getElementById('inst-toggle-lbl');
+  const detail = document.getElementById('inst-detail');
+  if (_instOn) {
+    tog.style.background    = 'var(--p)';
+    knob.style.left         = '20px';
+    lbl.textContent         = '開啟';
+    lbl.style.color         = 'var(--p)';
+    detail.style.display    = 'block';
+    updateInstCalc();
+  } else {
+    closeInstallmentToggle();
+  }
+}
+
+function closeInstallmentToggle() {
+  _instOn = false;
+  const tog   = document.getElementById('inst-toggle');
+  const knob  = document.getElementById('inst-toggle-knob');
+  const lbl   = document.getElementById('inst-toggle-lbl');
+  const detail = document.getElementById('inst-detail');
+  if (tog)    { tog.style.background = 'var(--border)'; }
+  if (knob)   { knob.style.left = '2px'; }
+  if (lbl)    { lbl.textContent = '關閉'; lbl.style.color = 'var(--t3)'; }
+  if (detail) { detail.style.display = 'none'; }
+}
+
+function setInstRemainder(val, el) {
+  _instRemOn = val;
+  ['inst-rem-first','inst-rem-last'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.classList.remove('on');
+  });
+  el.classList.add('on');
+  updateInstCalc();
+}
+
+function updateInstCalc() {
+  const calcEl  = document.getElementById('inst-calc');
+  if (!calcEl) return;
+  const amt     = parseInt(astr) || 0;
+  const months  = parseInt(document.getElementById('inst-months')?.value) || 12;
+  if (!amt || !_instOn) { calcEl.innerHTML = ''; return; }
+  const base    = Math.floor(amt / months);
+  const rem     = amt - base * months;
+  const remOn   = document.getElementById('inst-rem-first')?.classList.contains('on') ? 'first' : 'last';
+
+  let lines = [];
+  if (rem === 0) {
+    lines.push(`每期 <b style="color:var(--p)">$${fmt(base)}</b>，共 ${months} 期`);
+  } else {
+    const firstAmt = remOn === 'first' ? base + rem : base;
+    const lastAmt  = remOn === 'last'  ? base + rem : base;
+    lines.push(`第 1 期：<b style="color:var(--p)">$${fmt(firstAmt)}</b>`);
+    if (months > 2) lines.push(`第 2 ～ ${months-1} 期：$${fmt(base)}`);
+    lines.push(`第 ${months} 期：<b style="color:var(--p)">$${fmt(lastAmt)}</b>`);
+  }
+
+  const startYM = document.getElementById('inst-startym')?.value || '';
+  if (startYM) {
+    const [sy, sm] = startYM.split('-').map(Number);
+    let ey = sy, em = sm + months - 1;
+    ey += Math.floor((em - 1) / 12);
+    em  = ((em - 1) % 12) + 1;
+    lines.push(`期間：${sy}/${sm} ～ ${ey}/${em}`);
+  }
+  calcEl.innerHTML = lines.join('<br>');
 }
 
 // ── 語音輸入 ─────────────────────────────────────────
@@ -1167,6 +1285,10 @@ function setPay(p, el) {
   document.getElementById('card-fg').style.display  = p==='card'  ? 'block' : 'none';
   document.getElementById('icard-fg').style.display = p==='icard' ? 'block' : 'none';
   document.getElementById('acct-fg').style.display  = p==='acct'  ? 'block' : 'none';
+  // 分期 toggle 只在信用卡時顯示
+  const instFg = document.getElementById('installment-fg');
+  if (instFg) instFg.style.display = p==='card' ? 'block' : 'none';
+  if (p !== 'card') closeInstallmentToggle();
 }
 function setP(p, el) {
   person = p;
@@ -1211,7 +1333,45 @@ function submit() {
       return new Date(yyyy, mm-1, dd, hh, min).toISOString();
     })() : new Date().toISOString(),
   };
-  addTx(tx); fbAddTx(tx);
+  const newTx = addTx(tx); fbAddTx(newTx || tx);
+
+  // ── 若有分期設定，建立分期計劃 ──
+  if (pay === 'card' && _instOn) {
+    const months   = parseInt(document.getElementById('inst-months').value) || 12;
+    const startYM  = document.getElementById('inst-startym').value;
+    const remOn    = document.getElementById('inst-rem-first')?.classList.contains('on') ? 'first' : 'last';
+    const baseAmt  = Math.floor(amt / months);
+    const remAmt   = amt - baseAmt * months;
+    const cardName = (()=>{
+      const chip = document.querySelector('#card-chips .cc.on');
+      return chip ? chip.textContent.trim() : '信用卡';
+    })();
+    const inst = {
+      id:          'inst_' + Date.now().toString(36) + Math.random().toString(36).slice(2,4),
+      name:        document.getElementById('tx-detail').value.trim() || catFind(selCat)?.name?.slice(2).trim() || '分期消費',
+      totalAmt:    amt,
+      months,
+      monthlyAmt:  baseAmt,
+      remainderOn: remOn,
+      cardId:      selCard,
+      cardName,
+      cat:         selCat,
+      subCat:      document.getElementById('sub-sel').value,
+      person,
+      startYM:     startYM || (()=>{
+        const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0');
+      })(),
+      paidMonths:  [],
+      paidCount:   0,
+      status:      'active',
+      sourceTxId:  (newTx || tx).id || null,
+      createdAt:   Date.now(),
+    };
+    addInstallment(inst);
+    fbSyncInstallments();
+    toast('✅ 已記帳並建立 ' + months + ' 期分期計劃！');
+  }
+
   // 悠遊卡/錢包餘額同步到 Firebase（避免換頁後被舊資料覆蓋）
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
   // 若有子分類同步需求（confirmNewSubCat 會在需要時呼叫 fbSyncCats）
@@ -1278,6 +1438,15 @@ function toast(msg, type='') {
 window.addEventListener('DOMContentLoaded', ()=>{
   // 稍等確保所有 script 都載入
   setTimeout(init, 100);
+  // 分期首期月份預設為當月
+  setTimeout(()=>{
+    const el = document.getElementById('inst-startym');
+    if (el && !el.value) {
+      const n = new Date();
+      el.value = n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0');
+    }
+    updateInstCalc();
+  }, 200);
 });
 
 // ── 快捷範本 ─────────────────────────────────────────

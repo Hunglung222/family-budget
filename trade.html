@@ -1,0 +1,1208 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<title>台股交易輔助</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.t-tabs{display:flex;background:var(--card2);border-radius:12px;padding:3px;margin-bottom:14px;gap:2px}
+.t-tab{flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s;white-space:nowrap}
+.t-tab.on{background:var(--p);color:#000}
+.t-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.t-sv{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
+.t-sv .v{font-size:1.15rem;font-weight:900;margin-bottom:2px}
+.t-sv .l{font-size:.64rem;color:var(--t3)}
+.tg-grid{display:grid;gap:8px}
+.pill-sm{padding:6px 12px;border-radius:50px;font-size:.76rem;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:var(--card);color:var(--t2);font-family:inherit;transition:.15s}
+.pill-sm.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.pnl-pos{color:#22c55e}
+.pnl-neg{color:#ef4444}
+.pnl-zer{color:var(--t3)}
+.metric-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.metric-row:last-child{border-bottom:none}
+.bar-track{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bar-fill{height:8px;border-radius:4px;transition:.4s}
+.guard-banner{border-radius:var(--r);padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.emo-btn{flex:1;padding:9px 4px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;font-family:inherit;font-size:.74rem;color:var(--t2);transition:.15s;text-align:center}
+.emo-btn.on{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.coach-chip{padding:7px 13px;background:var(--card);border:1.5px solid var(--border);border-radius:50px;font-size:.78rem;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+.coach-chip:active{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.bubble-coach{background:var(--card);border:1px solid var(--border);border-radius:0 14px 14px 14px;padding:12px 14px;max-width:85%;font-size:.88rem;line-height:1.6;color:var(--t)}
+.bubble-user{background:var(--pdim);border:1.5px solid var(--p);border-radius:14px 0 14px 14px;padding:10px 14px;max-width:85%;font-size:.88rem;line-height:1.5;color:var(--t);margin-left:auto}
+.coach-dot{width:7px;height:7px;border-radius:50%;background:var(--t3);animation:cbounce .9s infinite}
+.coach-dot:nth-child(2){animation-delay:.2s}
+.coach-dot:nth-child(3){animation-delay:.4s}
+@keyframes cbounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div>
+    <h1>📊 台股交易輔助</h1>
+    <div class="hdr-sub" id="t-sub">紀律執行・覆盤・心理教練</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="./invest.html" class="hdr-btn" title="回投資">📈</a>
+    <a href="./settings.html" class="hdr-btn">⚙️</a>
+  </div>
+</header>
+
+<div class="w">
+
+  <!-- 紀律守門 Banner（所有分頁頂端常駐）-->
+  <div id="guard-banner"></div>
+
+  <!-- 分頁切換 -->
+  <div class="t-tabs">
+    <button class="t-tab on" id="tt-journal" onclick="switchTradeTab('journal',this)">📝 日誌</button>
+    <button class="t-tab"    id="tt-review"  onclick="switchTradeTab('review',this)">📊 覆盤</button>
+    <button class="t-tab"    id="tt-rules"   onclick="switchTradeTab('rules',this)">🛡️ 紀律</button>
+    <button class="t-tab"    id="tt-coach"   onclick="switchTradeTab('coach',this)">🤖 教練</button>
+    <button class="t-tab"    id="tt-watch"   onclick="switchTradeTab('watch',this)">⭐ 關注</button>
+  </div>
+
+  <!-- ══ 交易日誌分頁 ══ -->
+  <div id="panel-journal">
+    <!-- 今日摘要 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="t-sv"><div class="v" id="td-net">$0</div><div class="l">今日淨損益</div></div>
+      <div class="t-sv"><div class="v" id="td-count">0</div><div class="l">今日筆數</div></div>
+      <div class="t-sv"><div class="v" id="td-winrate">—</div><div class="l">今日勝率</div></div>
+    </div>
+
+    <!-- 月份切換 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px">
+      <button onclick="tradePrevMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;color:var(--t);font-family:inherit">‹</button>
+      <div id="trade-month-label" style="font-size:.88rem;font-weight:900;min-width:90px;text-align:center"></div>
+      <button onclick="tradeNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;font-size:1rem;cursor:pointer;color:var(--t);font-family:inherit">›</button>
+    </div>
+
+    <div id="journal-list"></div>
+    <div style="height:120px"></div>
+  </div>
+
+  <!-- ══ 覆盤分析分頁 ══ -->
+  <div id="panel-review" style="display:none">
+    <!-- 期間選擇 -->
+    <div style="display:flex;gap:7px;margin-bottom:14px;justify-content:center">
+      <button class="pill-sm on" onclick="setReviewRange(7,this)">近7天</button>
+      <button class="pill-sm" onclick="setReviewRange(30,this)">近30天</button>
+      <button class="pill-sm" onclick="setReviewRange(90,this)">近90天</button>
+      <button class="pill-sm" onclick="setReviewRange(0,this)">全部</button>
+    </div>
+    <div id="review-content"></div>
+    <div style="height:120px"></div>
+  </div>
+
+  <!-- ══ 紀律設定分頁 ══ -->
+  <div id="panel-rules" style="display:none">
+    <div class="t-card">
+      <div style="font-size:.85rem;font-weight:900;color:var(--t);margin-bottom:14px">🛡️ 紀律規則設定</div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">🔴 單日最大虧損（元）</div>
+        <input type="number" class="fc" id="r-maxloss" inputmode="numeric" placeholder="例：5000">
+        <div style="font-size:.7rem;color:var(--t3);margin-top:3px">當日淨虧損達此金額，守門員會擋你繼續</div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">💰 單筆最大部位（元）</div>
+        <input type="number" class="fc" id="r-maxpos" inputmode="numeric" placeholder="例：100000">
+        <div style="font-size:.7rem;color:var(--t3);margin-top:3px">記錄超過此金額的交易會提醒</div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">⛔ 連虧停手次數</div>
+        <input type="number" class="fc" id="r-maxconsec" inputmode="numeric" placeholder="例：3">
+        <div style="font-size:.7rem;color:var(--t3);margin-top:3px">當日連續虧損達此次數，建議收手</div>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">🔢 單日最大交易次數</div>
+        <input type="number" class="fc" id="r-maxtrades" inputmode="numeric" placeholder="例：10">
+        <div style="font-size:.7rem;color:var(--t3);margin-top:3px">避免過度交易（overtrading）</div>
+      </div>
+    </div>
+
+    <div class="t-card">
+      <div style="font-size:.85rem;font-weight:900;color:var(--t);margin-bottom:14px">💸 交易成本設定</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div>
+          <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">手續費率（%）</div>
+          <input type="number" class="fc" id="r-feerate" inputmode="decimal" step="any" placeholder="0.1425">
+        </div>
+        <div>
+          <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">折扣（2.8折填0.28）</div>
+          <input type="number" class="fc" id="r-feediscount" inputmode="decimal" step="any" placeholder="0.28">
+        </div>
+      </div>
+      <div>
+        <div style="font-size:.8rem;color:var(--t2);margin-bottom:5px">最低手續費（元）</div>
+        <input type="number" class="fc" id="r-minfee" inputmode="numeric" placeholder="20">
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:10px;line-height:1.5">
+        💡 證交稅自動計算：一般 0.3%，當沖減半 0.15%（已延長至 2027 年底）
+      </div>
+    </div>
+
+    <button onclick="saveRules()" class="btn btn-p" style="width:100%;margin-bottom:120px">💾 儲存紀律設定</button>
+  </div>
+
+  <!-- ══ AI 教練分頁 ══ -->
+  <div id="panel-coach" style="display:none;display:flex;flex-direction:column;height:calc(100dvh - 220px)">
+    <div id="coach-suggestions" style="margin-bottom:12px">
+      <div style="font-size:.75rem;color:var(--t3);margin-bottom:8px">💡 問問鐵衛教練：</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        <button class="coach-chip" onclick="askCoach(this.textContent)">幫我覆盤這個月的交易</button>
+        <button class="coach-chip" onclick="askCoach(this.textContent)">我最常違反哪條紀律？</button>
+        <button class="coach-chip" onclick="askCoach(this.textContent)">我做哪種型態勝率最高？</button>
+        <button class="coach-chip" onclick="askCoach(this.textContent)">我的停損紀律好不好？</button>
+        <button class="coach-chip" onclick="askCoach(this.textContent)">解釋什麼是處置股</button>
+        <button class="coach-chip" onclick="askCoach(this.textContent)">我有報復性交易的傾向嗎？</button>
+      </div>
+    </div>
+    <div id="coach-chat" style="flex:1;overflow-y:auto;margin-bottom:12px;min-height:0;padding-bottom:4px"></div>
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:env(safe-area-inset-bottom,0px)">
+      <textarea id="coach-input" placeholder="問鐵衛任何交易、覆盤、心理問題…" rows="1"
+        style="flex:1;resize:none;background:var(--card);border:1.5px solid var(--border);border-radius:12px;color:var(--t);font-family:inherit;font-size:.9rem;padding:10px 14px;outline:none;line-height:1.4;max-height:100px;overflow-y:auto"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCoach()}"></textarea>
+      <button onclick="sendCoach()" id="coach-send"
+        style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">➤</button>
+    </div>
+  </div>
+
+  <!-- ══ 關注清單分頁 ══ -->
+  <div id="panel-watch" style="display:none">
+    <div style="background:linear-gradient(135deg,rgba(0,229,180,.06),rgba(79,142,247,.06));border:1px solid rgba(0,229,180,.2);border-radius:var(--r);padding:12px 14px;margin-bottom:14px;font-size:.78rem;color:var(--t2);line-height:1.6">
+      💡 加入想盯盤的標的。盤後排程（GAS）會自動抓這些股票的價量、三大法人、融資券資料，推播到你的 Discord。
+    </div>
+
+    <!-- 新增標的 -->
+    <div class="t-card">
+      <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:10px">➕ 加入關注標的</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+        <div>
+          <div style="font-size:.75rem;color:var(--t3);margin-bottom:4px">股票代號</div>
+          <input type="text" class="fc" id="w-ticker" placeholder="例：2330" maxlength="8" oninput="watchAutofill()">
+        </div>
+        <div>
+          <div style="font-size:.75rem;color:var(--t3);margin-bottom:4px">名稱</div>
+          <input type="text" class="fc" id="w-name" placeholder="例：台積電" maxlength="12">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-size:.75rem;color:var(--t3);margin-bottom:6px">市場別</div>
+        <div class="tg" style="gap:6px">
+          <button class="tb on" id="w-m-twse" onclick="setWatchMarket('twse',this)" style="flex:1;padding:9px 0;font-size:.8rem">上市</button>
+          <button class="tb"    id="w-m-otc"  onclick="setWatchMarket('otc',this)"  style="flex:1;padding:9px 0;font-size:.8rem">上櫃</button>
+        </div>
+      </div>
+      <button onclick="addWatch()" class="btn btn-p" style="width:100%">＋ 加入關注</button>
+    </div>
+
+    <!-- 關注清單 -->
+    <div style="font-size:.8rem;font-weight:700;color:var(--t2);margin:14px 0 10px" id="watch-list-title"></div>
+    <div id="watch-list"></div>
+    <div style="height:120px"></div>
+  </div>
+
+</div>
+
+<!-- ══ 新增/編輯交易 Modal ══ -->
+<div class="ov" id="trade-modal">
+  <div class="sheet" style="max-height:92dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st" id="tm-title">📝 記一筆交易</div>
+
+    <!-- 紀律即時提示 -->
+    <div id="tm-guard-tip" style="display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.8rem;color:var(--danger);line-height:1.5"></div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">股票代號 *</span>
+        <input type="text" class="fc" id="tm-ticker" placeholder="例：2330" maxlength="8" oninput="autofillName()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">名稱</span>
+        <input type="text" class="fc" id="tm-name" placeholder="例：台積電" maxlength="12">
+      </div>
+    </div>
+    <div style="height:12px"></div>
+
+    <div class="fg">
+      <span class="flbl">交易類型</span>
+      <div class="tg" style="gap:6px">
+        <button class="tb on" id="tm-t-intraday" onclick="setTradeType('intraday',this)" style="flex:1;padding:9px 0;font-size:.8rem">當沖</button>
+        <button class="tb"    id="tm-t-nextday"  onclick="setTradeType('nextday',this)"  style="flex:1;padding:9px 0;font-size:.8rem">隔日沖</button>
+        <button class="tb"    id="tm-t-swing"    onclick="setTradeType('swing',this)"    style="flex:1;padding:9px 0;font-size:.8rem">短波段</button>
+      </div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">方向</span>
+      <div class="tg" style="gap:6px">
+        <button class="tb on" id="tm-d-long"  onclick="setDir('long',this)"  style="flex:1;padding:9px 0;font-size:.8rem">📈 做多</button>
+        <button class="tb"    id="tm-d-short" onclick="setDir('short',this)" style="flex:1;padding:9px 0;font-size:.8rem">📉 做空</button>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">進場價 *</span>
+        <input type="number" class="fc" id="tm-entry" inputmode="decimal" step="any" oninput="calcLivePnl()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">出場價</span>
+        <input type="number" class="fc" id="tm-exit" inputmode="decimal" step="any" oninput="calcLivePnl()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">股數 *</span>
+        <input type="number" class="fc" id="tm-shares" inputmode="numeric" placeholder="1000" oninput="calcLivePnl()">
+      </div>
+    </div>
+    <div style="height:12px"></div>
+
+    <!-- 即時損益試算 -->
+    <div id="tm-pnl-preview" style="display:none;background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:.82rem;line-height:1.8"></div>
+
+    <div class="fg">
+      <span class="flbl">狀態</span>
+      <div class="tg" style="gap:6px">
+        <button class="tb on" id="tm-s-closed" onclick="setStatus('closed',this)" style="flex:1;padding:9px 0;font-size:.8rem">已平倉</button>
+        <button class="tb"    id="tm-s-open"   onclick="setStatus('open',this)"   style="flex:1;padding:9px 0;font-size:.8rem">持倉中</button>
+      </div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">📅 交易日期</span>
+      <input type="date" class="fc" id="tm-date" style="color-scheme:dark">
+    </div>
+
+    <div class="fg">
+      <span class="flbl">型態標籤</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="tm-pattern-chips"></div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">🛑 停損點（可略）</span>
+      <input type="number" class="fc" id="tm-stop" inputmode="decimal" step="any" placeholder="設定的停損價位">
+    </div>
+
+    <div class="fg">
+      <span class="flbl">進場理由</span>
+      <textarea class="fc" id="tm-reason" rows="2" placeholder="例：突破前波高點，成交量放大" style="resize:none"></textarea>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">下單當下情緒</span>
+      <div style="display:flex;gap:5px" id="tm-emo-chips">
+        <button class="emo-btn on" data-emo="calm"    onclick="setEmo('calm',this)">😌<br>冷靜</button>
+        <button class="emo-btn"    data-emo="excited" onclick="setEmo('excited',this)">🤩<br>興奮</button>
+        <button class="emo-btn"    data-emo="fearful" onclick="setEmo('fearful',this)">😰<br>恐慌</button>
+        <button class="emo-btn"    data-emo="greedy"  onclick="setEmo('greedy',this)">🤑<br>貪婪</button>
+        <button class="emo-btn"    data-emo="fomo"    onclick="setEmo('fomo',this)">😵<br>追高</button>
+      </div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">違反紀律？</span>
+      <div class="tg" style="gap:6px">
+        <button class="tb on" id="tm-v-no"  onclick="setViolation(false,this)" style="flex:1;padding:9px 0;font-size:.8rem">✅ 守紀律</button>
+        <button class="tb"    id="tm-v-yes" onclick="setViolation(true,this)"  style="flex:1;padding:9px 0;font-size:.8rem">⚠️ 有違反</button>
+      </div>
+    </div>
+    <div class="fg" id="tm-violation-note-fg" style="display:none">
+      <span class="flbl">違反了什麼？</span>
+      <input type="text" class="fc" id="tm-violation-note" placeholder="例：沒停損、凹單、追高" maxlength="40">
+    </div>
+
+    <div class="fg">
+      <span class="flbl">覆盤筆記（可略）</span>
+      <textarea class="fc" id="tm-note" rows="2" placeholder="這筆交易的檢討與學到的事" style="resize:none"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('trade-modal')">取消</button>
+      <button class="btn btn-p" id="tm-ok" onclick="submitTrade()">儲存交易</button>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除確認 -->
+<div class="ov" id="trade-del-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st">🗑️ 刪除交易記錄</div>
+    <p id="tdm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px"></p>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('trade-del-modal')">取消</button>
+      <button class="btn btn-d" id="tdm-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- 浮動新增按鈕 -->
+<button onclick="showAddTrade()" id="trade-fab" style="position:fixed;right:18px;bottom:90px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;font-size:1.6rem;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.3);z-index:80;display:flex;align-items:center;justify-content:center">＋</button>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+
+<script>
+
+// ── 型態與情緒定義 ────────────────────────────────────
+const PATTERNS = {
+  breakout: '突破', reversal: '反轉', range: '區間', gap: '跳空',
+  pullback: '回測', news: '消息面', momentum: '動能', other: '其他'
+};
+const TYPE_LABEL = { intraday:'當沖', nextday:'隔日沖', swing:'短波段' };
+const EMO_LABEL  = { calm:'冷靜', excited:'興奮', fearful:'恐慌', greedy:'貪婪', fomo:'追高' };
+
+let _editTradeId = null;
+let _selType     = 'intraday';
+let _selDir      = 'long';
+let _selStatus   = 'closed';
+let _selPattern  = 'breakout';
+let _selEmo      = 'calm';
+let _selViolation= false;
+let _tradeYear   = new Date().getFullYear();
+let _tradeMonth  = new Date().getMonth() + 1;
+
+// ══ 分頁切換 ══════════════════════════════════════════
+function switchTradeTab(tab, el) {
+  ['journal','review','rules','coach','watch'].forEach(t => {
+    const p = document.getElementById('panel-' + t);
+    if (p) p.style.display = t === tab ? (t === 'coach' ? 'flex' : 'block') : 'none';
+  });
+  ['tt-journal','tt-review','tt-rules','tt-coach','tt-watch'].forEach((id, i) => {
+    const key = ['journal','review','rules','coach','watch'][i];
+    document.getElementById(id)?.classList.toggle('on', key === tab);
+  });
+  if (tab === 'review') renderReview();
+  if (tab === 'rules')  loadRules();
+  if (tab === 'coach')  initCoach();
+  if (tab === 'watch')  renderWatchlist();
+  // 教練分頁隱藏 FAB（其他分頁顯示，記交易用）
+  document.getElementById('trade-fab').style.display = tab === 'coach' ? 'none' : 'flex';
+}
+
+// ══ 紀律守門 Banner ═══════════════════════════════════
+function renderGuardBanner() {
+  const el = document.getElementById('guard-banner');
+  if (!el) return;
+  const rules = getTradeRules();
+  const stats = getTodayTradeStats();
+
+  const warnings = [];
+  if (stats.netSum <= -Math.abs(rules.maxDailyLoss) && rules.maxDailyLoss > 0) {
+    warnings.push(`今日已虧 $${fmt(Math.abs(Math.round(stats.netSum)))}，達單日上限，<b>該收手了</b>`);
+  }
+  if (stats.currentConsecutiveLoss >= rules.maxConsecutiveLoss && rules.maxConsecutiveLoss > 0) {
+    warnings.push(`已連虧 ${stats.currentConsecutiveLoss} 筆，達停手線`);
+  }
+  if (stats.count >= rules.maxTradesPerDay && rules.maxTradesPerDay > 0) {
+    warnings.push(`今日已交易 ${stats.count} 筆，過度交易警示`);
+  }
+
+  if (warnings.length) {
+    el.className = 'guard-banner';
+    el.style.background  = 'rgba(244,63,94,.12)';
+    el.style.border      = '1.5px solid var(--danger)';
+    el.innerHTML = `<div style="font-size:1.5rem">🚨</div>
+      <div style="flex:1;font-size:.82rem;color:var(--danger);line-height:1.5">
+        <b>紀律守門員</b><br>${warnings.join('<br>')}
+      </div>`;
+  } else if (stats.count > 0) {
+    const pc = stats.netSum > 0 ? '#22c55e' : stats.netSum < 0 ? '#ef4444' : 'var(--t3)';
+    el.className = 'guard-banner';
+    el.style.background  = 'var(--card)';
+    el.style.border      = '1px solid var(--border)';
+    el.innerHTML = `<div style="font-size:1.4rem">🛡️</div>
+      <div style="flex:1;font-size:.8rem;color:var(--t2);line-height:1.5">
+        今日 ${stats.count} 筆・淨損益 <b style="color:${pc}">${stats.netSum>=0?'+':''}$${fmt(Math.round(stats.netSum))}</b>
+        ${stats.currentConsecutiveLoss>0?`・連虧 ${stats.currentConsecutiveLoss}`:'・紀律良好 ✅'}
+      </div>`;
+  } else {
+    el.className = 'guard-banner';
+    el.style.background  = 'var(--card)';
+    el.style.border      = '1px solid var(--border)';
+    el.innerHTML = `<div style="font-size:1.4rem">🛡️</div>
+      <div style="flex:1;font-size:.8rem;color:var(--t3)">今日尚無交易・記得守紀律，先顧本金</div>`;
+  }
+}
+
+// ══ 月份切換 ══════════════════════════════════════════
+function updateTradeMonthLabel() {
+  const el = document.getElementById('trade-month-label');
+  if (el) el.textContent = `${_tradeYear} 年 ${_tradeMonth} 月`;
+}
+function tradePrevMonth() {
+  _tradeMonth--; if (_tradeMonth < 1) { _tradeMonth = 12; _tradeYear--; }
+  updateTradeMonthLabel(); renderJournal();
+}
+function tradeNextMonth() {
+  const now = new Date();
+  if (_tradeYear === now.getFullYear() && _tradeMonth >= now.getMonth()+1) return;
+  _tradeMonth++; if (_tradeMonth > 12) { _tradeMonth = 1; _tradeYear++; }
+  updateTradeMonthLabel(); renderJournal();
+}
+
+// ══ 今日摘要 ══════════════════════════════════════════
+function renderTodaySummary() {
+  const stats = getTodayTradeStats();
+  const today = toLocalISO();
+  const todayClosed = getTrades().filter(t => t.date === today && t.status === 'closed');
+  const wins = todayClosed.filter(t => calcTradeCost(t).netPnl > 0).length;
+  const wr   = todayClosed.length ? Math.round(wins / todayClosed.length * 100) : null;
+
+  const netEl = document.getElementById('td-net');
+  netEl.textContent = (stats.netSum >= 0 ? '+$' : '-$') + fmt(Math.abs(Math.round(stats.netSum)));
+  netEl.style.color = stats.netSum > 0 ? '#22c55e' : stats.netSum < 0 ? '#ef4444' : 'var(--t3)';
+  document.getElementById('td-count').textContent = stats.count;
+  document.getElementById('td-winrate').textContent = wr === null ? '—' : wr + '%';
+}
+
+// ══ 交易日誌列表 ══════════════════════════════════════
+function renderJournal() {
+  renderTodaySummary();
+  const listEl = document.getElementById('journal-list');
+  const all = getTrades().filter(t => {
+    if (!t.date) return false;
+    const [y, m] = t.date.split('-').map(Number);
+    return y === _tradeYear && m === _tradeMonth;
+  });
+
+  if (!all.length) {
+    listEl.innerHTML = `<div style="text-align:center;padding:36px 0;color:var(--t3)">
+      <div style="font-size:2.5rem;margin-bottom:10px">📝</div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--t2)">${_tradeYear}年${_tradeMonth}月尚無交易</div>
+      <div style="font-size:.78rem;margin-top:6px">點右下角「＋」記錄交易</div>
+    </div>`;
+    return;
+  }
+
+  const sorted = [...all].sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+  listEl.innerHTML = sorted.map(tradeCardHTML).join('');
+}
+
+function tradeCardHTML(t) {
+  const cost = calcTradeCost(t);
+  const isOpen = t.status === 'open';
+  const pnl  = cost.netPnl;
+  const pc   = isOpen ? 'var(--t3)' : pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : 'var(--t3)';
+  const dirIcon = t.direction === 'short' ? '📉 空' : '📈 多';
+  const pctRet = (t.entryPrice && t.shares) ? (cost.grossPnl / (t.entryPrice * t.shares) * 100) : 0;
+
+  return `<div class="t-card" style="${t.disciplineViolation ? 'border-color:rgba(244,63,94,.4)' : ''}">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div>
+          <div style="font-size:.95rem;font-weight:900;color:var(--t)">${t.ticker}${t.name ? ' '+t.name : ''}</div>
+          <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${TYPE_LABEL[t.type]||''} · ${dirIcon} · ${PATTERNS[t.pattern]||''}</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        ${isOpen
+          ? `<span style="font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:50px;background:rgba(251,191,36,.15);color:var(--warn)">持倉中</span>`
+          : `<div style="font-size:1rem;font-weight:900;color:${pc}">${pnl>=0?'+$':'-$'}${fmt(Math.abs(Math.round(pnl)))}</div>
+             <div style="font-size:.68rem;color:${pc}">${pctRet>=0?'+':''}${pctRet.toFixed(2)}%</div>`}
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;font-size:.72rem;color:var(--t3);flex-wrap:wrap;margin-bottom:8px">
+      <span>進 $${t.entryPrice}</span>
+      ${!isOpen ? `<span>出 $${t.exitPrice}</span>` : ''}
+      <span>${t.shares} 股</span>
+      ${t.stopLoss ? `<span>🛑 $${t.stopLoss}</span>` : ''}
+      ${!isOpen ? `<span>成本 $${fmt(cost.totalCost)}</span>` : ''}
+    </div>
+
+    ${t.reason ? `<div style="font-size:.76rem;color:var(--t2);margin-bottom:6px;line-height:1.5">💭 ${t.reason}</div>` : ''}
+
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <span style="font-size:.7rem;color:var(--t3)">${EMO_LABEL[t.emotion]||''}下單</span>
+      ${t.disciplineViolation ? `<span style="font-size:.68rem;color:var(--danger);background:rgba(244,63,94,.1);padding:2px 8px;border-radius:50px">⚠️ ${t.violationNote||'違反紀律'}</span>` : ''}
+      <span style="font-size:.68rem;color:var(--t3);margin-left:auto">${t.date}</span>
+    </div>
+
+    ${t.note ? `<div style="font-size:.74rem;color:var(--t3);background:var(--card2);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">📋 ${t.note}</div>` : ''}
+
+    <div style="display:flex;gap:7px">
+      <button onclick="editTrade('${t.id}')" style="flex:1;padding:8px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">✏️ 編輯</button>
+      <button onclick="confirmDelTrade('${t.id}')" style="padding:8px 14px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">🗑️</button>
+    </div>
+  </div>`;
+}
+
+// ══ 新增/編輯交易 ═════════════════════════════════════
+function buildPatternChips() {
+  const el = document.getElementById('tm-pattern-chips');
+  if (!el) return;
+  el.innerHTML = Object.entries(PATTERNS).map(([k, label]) =>
+    `<button class="pill-sm${k === _selPattern ? ' on' : ''}" onclick="setPattern('${k}',this)">${label}</button>`
+  ).join('');
+}
+function setPattern(k, el) {
+  _selPattern = k;
+  document.querySelectorAll('#tm-pattern-chips .pill-sm').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+function setTradeType(t, el) {
+  _selType = t;
+  ['tm-t-intraday','tm-t-nextday','tm-t-swing'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  calcLivePnl();
+}
+function setDir(d, el) {
+  _selDir = d;
+  ['tm-d-long','tm-d-short'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  calcLivePnl();
+}
+function setStatus(s, el) {
+  _selStatus = s;
+  ['tm-s-closed','tm-s-open'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  calcLivePnl();
+}
+function setEmo(e, el) {
+  _selEmo = e;
+  document.querySelectorAll('#tm-emo-chips .emo-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+function setViolation(v, el) {
+  _selViolation = v;
+  ['tm-v-no','tm-v-yes'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('tm-violation-note-fg').style.display = v ? 'block' : 'none';
+}
+
+// 即時損益試算
+function calcLivePnl() {
+  const entry  = parseFloat(document.getElementById('tm-entry').value) || 0;
+  const exit   = parseFloat(document.getElementById('tm-exit').value) || 0;
+  const shares = parseInt(document.getElementById('tm-shares').value) || 0;
+  const box = document.getElementById('tm-pnl-preview');
+  if (_selStatus === 'open' || !entry || !shares) { box.style.display = 'none'; return; }
+  if (!exit) { box.style.display = 'none'; return; }
+
+  const fake = { entryPrice:entry, exitPrice:exit, shares, type:_selType, direction:_selDir };
+  const c = calcTradeCost(fake);
+  const pc = c.netPnl > 0 ? '#22c55e' : c.netPnl < 0 ? '#ef4444' : 'var(--t3)';
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">毛損益</span><span style="color:${c.grossPnl>=0?'#22c55e':'#ef4444'};font-weight:700">${c.grossPnl>=0?'+':''}$${fmt(c.grossPnl)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">手續費（買+賣）</span><span style="color:var(--t2)">-$${fmt(c.fees)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">證交稅${_selType==='intraday'?'（當沖減半）':''}</span><span style="color:var(--t2)">-$${fmt(c.tax)}</span></div>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:4px;padding-top:6px"><span style="font-weight:700;color:var(--t)">淨損益</span><span style="font-weight:900;color:${pc}">${c.netPnl>=0?'+':''}$${fmt(c.netPnl)}</span></div>`;
+}
+
+// 簡易股名自動帶入（常見標的）
+const COMMON_TICKERS = {
+  '2330':'台積電','2317':'鴻海','2454':'聯發科','2308':'台達電','2412':'中華電',
+  '2382':'廣達','2881':'富邦金','2882':'國泰金','2891':'中信金','3008':'大立光',
+  '2303':'聯電','3711':'日月光投控','2002':'中鋼','1303':'南亞','1301':'台塑',
+  '0050':'元大台灣50','0056':'元大高股息','00878':'國泰永續高股息','00919':'群益台灣精選高息',
+  '2603':'長榮','2609':'陽明','2615':'萬海','3034':'聯詠','2379':'瑞昱',
+};
+function autofillName() {
+  const ticker = document.getElementById('tm-ticker').value.trim();
+  const nameEl = document.getElementById('tm-name');
+  if (COMMON_TICKERS[ticker] && !nameEl.value) nameEl.value = COMMON_TICKERS[ticker];
+}
+
+function showAddTrade() {
+  _editTradeId = null;
+  _selType = 'intraday'; _selDir = 'long'; _selStatus = 'closed';
+  _selPattern = 'breakout'; _selEmo = 'calm'; _selViolation = false;
+  document.getElementById('tm-title').textContent = '📝 記一筆交易';
+  document.getElementById('tm-ok').textContent = '儲存交易';
+  ['tm-ticker','tm-name','tm-entry','tm-exit','tm-shares','tm-stop','tm-reason','tm-note','tm-violation-note'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('tm-date').value = toLocalISO();
+  document.getElementById('tm-pnl-preview').style.display = 'none';
+  document.getElementById('tm-violation-note-fg').style.display = 'none';
+  // 重置按鈕狀態
+  setTradeType('intraday', document.getElementById('tm-t-intraday'));
+  setDir('long', document.getElementById('tm-d-long'));
+  setStatus('closed', document.getElementById('tm-s-closed'));
+  setEmo('calm', document.querySelector('#tm-emo-chips .emo-btn'));
+  setViolation(false, document.getElementById('tm-v-no'));
+  buildPatternChips();
+  // 顯示今日紀律提示
+  showGuardTip();
+  showModal('trade-modal');
+}
+
+function showGuardTip() {
+  const tip = document.getElementById('tm-guard-tip');
+  const rules = getTradeRules();
+  const stats = getTodayTradeStats();
+  const msgs = [];
+  if (stats.netSum <= -Math.abs(rules.maxDailyLoss) && rules.maxDailyLoss > 0)
+    msgs.push(`今日已虧 $${fmt(Math.abs(Math.round(stats.netSum)))}，達單日上限`);
+  if (stats.currentConsecutiveLoss >= rules.maxConsecutiveLoss && rules.maxConsecutiveLoss > 0)
+    msgs.push(`已連虧 ${stats.currentConsecutiveLoss} 筆`);
+  if (stats.count >= rules.maxTradesPerDay && rules.maxTradesPerDay > 0)
+    msgs.push(`今日已 ${stats.count} 筆，過度交易`);
+  if (msgs.length) {
+    tip.style.display = 'block';
+    tip.innerHTML = `🚨 <b>下單前想清楚：</b><br>${msgs.join('<br>')}<br>現在還要進場嗎？`;
+  } else {
+    tip.style.display = 'none';
+  }
+}
+
+function editTrade(id) {
+  const t = getTrades().find(x => x.id === id); if (!t) return;
+  _editTradeId = id;
+  _selType = t.type || 'intraday'; _selDir = t.direction || 'long';
+  _selStatus = t.status || 'closed'; _selPattern = t.pattern || 'breakout';
+  _selEmo = t.emotion || 'calm'; _selViolation = !!t.disciplineViolation;
+  document.getElementById('tm-title').textContent = '✏️ 編輯交易';
+  document.getElementById('tm-ok').textContent = '儲存修改';
+  document.getElementById('tm-ticker').value = t.ticker || '';
+  document.getElementById('tm-name').value = t.name || '';
+  document.getElementById('tm-entry').value = t.entryPrice || '';
+  document.getElementById('tm-exit').value = t.exitPrice || '';
+  document.getElementById('tm-shares').value = t.shares || '';
+  document.getElementById('tm-stop').value = t.stopLoss || '';
+  document.getElementById('tm-reason').value = t.reason || '';
+  document.getElementById('tm-note').value = t.note || '';
+  document.getElementById('tm-violation-note').value = t.violationNote || '';
+  document.getElementById('tm-date').value = t.date || toLocalISO();
+  setTradeType(_selType, document.getElementById('tm-t-'+_selType));
+  setDir(_selDir, document.getElementById('tm-d-'+_selDir));
+  setStatus(_selStatus, document.getElementById('tm-s-'+_selStatus));
+  setEmo(_selEmo, document.querySelector(`#tm-emo-chips .emo-btn[data-emo="${_selEmo}"]`));
+  setViolation(_selViolation, document.getElementById(_selViolation?'tm-v-yes':'tm-v-no'));
+  buildPatternChips();
+  document.getElementById('tm-guard-tip').style.display = 'none';
+  calcLivePnl();
+  showModal('trade-modal');
+}
+
+function submitTrade() {
+  const ticker = document.getElementById('tm-ticker').value.trim();
+  const entry  = parseFloat(document.getElementById('tm-entry').value) || 0;
+  const shares = parseInt(document.getElementById('tm-shares').value) || 0;
+  const exit   = parseFloat(document.getElementById('tm-exit').value) || 0;
+  if (!ticker) { toast('請輸入股票代號', 'warn'); return; }
+  if (!entry)  { toast('請輸入進場價', 'warn'); return; }
+  if (!shares) { toast('請輸入股數', 'warn'); return; }
+  if (_selStatus === 'closed' && !exit) { toast('已平倉需填出場價', 'warn'); return; }
+
+  // 部位上限提醒
+  const rules = getTradeRules();
+  const posSize = entry * shares;
+  if (rules.maxPositionSize > 0 && posSize > rules.maxPositionSize && !_editTradeId) {
+    if (!confirm(`此筆部位 $${fmt(posSize)} 超過你設定的單筆上限 $${fmt(rules.maxPositionSize)}。\n確定要記錄嗎？`)) return;
+  }
+
+  const trade = {
+    id:          _editTradeId || 'trade_' + Date.now().toString(36) + Math.random().toString(36).slice(2,4),
+    date:        document.getElementById('tm-date').value || toLocalISO(),
+    ticker,
+    name:        document.getElementById('tm-name').value.trim(),
+    type:        _selType,
+    direction:   _selDir,
+    entryPrice:  entry,
+    exitPrice:   exit,
+    shares,
+    status:      _selStatus,
+    pattern:     _selPattern,
+    emotion:     _selEmo,
+    stopLoss:    parseFloat(document.getElementById('tm-stop').value) || null,
+    reason:      document.getElementById('tm-reason').value.trim(),
+    note:        document.getElementById('tm-note').value.trim(),
+    disciplineViolation: _selViolation,
+    violationNote: _selViolation ? document.getElementById('tm-violation-note').value.trim() : '',
+    createdAt:   _editTradeId ? (getTrades().find(t=>t.id===_editTradeId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt:   Date.now(),
+  };
+
+  if (_editTradeId) updateTrade(_editTradeId, trade);
+  else              addTrade(trade);
+  fbSyncTrades();
+  closeModal('trade-modal');
+  renderJournal();
+  renderGuardBanner();
+  toast(_editTradeId ? '已儲存修改 ✅' : '交易已記錄 ✅');
+}
+
+function confirmDelTrade(id) {
+  const t = getTrades().find(x => x.id === id);
+  document.getElementById('tdm-msg').textContent = `確定刪除 ${t?.ticker||''}${t?.name||''} 這筆交易記錄？`;
+  showModal('trade-del-modal');
+  document.getElementById('tdm-ok').onclick = () => {
+    delTrade(id); fbSyncTrades();
+    closeModal('trade-del-modal');
+    renderJournal(); renderGuardBanner();
+    toast('已刪除', 'err');
+  };
+}
+
+// ══ 覆盤分析 ══════════════════════════════════════════
+let _reviewDays = 7;
+function setReviewRange(days, el) {
+  _reviewDays = days;
+  document.querySelectorAll('#panel-review .pill-sm').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  renderReview();
+}
+
+function getReviewTrades() {
+  const closed = getTrades().filter(t => t.status === 'closed');
+  if (_reviewDays === 0) return closed;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - _reviewDays);
+  return closed.filter(t => new Date(t.date) >= cutoff);
+}
+
+function renderReview() {
+  const el = document.getElementById('review-content');
+  const trades = getReviewTrades();
+
+  if (!trades.length) {
+    el.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--t3)">
+      <div style="font-size:2rem;margin-bottom:8px">📊</div>
+      <div style="font-size:.88rem">此期間尚無已平倉交易</div>
+    </div>`;
+    return;
+  }
+
+  // 核心統計
+  let totalNet = 0, wins = 0, losses = 0, winSum = 0, lossSum = 0, violations = 0;
+  trades.forEach(t => {
+    const { netPnl } = calcTradeCost(t);
+    totalNet += netPnl;
+    if (netPnl > 0) { wins++; winSum += netPnl; }
+    else if (netPnl < 0) { losses++; lossSum += Math.abs(netPnl); }
+    if (t.disciplineViolation) violations++;
+  });
+  const winRate = trades.length ? (wins / trades.length * 100) : 0;
+  const avgWin  = wins ? winSum / wins : 0;
+  const avgLoss = losses ? lossSum / losses : 0;
+  const profitFactor = lossSum ? winSum / lossSum : (winSum > 0 ? 99 : 0);
+  const expectancy = trades.length ? totalNet / trades.length : 0;
+
+  // 依型態統計
+  const byPattern = aggBy(trades, 'pattern', PATTERNS);
+  const byEmo     = aggBy(trades, 'emotion', EMO_LABEL);
+  const byType    = aggBy(trades, 'type', TYPE_LABEL);
+
+  const npc = totalNet >= 0 ? '#22c55e' : '#ef4444';
+
+  el.innerHTML = `
+    <!-- 核心指標 -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+      <div class="t-sv"><div class="v" style="color:${npc}">${totalNet>=0?'+$':'-$'}${fmt(Math.abs(Math.round(totalNet)))}</div><div class="l">淨損益（${trades.length}筆）</div></div>
+      <div class="t-sv"><div class="v" style="color:var(--p)">${winRate.toFixed(0)}%</div><div class="l">勝率（${wins}勝${losses}敗）</div></div>
+      <div class="t-sv"><div class="v" style="color:#22c55e">$${fmt(Math.round(avgWin))}</div><div class="l">平均獲利</div></div>
+      <div class="t-sv"><div class="v" style="color:#ef4444">$${fmt(Math.round(avgLoss))}</div><div class="l">平均虧損</div></div>
+    </div>
+
+    <div class="t-card">
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">盈虧比（賺賠比）</span>
+        <span style="font-weight:900;color:${profitFactor>=1.5?'#22c55e':profitFactor>=1?'var(--warn)':'#ef4444'}">${profitFactor>=99?'∞':profitFactor.toFixed(2)}</span>
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">每筆期望值</span>
+        <span style="font-weight:900;color:${expectancy>=0?'#22c55e':'#ef4444'}">${expectancy>=0?'+':''}$${fmt(Math.round(expectancy))}</span>
+      </div>
+      <div class="metric-row" style="border-bottom:none">
+        <span style="font-size:.82rem;color:var(--t2)">違反紀律次數</span>
+        <span style="font-weight:900;color:${violations===0?'#22c55e':'#ef4444'}">${violations} 次（${(violations/trades.length*100).toFixed(0)}%）</span>
+      </div>
+    </div>
+
+    ${profitFactor < 1 ? `<div style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:12px;margin-bottom:12px;font-size:.8rem;color:var(--danger);line-height:1.5">⚠️ 盈虧比小於 1，代表賺的不夠賠的多。檢視是否停損太慢、或獲利跑太快。</div>` : ''}
+
+    <!-- 型態勝率 -->
+    <div class="t-card">
+      <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">📐 各型態表現</div>
+      ${renderAggBars(byPattern)}
+    </div>
+
+    <!-- 情緒勝率 -->
+    <div class="t-card">
+      <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">🧠 各情緒下的表現</div>
+      ${renderAggBars(byEmo)}
+      <div style="font-size:.72rem;color:var(--t3);margin-top:8px;line-height:1.5">💡 觀察哪種情緒下勝率高。多數人「冷靜」勝率最高，「追高/貪婪」最低。</div>
+    </div>
+
+    <!-- 類型勝率 -->
+    <div class="t-card">
+      <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">⏱ 各交易類型表現</div>
+      ${renderAggBars(byType)}
+    </div>
+  `;
+}
+
+function aggBy(trades, field, labelMap) {
+  const groups = {};
+  trades.forEach(t => {
+    const k = t[field] || 'other';
+    if (!groups[k]) groups[k] = { count:0, wins:0, net:0 };
+    const { netPnl } = calcTradeCost(t);
+    groups[k].count++;
+    if (netPnl > 0) groups[k].wins++;
+    groups[k].net += netPnl;
+  });
+  return Object.entries(groups).map(([k, v]) => ({
+    label: labelMap[k] || k,
+    count: v.count,
+    winRate: v.count ? (v.wins / v.count * 100) : 0,
+    net: v.net,
+  })).sort((a, b) => b.count - a.count);
+}
+
+function renderAggBars(items) {
+  if (!items.length) return '<div style="color:var(--t3);font-size:.8rem">無資料</div>';
+  return items.map(it => {
+    const wrColor = it.winRate >= 55 ? '#22c55e' : it.winRate >= 45 ? 'var(--warn)' : '#ef4444';
+    const npc = it.net >= 0 ? '#22c55e' : '#ef4444';
+    return `<div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:4px">
+        <span style="color:var(--t)">${it.label}<span style="color:var(--t3)"> · ${it.count}筆</span></span>
+        <span style="color:${wrColor};font-weight:700">${it.winRate.toFixed(0)}%　<span style="color:${npc}">${it.net>=0?'+':''}$${fmt(Math.round(it.net))}</span></span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${it.winRate}%;background:${wrColor}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ══ 紀律設定 ══════════════════════════════════════════
+function loadRules() {
+  const r = getTradeRules();
+  document.getElementById('r-maxloss').value     = r.maxDailyLoss || '';
+  document.getElementById('r-maxpos').value      = r.maxPositionSize || '';
+  document.getElementById('r-maxconsec').value   = r.maxConsecutiveLoss || '';
+  document.getElementById('r-maxtrades').value   = r.maxTradesPerDay || '';
+  document.getElementById('r-feerate').value     = r.feeRate || '';
+  document.getElementById('r-feediscount').value = r.feeDiscount || '';
+  document.getElementById('r-minfee').value      = r.minFee || '';
+}
+function saveRules() {
+  saveTradeRules({
+    maxDailyLoss:       parseInt(document.getElementById('r-maxloss').value) || 0,
+    maxPositionSize:    parseInt(document.getElementById('r-maxpos').value) || 0,
+    maxConsecutiveLoss: parseInt(document.getElementById('r-maxconsec').value) || 0,
+    maxTradesPerDay:    parseInt(document.getElementById('r-maxtrades').value) || 0,
+    feeRate:            parseFloat(document.getElementById('r-feerate').value) || 0.1425,
+    feeDiscount:        parseFloat(document.getElementById('r-feediscount').value) || 1,
+    minFee:             parseInt(document.getElementById('r-minfee').value) || 20,
+  });
+  fbSyncTrades();
+  renderGuardBanner();
+  toast('💾 紀律設定已儲存');
+}
+
+// ══ AI 教練（鐵衛）═════════════════════════════════════
+let _coachHistory = [];
+let _coachBusy    = false;
+let _coachInited  = false;
+
+function buildTradeSnapshot() {
+  const all = getTrades().filter(t => t.status === 'closed');
+  const recent = all.slice(0, 40);  // 最近40筆
+  const rules = getTradeRules();
+
+  let totalNet = 0, wins = 0, violations = 0;
+  const byPattern = {}, byEmo = {};
+  recent.forEach(t => {
+    const { netPnl } = calcTradeCost(t);
+    totalNet += netPnl;
+    if (netPnl > 0) wins++;
+    if (t.disciplineViolation) violations++;
+    const p = PATTERNS[t.pattern] || t.pattern;
+    const e = EMO_LABEL[t.emotion] || t.emotion;
+    if (!byPattern[p]) byPattern[p] = { count:0, wins:0 };
+    if (!byEmo[e])     byEmo[e]     = { count:0, wins:0 };
+    byPattern[p].count++; if (netPnl>0) byPattern[p].wins++;
+    byEmo[e].count++;     if (netPnl>0) byEmo[e].wins++;
+  });
+
+  const stats = getTodayTradeStats();
+
+  return {
+    交易總筆數: recent.length,
+    勝率: recent.length ? (wins/recent.length*100).toFixed(1)+'%' : '無資料',
+    累計淨損益: Math.round(totalNet),
+    違反紀律次數: violations,
+    今日: { 筆數: stats.count, 淨損益: Math.round(stats.netSum), 當前連虧: stats.currentConsecutiveLoss },
+    紀律規則: {
+      單日最大虧損: rules.maxDailyLoss, 單筆部位上限: rules.maxPositionSize,
+      連虧停手: rules.maxConsecutiveLoss, 單日最大筆數: rules.maxTradesPerDay,
+    },
+    各型態勝率: Object.entries(byPattern).map(([k,v]) => `${k}: ${v.count}筆 勝率${v.count?(v.wins/v.count*100).toFixed(0):0}%`),
+    各情緒勝率: Object.entries(byEmo).map(([k,v]) => `${k}: ${v.count}筆 勝率${v.count?(v.wins/v.count*100).toFixed(0):0}%`),
+    最近5筆: recent.slice(0,5).map(t => {
+      const { netPnl } = calcTradeCost(t);
+      return `${t.date} ${t.ticker} ${TYPE_LABEL[t.type]} ${t.direction==='short'?'空':'多'} ${PATTERNS[t.pattern]} ${EMO_LABEL[t.emotion]}下單 淨${netPnl>=0?'+':''}${Math.round(netPnl)} ${t.disciplineViolation?'[違紀:'+t.violationNote+']':''}`;
+    }),
+  };
+}
+
+function buildCoachSystemPrompt(snap) {
+  return `你是「鐵衛」，一位資深的台股短線交易風控教練 AI，住在這個交易輔助 App 裡。
+
+你的核心信念：短線交易（當沖/隔日沖）扣掉手續費、證交稅與滑價後接近負和遊戲，多數散戶難以穩定獲利。所以你【絕對不報明牌、不預測漲跌、不給買賣訊號】。你的價值在於：紀律、覆盤、心理教練。
+
+個性：嚴格但關心，講話直接不囉嗦，像一位看過大風大浪的老交易員。會戳破使用者的自我安慰，但目的是保護他的本金。
+
+以下是 ${snap.交易總筆數} 筆交易的覆盤快照（從交易日誌即時擷取）：
+${JSON.stringify(snap, null, 2)}
+
+回答規則：
+- 基於上面的真實數據給建議，引用具體數字，不講空泛大道理
+- 回答簡潔，適合手機閱讀（不超過250字）
+- 如果使用者想凹單、攤平、報復性交易，要明確阻止他
+- 可以解釋型態、資金控管、停損邏輯、台股處置股/注意股規則、心理偏誤（處置效應、損失趨避、確認偏誤等）
+- 【絕對不預測個股漲跌、不報明牌】，若使用者問「某股會漲嗎」，明確拒絕並引導回紀律與風控
+- 如果數據顯示某情緒/型態勝率低，直接點出來
+
+【重要】必須使用台灣繁體中文，不用簡體字。`;
+}
+
+function initCoach() {
+  if (_coachInited) return;
+  _coachInited = true;
+  const snap = buildTradeSnapshot();
+  let greeting;
+  if (snap.交易總筆數 === 0) {
+    greeting = '我是鐵衛，你的風控教練。先去日誌記幾筆交易，我才能幫你覆盤。記住——我不報明牌，我只幫你守紀律、活得久。';
+  } else {
+    greeting = `我是鐵衛。看了你最近 ${snap.交易總筆數} 筆交易，勝率 ${snap.勝率}，累計淨損益 ${snap.累計淨損益>=0?'+':''}$${fmt(snap.累計淨損益)}。`;
+    if (snap.違反紀律次數 > 0) greeting += `有 ${snap.違反紀律次數} 次違反紀律，等等我們來談談。`;
+    greeting += '有什麼想覆盤的？';
+  }
+  appendCoachBubble('coach', greeting);
+}
+
+async function sendCoach() {
+  const input = document.getElementById('coach-input');
+  const text  = input?.value.trim();
+  if (!text || _coachBusy) return;
+  await askCoach(text);
+}
+
+async function askCoach(text) {
+  if (_coachBusy) return;
+  const input = document.getElementById('coach-input');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  const sug = document.getElementById('coach-suggestions');
+  if (sug) sug.style.display = 'none';
+
+  appendCoachBubble('user', text);
+  _coachHistory.push({ role:'user', content:text });
+  _coachBusy = true;
+  const sendBtn = document.getElementById('coach-send');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; }
+  const thinkId = appendCoachThinking();
+
+  try {
+    const key = localStorage.getItem('claude_api_key') || '';
+    if (!key) { removeEl(thinkId); appendCoachBubble('coach', '⚠️ 請先在設定頁填入 Claude API Key，鐵衛才能開口。'); return; }
+
+    const snap = buildTradeSnapshot();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: buildCoachSystemPrompt(snap),
+        messages: _coachHistory.slice(-12),
+      }),
+    });
+    removeEl(thinkId);
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      appendCoachBubble('coach', `鐵衛說：出了點問題（${err?.error?.message||('HTTP '+res.status)}），稍後再試。`);
+      _coachHistory.pop(); return;
+    }
+    const data = await res.json();
+    const reply = (data.content?.[0]?.text || '鐵衛沉默了…').trim();
+    appendCoachBubble('coach', reply);
+    _coachHistory.push({ role:'assistant', content:reply });
+    if (_coachHistory.length > 20) _coachHistory = _coachHistory.slice(-20);
+  } catch(e) {
+    removeEl(thinkId);
+    appendCoachBubble('coach', '鐵衛連線失敗，確認網路和 API Key。');
+    _coachHistory.pop();
+    console.warn('[鐵衛]', e);
+  } finally {
+    _coachBusy = false;
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+    scrollCoachBottom();
+  }
+}
+
+function appendCoachBubble(role, text) {
+  const chat = document.getElementById('coach-chat');
+  if (!chat) return;
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:12px' + (role==='user'?';flex-direction:row-reverse':'');
+  if (role === 'coach') {
+    const av = document.createElement('div');
+    av.style.cssText = 'width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#475569,#1e293b);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0';
+    av.textContent = '🛡️';
+    wrap.appendChild(av);
+  }
+  const bub = document.createElement('div');
+  bub.className = role === 'user' ? 'bubble-user' : 'bubble-coach';
+  bub.innerHTML = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
+  wrap.appendChild(bub);
+  chat.appendChild(wrap);
+  scrollCoachBottom();
+}
+
+let _cthink = 0;
+function appendCoachThinking() {
+  const id = 'cthink-' + (++_cthink);
+  const chat = document.getElementById('coach-chat');
+  if (!chat) return id;
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:12px';
+  wrap.innerHTML = `<div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#475569,#1e293b);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🛡️</div>
+    <div class="bubble-coach" style="padding:10px 14px"><div style="display:inline-flex;gap:4px;align-items:center"><div class="coach-dot"></div><div class="coach-dot"></div><div class="coach-dot"></div></div></div>`;
+  chat.appendChild(wrap);
+  scrollCoachBottom();
+  return id;
+}
+function removeEl(id) { document.getElementById(id)?.remove(); }
+function scrollCoachBottom() {
+  const el = document.getElementById('coach-chat');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+// ══ 關注清單 ══════════════════════════════════════════
+let _watchMarket = 'twse';
+
+function setWatchMarket(m, el) {
+  _watchMarket = m;
+  ['w-m-twse','w-m-otc'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function watchAutofill() {
+  const ticker = document.getElementById('w-ticker').value.trim();
+  const nameEl = document.getElementById('w-name');
+  if (COMMON_TICKERS[ticker] && !nameEl.value) nameEl.value = COMMON_TICKERS[ticker];
+}
+
+function addWatch() {
+  const ticker = document.getElementById('w-ticker').value.trim();
+  const name   = document.getElementById('w-name').value.trim();
+  if (!ticker) { toast('請輸入股票代號', 'warn'); return; }
+
+  const ok = addWatchItem({
+    ticker,
+    name: name || COMMON_TICKERS[ticker] || '',
+    market: _watchMarket,
+    addedAt: Date.now(),
+  });
+  if (!ok) { toast('此標的已在關注清單', 'warn'); return; }
+
+  fbSyncTrades();
+  document.getElementById('w-ticker').value = '';
+  document.getElementById('w-name').value = '';
+  renderWatchlist();
+  toast(`已加入關注：${ticker}`);
+}
+
+function removeWatch(ticker) {
+  delWatchItem(ticker);
+  fbSyncTrades();
+  renderWatchlist();
+  toast('已移除', 'err');
+}
+
+function renderWatchlist() {
+  const titleEl = document.getElementById('watch-list-title');
+  const listEl  = document.getElementById('watch-list');
+  if (!listEl) return;
+  const list = getWatchlist();
+
+  if (!list.length) {
+    if (titleEl) titleEl.textContent = '';
+    listEl.innerHTML = `<div style="text-align:center;padding:28px 0;color:var(--t3)">
+      <div style="font-size:2rem;margin-bottom:8px">⭐</div>
+      <div style="font-size:.85rem">還沒有關注標的</div>
+      <div style="font-size:.76rem;margin-top:4px">加入後，盤後資料會自動推播</div>
+    </div>`;
+    return;
+  }
+
+  if (titleEl) titleEl.textContent = `📋 關注中（${list.length} 檔）`;
+  const sorted = [...list].sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+  listEl.innerHTML = sorted.map(w => `
+    <div class="t-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px">
+      <div style="flex:1">
+        <div style="font-size:.92rem;font-weight:900;color:var(--t)">${w.ticker}${w.name ? ' '+w.name : ''}</div>
+        <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${w.market === 'otc' ? '上櫃' : '上市'}</div>
+      </div>
+      <button onclick="removeWatch('${w.ticker}')"
+        style="padding:6px 12px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:50px;font-size:.74rem;cursor:pointer;font-family:inherit">移除</button>
+    </div>`).join('');
+}
+
+// ══ 工具 ══════════════════════════════════════════════
+function showModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+let _tt;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show' + (type ? ' '+type : '');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ══ 啟動 ══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  applyTheme();
+  // 權限檢查：只有宏龍可使用
+  setTimeout(async () => {
+    if (typeof isKevin === 'function' && !isKevin()) {
+      document.querySelector('.w').innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--t3)"><div style="font-size:2.5rem;margin-bottom:12px">🔒</div><div>此功能僅限管理員使用</div></div>';
+      document.getElementById('trade-fab').style.display = 'none';
+      return;
+    }
+    updateTradeMonthLabel();
+    await fbPullTrades();
+    fbListenTrades(() => { renderJournal(); renderGuardBanner(); });
+    renderJournal();
+    renderGuardBanner();
+  }, 100);
+});
+
+</script>
+</body>
+</html>

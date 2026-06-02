@@ -72,10 +72,28 @@
   <a class="ni on" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
 </nav>
 <div class="toast" id="toast"></div>
+<!-- 分期付款提醒 Sheet -->
+<div class="ov" id="installment-remind-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+      <span style="font-size:1.1rem">💳</span>
+      <div style="font-size:.95rem;font-weight:900;color:var(--t)" id="ir-title">分期付款提醒</div>
+    </div>
+    <div id="ir-list" style="margin-bottom:16px"></div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeInstRemind()">稍後提醒</button>
+      <button class="btn btn-p" id="ir-confirm-btn" onclick="confirmInstallments()">✅ 立即記帳</button>
+    </div>
+  </div>
+</div>
+
+
 
 <!-- 吉祥物泡泡（複用 add.html 機制，AI 助理記帳完成時顯示個性評語） -->
 <div id="mascot-wrap" style="display:none;position:fixed;bottom:calc(var(--nav) + 70px);left:0;right:0;z-index:150;padding:0 16px;pointer-events:auto" onclick="closeMascot()">
@@ -672,9 +690,15 @@ fbPullAll().then(async ()=>{
   } catch(e) {}
   // 檢查今天固定支出提醒
   if (typeof checkRecurringToday === 'function') checkRecurringToday();
+  // 拉取分期資料並檢查提醒
+  if (typeof fbPullInstallments === 'function') {
+    await fbPullInstallments();
+  }
+  setTimeout(checkInstallmentReminders, 1800);
 });
 fbListenTx(()=>render());
 fbListenWal(()=>render());
+if (typeof fbListenInstallments === 'function') fbListenInstallments();
 scheduleDailyDiscord();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
@@ -713,6 +737,103 @@ function toggleEditTag(id) {
   if (idx >= 0) editTags.splice(idx, 1);
   else editTags.push(id);
   renderEditTagChips();
+}
+
+
+// ── 分期付款提醒 ──────────────────────────────────────
+let _irPending = [];   // 目前待記帳的分期列表
+
+function checkInstallmentReminders() {
+  if (typeof getPendingInstallments !== 'function') return;
+  _irPending = getPendingInstallments();
+  if (!_irPending.length) return;
+  showInstallmentReminderSheet(_irPending);
+}
+
+function showInstallmentReminderSheet(items) {
+  const titleEl  = document.getElementById('ir-title');
+  const listEl   = document.getElementById('ir-list');
+  const confirmBtn = document.getElementById('ir-confirm-btn');
+  if (!listEl) return;
+
+  const count = items.length;
+  if (titleEl) titleEl.textContent = count > 1
+    ? `有 ${count} 期分期未記帳`
+    : '分期付款提醒';
+
+  listEl.innerHTML = items.map((item, i) => {
+    const [y, m] = item.periodYM.split('-');
+    return `<div style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="ir-chk-${i}" checked
+        style="width:18px;height:18px;accent-color:var(--p);cursor:pointer;flex-shrink:0">
+      <label for="ir-chk-${i}" style="flex:1;cursor:pointer">
+        <div style="font-size:.88rem;font-weight:700;color:var(--t)">${item.inst.name}</div>
+        <div style="font-size:.78rem;color:var(--t2);margin-top:3px">
+          第 ${item.periodNo}/${item.inst.months} 期 &nbsp;·&nbsp; ${y} 年 ${m} 月 &nbsp;·&nbsp; ${item.inst.cardName || '信用卡'}
+        </div>
+      </label>
+      <div style="font-size:1rem;font-weight:900;color:var(--p);white-space:nowrap">$${fmt(item.periodAmt)}</div>
+    </div>`;
+  }).join('');
+
+  if (confirmBtn) {
+    confirmBtn.textContent = count > 1 ? `✅ 全部記帳（${count} 筆）` : '✅ 立即記帳';
+  }
+
+  document.getElementById('installment-remind-modal').classList.add('show');
+}
+
+async function confirmInstallments() {
+  const items = _irPending;
+  let recorded = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const chk = document.getElementById('ir-chk-' + i);
+    if (chk && !chk.checked) continue;
+
+    const item = items[i];
+    const inst = item.inst;
+
+    // 建立記帳記錄
+    const tx = {
+      amount:  item.periodAmt,
+      cat:     inst.cat,
+      subCat:  inst.subCat,
+      detail:  `${inst.name}（第${item.periodNo}/${inst.months}期）`,
+      person:  inst.person,
+      pay:     'card',
+      cardId:  inst.cardId,
+      icardId: null,
+      acctId:  null,
+      tags:    [],
+      at:      new Date().toISOString(),
+    };
+    const newTx = addTx(tx);
+    await fbAddTx(newTx || tx);
+
+    // 更新分期記錄
+    const updatedPaidMonths = [...(inst.paidMonths || []), item.periodYM];
+    const newPaidCount      = updatedPaidMonths.length;
+    const isDone            = newPaidCount >= inst.months;
+    updateInstallment(inst.id, {
+      paidMonths: updatedPaidMonths,
+      paidCount:  newPaidCount,
+      status:     isDone ? 'done' : 'active',
+    });
+    recorded++;
+  }
+
+  await fbSyncInstallments();
+  closeInstRemind();
+  render();
+
+  if (recorded > 0) {
+    toast(`✅ 已記帳 ${recorded} 筆分期款`);
+  }
+}
+
+function closeInstRemind() {
+  document.getElementById('installment-remind-modal')?.classList.remove('show');
 }
 
 </script>

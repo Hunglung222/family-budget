@@ -186,6 +186,8 @@ async function fbPullAppConfig(){
         localStorage.setItem('discord_webhook', cfg.discordWebhook);
         saveDiscord({webhook: cfg.discordWebhook});
       }
+      if(cfg.reportWebhook) localStorage.setItem('report_webhook', cfg.reportWebhook);
+      if(cfg.tradeWebhook)  localStorage.setItem('trade_webhook',  cfg.tradeWebhook);
       if(cfg.geminiKey) localStorage.setItem('gemini_api_key', cfg.geminiKey);
       if(cfg.claudeKey) localStorage.setItem('claude_api_key', cfg.claudeKey);
       localStorage.setItem('app_config_updated', String(cloudUpdated));
@@ -201,9 +203,13 @@ async function fbSyncAppConfig(){
     const geminiKey = localStorage.getItem('gemini_api_key')||'';
     const claudeKey = localStorage.getItem('claude_api_key')||'';
     const discordCfg = getDiscord();
-    if(webhook||geminiKey||claudeKey){
+    const tradeWebhook  = localStorage.getItem('trade_webhook')  || '';
+    const reportWebhook = localStorage.getItem('report_webhook') || '';
+    if(webhook||geminiKey||claudeKey||tradeWebhook||reportWebhook){
       await getDb().collection('shared').doc('app_config').set({
         discordWebhook: webhook,
+        reportWebhook:  reportWebhook,
+        tradeWebhook:   tradeWebhook,
         geminiKey: geminiKey,
         claudeKey: claudeKey,
         dailyHour:   discordCfg.dailyHour   || 21,
@@ -484,5 +490,117 @@ function scheduleNotifications(){
 
 // alias：index.html 呼叫 scheduleDailyDiscord()，確保兩個名稱都能用
 const scheduleDailyDiscord = scheduleNotifications;
+
+// ── 分期付款 Firebase 同步 ────────────────────────────
+async function fbSyncInstallments() {
+  try {
+    await getDb().collection('shared').doc('installments')
+      .set({ list: getInstallments(), updatedAt: Date.now() });
+  } catch(e) { console.warn('[FB]installments', e); }
+}
+
+async function fbPullInstallments() {
+  try {
+    const d = await getDb().collection('shared').doc('installments').get();
+    if (d.exists && d.data().list) {
+      saveInstallments(d.data().list);
+    }
+  } catch(e) {}
+}
+
+let _instUnsub = null;
+function fbListenInstallments(cb) {
+  if (_instUnsub) _instUnsub();
+  try {
+    _instUnsub = getDb().collection('shared').doc('installments')
+      .onSnapshot(snap => {
+        if (snap.exists && snap.data().list) {
+          saveInstallments(snap.data().list);
+          if (typeof cb === 'function') cb();
+        }
+      });
+  } catch(e) { console.warn('[FB]listen installments', e); }
+}
+
+
+// ── 投資記錄 Firebase 同步（per-user 私密路徑）───────────
+async function fbSyncInvestments() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    await getDb().collection('private_tx').doc(u)
+      .set({ investments: getInvestments(), invUpdatedAt: Date.now() }, { merge: true });
+  } catch(e) { console.warn('[FB]investments', e); }
+}
+
+async function fbPullInvestments() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    const d = await getDb().collection('private_tx').doc(u).get();
+    if (d.exists && d.data().investments) {
+      saveInvestments(d.data().investments);
+    }
+  } catch(e) {}
+}
+
+let _invUnsub = null;
+function fbListenInvestments(cb) {
+  if (_invUnsub) _invUnsub();
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    _invUnsub = getDb().collection('private_tx').doc(u)
+      .onSnapshot(snap => {
+        if (snap.exists && snap.data().investments) {
+          saveInvestments(snap.data().investments);
+          if (typeof cb === 'function') cb();
+        }
+      });
+  } catch(e) { console.warn('[FB]listen investments', e); }
+}
+
+
+// ── 台股交易日誌 Firebase 同步（per-user 私密）─────────
+async function fbSyncTrades() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    await getDb().collection('private_tx').doc(u)
+      .set({ trades: getTrades(), tradeRules: getTradeRules(), watchlist: getWatchlist(), tradeUpdatedAt: Date.now() }, { merge: true });
+  } catch(e) { console.warn('[FB]trades', e); }
+}
+
+async function fbPullTrades() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    const d = await getDb().collection('private_tx').doc(u).get();
+    if (d.exists) {
+      if (d.data().trades)     saveTrades(d.data().trades);
+      if (d.data().tradeRules) saveTradeRules(d.data().tradeRules);
+      if (d.data().watchlist)  saveWatchlist(d.data().watchlist);
+    }
+  } catch(e) {}
+}
+
+let _tradeUnsub = null;
+function fbListenTrades(cb) {
+  if (_tradeUnsub) _tradeUnsub();
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    _tradeUnsub = getDb().collection('private_tx').doc(u)
+      .onSnapshot(snap => {
+        if (snap.exists && snap.data().trades) {
+          saveTrades(snap.data().trades);
+          if (snap.data().tradeRules) saveTradeRules(snap.data().tradeRules);
+          if (snap.data().watchlist)  saveWatchlist(snap.data().watchlist);
+          if (typeof cb === 'function') cb();
+        }
+      });
+  } catch(e) { console.warn('[FB]listen trades', e); }
+}
+
 
 getDb();

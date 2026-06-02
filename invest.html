@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="./manifest.json">
+<title>投資大師</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.inv-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.inv-sv{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.inv-sv .v{font-size:1.15rem;font-weight:900;margin-bottom:3px}
+.inv-sv .l{font-size:.65rem;color:var(--t3)}
+.inv-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;transition:.15s}
+.inv-card:active{background:var(--card2)}
+.type-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.type-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 6px;border:1.5px solid var(--border);border-radius:10px;background:var(--card);cursor:pointer;font-family:inherit;transition:.15s}
+.type-btn.on{background:var(--pdim);border-color:var(--p)}
+.type-btn .ti{font-size:1.2rem}
+.type-btn .tl{font-size:.62rem;color:var(--t2);white-space:nowrap}
+.pnl-pos{color:#22c55e}
+.pnl-neg{color:#ef4444}
+.pnl-zer{color:var(--t3)}
+.tri-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px;text-align:center}
+.tri-v{font-size:.88rem;font-weight:700}
+.tri-l{font-size:.65rem;color:var(--t3);margin-bottom:2px}
+.health-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.health-card .hc-title{font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.gauge-bar{height:10px;background:var(--border);border-radius:5px;overflow:hidden;margin:8px 0}
+.gauge-fill{height:10px;border-radius:5px;transition:.5s}
+.tl-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.tl-green{background:#22c55e;box-shadow:0 0 6px #22c55e88}
+.tl-yellow{background:#f59e0b;box-shadow:0 0 6px #f59e0b88}
+.tl-red{background:#ef4444;box-shadow:0 0 6px #ef444488;animation:pulse-tl .9s infinite}
+@keyframes pulse-tl{0%,100%{opacity:1}50%{opacity:.5}}
+.metric-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.metric-row:last-child{border-bottom:none}
+.yu-chip{padding:7px 13px;background:var(--card);border:1.5px solid var(--border);border-radius:50px;font-size:.78rem;font-weight:600;color:var(--t2);cursor:pointer;font-family:inherit;transition:.15s;white-space:nowrap}
+.yu-chip:active{background:var(--pdim);border-color:var(--p);color:var(--p)}
+.yu-bubble-yu{background:var(--card);border:1px solid var(--border);border-radius:0 14px 14px 14px;padding:12px 14px;max-width:85%;font-size:.88rem;line-height:1.6;color:var(--t)}
+.yu-bubble-user{background:var(--pdim);border:1.5px solid var(--p);border-radius:14px 0 14px 14px;padding:10px 14px;max-width:85%;font-size:.88rem;line-height:1.5;color:var(--t);margin-left:auto}
+.yu-thinking{display:inline-flex;gap:4px;align-items:center;padding:12px 14px}
+.yu-dot{width:7px;height:7px;border-radius:50%;background:var(--t3);animation:yu-bounce .9s infinite}
+.yu-dot:nth-child(2){animation-delay:.2s}
+.yu-dot:nth-child(3){animation-delay:.4s}
+@keyframes yu-bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-6px)}}
+.calc-box{background:var(--card2);border-radius:10px;padding:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div>
+    <h1>📈 投資大師</h1>
+    <div class="hdr-sub" id="inv-sub"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button onclick="showAddInv()" style="background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;font-family:inherit">＋</button>
+    <a href="./settings.html" class="hdr-btn">⚙️</a>
+  </div>
+</header>
+
+<div class="w">
+
+  <!-- 分頁切換 -->
+  <div style="display:flex;background:var(--card2);border-radius:12px;padding:3px;margin-bottom:14px;gap:3px">
+    <button id="inv-tab-port" onclick="switchInvTab('portfolio',this)"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#000;transition:.18s">📊 持倉</button>
+    <button id="inv-tab-health" onclick="switchInvTab('health',this)"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">🏥 財務健康</button>
+  </div>
+
+  <!-- ══ 持倉分頁 ══ -->
+  <div id="panel-portfolio">
+
+  <!-- 總覽儀表板 -->
+  <div class="inv-grid">
+    <div class="inv-sv">
+      <div class="v" id="sv-cost" style="color:var(--t2)">$0</div>
+      <div class="l">總投入成本</div>
+    </div>
+    <div class="inv-sv">
+      <div class="v" id="sv-cur" style="color:var(--p)">$0</div>
+      <div class="l">當前市值</div>
+    </div>
+    <div class="inv-sv" style="grid-column:1">
+      <div class="v" id="sv-pnl">$0</div>
+      <div class="l">未實現損益</div>
+    </div>
+    <div class="inv-sv">
+      <div class="v" id="sv-pct">0.00%</div>
+      <div class="l">整體報酬率</div>
+    </div>
+  </div>
+
+  <!-- 資產配置圓餅圖 -->
+  <div id="chart-sec" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px">
+    <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">📊 資產配置</div>
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="position:relative;width:140px;height:140px;flex-shrink:0;margin:0 auto">
+        <canvas id="alloc-chart" width="140" height="140"></canvas>
+      </div>
+      <div id="chart-legend" style="display:flex;flex-direction:column;gap:7px;flex:1;min-width:120px"></div>
+    </div>
+  </div>
+
+  <!-- AI 顧問入口（Phase 3 佔位）-->
+  <div style="background:linear-gradient(135deg,rgba(0,229,180,.07),rgba(79,142,247,.07));border:1.5px solid rgba(0,229,180,.2);border-radius:var(--r);padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:12px">
+    <div style="font-size:1.7rem;line-height:1">🦁</div>
+    <div style="flex:1">
+      <div style="font-size:.88rem;font-weight:900;color:var(--t)">老余 AI 投資顧問</div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:2px">根據你的真實收支，給出個人化建議</div>
+    </div>
+    <div style="font-size:.7rem;color:var(--t3);background:var(--card2);padding:4px 9px;border-radius:20px;white-space:nowrap;border:1px solid var(--border)">即將推出</div>
+  </div>
+
+  <!-- 台股交易輔助入口（僅宏龍顯示）-->
+  <a id="trade-entry" href="./trade.html" style="display:none;text-decoration:none;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:16px;align-items:center;gap:12px">
+    <div style="font-size:1.7rem;line-height:1">🛡️</div>
+    <div style="flex:1">
+      <div style="font-size:.88rem;font-weight:900;color:var(--t)">台股交易輔助</div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:2px">交易日誌・覆盤・紀律守門・鐵衛教練</div>
+    </div>
+    <div style="font-size:1.1rem;color:var(--t3)">›</div>
+  </a>
+
+  <!-- 持倉列表 -->
+  <div style="font-size:.8rem;font-weight:700;color:var(--t2);margin-bottom:10px" id="list-title"></div>
+  <div id="inv-list"></div>
+
+  <div style="height:120px"></div>
+  </div><!-- end panel-portfolio -->
+
+  <!-- ══ 財務健康診斷分頁 ══ -->
+  <div id="panel-health" style="display:none">
+
+    <!-- ① 收支快照 -->
+    <div class="health-card">
+      <div class="hc-title">💰 近3個月收支快照</div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">月均收入</span>
+        <span style="font-weight:900;color:#22c55e" id="hc-income">—</span>
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">月均支出</span>
+        <span style="font-weight:900;color:#ef4444" id="hc-expense">—</span>
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">分期月付</span>
+        <span style="font-weight:900;color:var(--warn)" id="hc-installment">—</span>
+      </div>
+      <div style="margin-top:10px;padding:12px;background:var(--pdim);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.85rem;font-weight:700;color:var(--t)">💡 月可投資金額</span>
+        <span style="font-size:1.1rem;font-weight:900;color:var(--p)" id="hc-investable">—</span>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:6px" id="hc-income-note"></div>
+    </div>
+
+    <!-- ② 緊急備用金 -->
+    <div class="health-card">
+      <div class="hc-title">
+        <div class="tl-dot" id="ef-dot"></div>
+        🛡️ 緊急備用金
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px">
+        <span style="color:var(--t2)">現有（錢包＋帳戶）</span>
+        <span style="font-weight:700;color:var(--t)" id="ef-have">$0</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:6px">
+        <span style="color:var(--t2)">建議最低（月支出×6）</span>
+        <span style="font-weight:700;color:var(--t3)" id="ef-goal">$0</span>
+      </div>
+      <div class="gauge-bar">
+        <div class="gauge-fill" id="ef-bar" style="width:0%;background:#22c55e"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;margin-top:4px">
+        <span style="color:var(--t3)" id="ef-pct-lbl"></span>
+        <span id="ef-status-lbl" style="font-weight:700"></span>
+      </div>
+    </div>
+
+    <!-- ③ 負債壓力 -->
+    <div class="health-card">
+      <div class="hc-title">
+        <div class="tl-dot" id="debt-dot"></div>
+        💳 負債壓力指數
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">信用卡未繳帳單</span>
+        <span style="font-weight:700;color:var(--t)" id="debt-bills">$0</span>
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">分期剩餘總額</span>
+        <span style="font-weight:700;color:var(--t)" id="debt-inst">$0</span>
+      </div>
+      <div class="metric-row" style="border-bottom:none">
+        <span style="font-size:.82rem;color:var(--t2)">負債收入比</span>
+        <span style="font-size:1rem;font-weight:900" id="debt-ratio">0%</span>
+      </div>
+      <div class="gauge-bar">
+        <div class="gauge-fill" id="debt-bar" style="width:0%"></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-top:4px" id="debt-advice"></div>
+    </div>
+
+    <!-- ④ 投資概況連結 -->
+    <div class="health-card">
+      <div class="hc-title">📈 投資現況</div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">投資總市值</span>
+        <span style="font-weight:700;color:var(--p)" id="hc-inv-cur">$0</span>
+      </div>
+      <div class="metric-row">
+        <span style="font-size:.82rem;color:var(--t2)">未實現損益</span>
+        <span style="font-weight:700" id="hc-inv-pnl">$0</span>
+      </div>
+      <div class="metric-row" style="border-bottom:none">
+        <span style="font-size:.82rem;color:var(--t2)">若每月投入估算 1 年後</span>
+        <span style="font-weight:700;color:var(--t)" id="hc-proj">—</span>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:6px">⚠️ 年化收益以 5% 估算，僅供參考</div>
+    </div>
+
+    <!-- ⑤ 綜合建議 -->
+    <div class="health-card" id="hc-advice-card" style="background:linear-gradient(135deg,rgba(0,229,180,.06),rgba(79,142,247,.06));border-color:rgba(0,229,180,.2)">
+      <div class="hc-title">🦁 老余的建議</div>
+      <div id="hc-advice" style="font-size:.85rem;color:var(--t2);line-height:1.7"></div>
+    </div>
+
+    <div style="height:120px"></div>
+  </div><!-- end panel-health -->
+
+  <!-- ══ 老余 AI 投資顧問 ══ -->
+  <div id="panel-yu" style="display:none;flex-direction:column;height:calc(100dvh - 160px)">
+
+    <!-- 快速提問 chips（首次進入時顯示）-->
+    <div id="yu-suggestions" style="margin-bottom:12px">
+      <div style="font-size:.75rem;color:var(--t3);margin-bottom:8px">💡 你可以這樣問老余：</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        <button class="yu-chip" onclick="askYu(this.textContent)">我每個月應該投資多少？</button>
+        <button class="yu-chip" onclick="askYu(this.textContent)">我的投資組合健康嗎？</button>
+        <button class="yu-chip" onclick="askYu(this.textContent)">0050 和 00878 該怎麼選？</button>
+        <button class="yu-chip" onclick="askYu(this.textContent)">如何加快存到緊急備用金？</button>
+        <button class="yu-chip" onclick="askYu(this.textContent)">現在適合買股票嗎？</button>
+        <button class="yu-chip" onclick="askYu(this.textContent)">幫我做一個整體財務分析</button>
+      </div>
+    </div>
+
+    <!-- 對話區 -->
+    <div id="yu-chat" style="flex:1;overflow-y:auto;margin-bottom:12px;min-height:0;padding-bottom:4px"></div>
+
+    <!-- 輸入列 -->
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:env(safe-area-inset-bottom,0px)">
+      <textarea id="yu-input"
+        placeholder="問老余任何投資或財務問題…"
+        rows="1"
+        style="flex:1;resize:none;background:var(--card);border:1.5px solid var(--border);border-radius:12px;color:var(--t);font-family:inherit;font-size:.9rem;padding:10px 14px;outline:none;line-height:1.4;max-height:100px;overflow-y:auto"
+        oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendYu()}"
+      ></textarea>
+      <button onclick="sendYu()" id="yu-send"
+        style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:.15s">
+        ➤
+      </button>
+    </div>
+  </div><!-- end panel-yu -->
+
+</div>
+
+<!-- ══ 新增/編輯 Modal ══ -->
+<div class="ov" id="inv-modal">
+  <div class="sheet" style="max-height:92dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st" id="im-title">➕ 新增投資</div>
+
+    <div class="fg">
+      <span class="flbl">投資類型</span>
+      <div class="type-grid" id="type-chips"></div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">名稱 / 代號 *</span>
+      <input type="text" class="fc" id="im-name" placeholder="例：0050、VOO" maxlength="30">
+    </div>
+    <div class="fg">
+      <span class="flbl">完整名稱（可略）</span>
+      <input type="text" class="fc" id="im-fullname" placeholder="例：元大台灣50" maxlength="40">
+    </div>
+
+    <div class="fg">
+      <span class="flbl">買入總金額 *（元）</span>
+      <input type="number" class="fc" id="im-cost" placeholder="例：210000" inputmode="numeric" oninput="calcAvg()">
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">持有數量（可略）</span>
+        <input type="number" class="fc" id="im-shares" placeholder="股數/單位" inputmode="decimal" step="any" oninput="calcAvg()">
+      </div>
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">均價（自動）</span>
+        <input type="number" class="fc" id="im-avgprice" placeholder="—" readonly style="opacity:.6;cursor:default">
+      </div>
+    </div>
+    <div style="height:12px"></div>
+
+    <div class="fg">
+      <span class="flbl">買入日期</span>
+      <input type="date" class="fc" id="im-buydate" style="color-scheme:dark">
+    </div>
+
+    <div class="fg">
+      <span class="flbl">目前市值 *（元）</span>
+      <input type="number" class="fc" id="im-current" placeholder="手動輸入最新市值" inputmode="numeric">
+      <div style="font-size:.72rem;color:var(--t3);margin-top:4px">💡 之後可隨時更新，不更新則以買入金額計算</div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">備註（可略）</span>
+      <input type="text" class="fc" id="im-note" placeholder="例：定期定額、長期持有" maxlength="50">
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('inv-modal')">取消</button>
+      <button class="btn btn-p" id="im-ok" onclick="submitInv()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 更新市值 Quick Modal ══ -->
+<div class="ov" id="inv-price-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">💹 更新市值</div>
+    <div style="font-size:.85rem;font-weight:700;color:var(--t);margin-bottom:12px" id="ipm-name"></div>
+    <div style="font-size:.78rem;color:var(--t3);margin-bottom:12px" id="ipm-meta"></div>
+    <div class="fg">
+      <span class="flbl">最新市值（元）</span>
+      <input type="number" class="fc" id="ipm-val" inputmode="numeric">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('inv-price-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitPriceUpdate()">✅ 更新</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 確認刪除 Modal ══ -->
+<div class="ov" id="inv-del-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">🗑️ 刪除投資記錄</div>
+    <p id="idm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('inv-del-modal')">取消</button>
+      <button class="btn btn-d" id="idm-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni on" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+
+<script>
+// ── 投資類型定義 ──────────────────────────────────────
+const INV_TYPES = {
+  stock:      { label:'台股',    icon:'🇹🇼', color:'#ef4444', ph:'例：2330、台積電' },
+  etf:        { label:'ETF',    icon:'📊',  color:'#3b82f6', ph:'例：0050、00878' },
+  us_stock:   { label:'美股',    icon:'🇺🇸', color:'#8b5cf6', ph:'例：VOO、AAPL' },
+  fund:       { label:'基金',    icon:'📈',  color:'#f59e0b', ph:'例：富蘭克林科技基金' },
+  deposit:    { label:'定存',    icon:'🏦',  color:'#10b981', ph:'例：台銀一年期定存' },
+  crypto:     { label:'加密貨幣', icon:'₿',  color:'#f97316', ph:'例：BTC、ETH' },
+  realestate: { label:'不動產',  icon:'🏠',  color:'#6366f1', ph:'例：桃園市大樓' },
+  other:      { label:'其他',    icon:'📋',  color:'#64748b', ph:'例：黃金、外幣' },
+};
+
+let _editId      = null;
+let _selType     = 'etf';
+let _priceTarget = null;
+let _chart       = null;
+
+// ── 類型 Chips ────────────────────────────────────────
+function buildTypeChips() {
+  const el = document.getElementById('type-chips');
+  if (!el) return;
+  el.innerHTML = Object.entries(INV_TYPES).map(([k, t]) =>
+    `<button class="type-btn${k === _selType ? ' on' : ''}" id="tc-${k}" onclick="selType('${k}',this)">
+      <span class="ti">${t.icon}</span>
+      <span class="tl">${t.label}</span>
+    </button>`
+  ).join('');
+}
+
+function selType(k, el) {
+  _selType = k;
+  document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  const ni = document.getElementById('im-name');
+  if (ni) ni.placeholder = INV_TYPES[k]?.ph || '輸入名稱';
+}
+
+function calcAvg() {
+  const cost   = parseFloat(document.getElementById('im-cost')?.value) || 0;
+  const shares = parseFloat(document.getElementById('im-shares')?.value) || 0;
+  const avg    = document.getElementById('im-avgprice');
+  if (avg) avg.value = (cost && shares) ? (cost / shares).toFixed(2) : '';
+}
+
+// ── 渲染主流程 ────────────────────────────────────────
+function render() {
+  const list = getInvestments();
+  renderSummary(list);
+  renderChart(list);
+  renderList(list);
+  const sub = document.getElementById('inv-sub');
+  if (sub) sub.textContent = list.length ? `共 ${list.length} 筆持倉` : '';
+}
+
+// ── 總覽卡 ────────────────────────────────────────────
+function renderSummary(list) {
+  const cost = list.reduce((s, i) => s + (i.costAmt || 0), 0);
+  const cur  = list.reduce((s, i) => s + (i.currentAmt ?? i.costAmt ?? 0), 0);
+  const pnl  = cur - cost;
+  const pct  = cost ? (pnl / cost * 100) : 0;
+  const pnlColor = pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : 'var(--t3)';
+
+  document.getElementById('sv-cost').textContent = '$' + fmt(cost);
+  document.getElementById('sv-cur').textContent  = '$' + fmt(cur);
+
+  const pnlEl = document.getElementById('sv-pnl');
+  pnlEl.textContent = (pnl >= 0 ? '▲ +$' : '▼ -$') + fmt(Math.abs(pnl));
+  pnlEl.style.color = pnlColor;
+
+  const pctEl = document.getElementById('sv-pct');
+  pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  pctEl.style.color = pnlColor;
+}
+
+// ── 圓餅圖 ────────────────────────────────────────────
+function renderChart(list) {
+  const sec = document.getElementById('chart-sec');
+  if (!list.length || typeof Chart === 'undefined') { if (sec) sec.style.display = 'none'; return; }
+  if (sec) sec.style.display = 'block';
+
+  // 依類型彙整市值
+  const byType = {};
+  list.forEach(inv => {
+    const k = inv.type || 'other';
+    byType[k] = (byType[k] || 0) + (inv.currentAmt ?? inv.costAmt ?? 0);
+  });
+
+  const keys   = Object.keys(byType);
+  const vals   = keys.map(k => byType[k]);
+  const colors = keys.map(k => INV_TYPES[k]?.color || '#64748b');
+  const labels = keys.map(k => INV_TYPES[k]?.label || k);
+  const total  = vals.reduce((a, b) => a + b, 0);
+
+  const ctx = document.getElementById('alloc-chart').getContext('2d');
+  if (_chart) _chart.destroy();
+  _chart = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 2, borderColor: 'transparent' }] },
+    options: {
+      responsive: false, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const pct = total ? (ctx.parsed / total * 100).toFixed(1) : 0;
+              return ` $${fmt(ctx.parsed)} (${pct}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  const legEl = document.getElementById('chart-legend');
+  if (legEl) {
+    legEl.innerHTML = keys.map((k, i) => {
+      const pct = total ? (byType[k] / total * 100).toFixed(1) : 0;
+      return `<div style="display:flex;align-items:center;gap:7px">
+        <div style="width:10px;height:10px;border-radius:2px;background:${colors[i]};flex-shrink:0"></div>
+        <span style="font-size:.78rem;color:var(--t2)">${INV_TYPES[k]?.icon || ''} ${labels[i]}</span>
+        <span style="font-size:.75rem;color:var(--t3);margin-left:auto">${pct}%</span>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ── 持倉列表 ──────────────────────────────────────────
+const TYPE_ORDER = ['stock','etf','us_stock','fund','deposit','crypto','realestate','other'];
+
+function renderList(list) {
+  const titleEl = document.getElementById('list-title');
+  const listEl  = document.getElementById('inv-list');
+  if (!list.length) {
+    if (titleEl) titleEl.textContent = '';
+    listEl.innerHTML = `<div style="text-align:center;padding:36px 0;color:var(--t3)">
+      <div style="font-size:2.5rem;margin-bottom:10px">📊</div>
+      <div style="font-size:.9rem;font-weight:700;color:var(--t2)">還沒有投資記錄</div>
+      <div style="font-size:.78rem;margin-top:6px">點右上角「＋」開始記錄第一筆</div>
+    </div>`;
+    return;
+  }
+  if (titleEl) titleEl.textContent = '📋 持倉列表';
+
+  const sorted = [...list].sort((a, b) => {
+    const ai = TYPE_ORDER.indexOf(a.type || 'other');
+    const bi = TYPE_ORDER.indexOf(b.type || 'other');
+    return ai !== bi ? ai - bi : (b.currentAmt || 0) - (a.currentAmt || 0);
+  });
+  listEl.innerHTML = sorted.map(invCardHTML).join('');
+}
+
+function invCardHTML(inv) {
+  const t    = INV_TYPES[inv.type || 'other'] || INV_TYPES.other;
+  const cost = inv.costAmt || 0;
+  const cur  = inv.currentAmt ?? cost;
+  const pnl  = cur - cost;
+  const pct  = cost ? (pnl / cost * 100) : 0;
+  const pc   = pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : 'var(--t3)';
+  const sign = pnl > 0 ? '▲ +' : pnl < 0 ? '▼ -' : '±';
+  const barW = Math.min(Math.abs(pct), 100);
+
+  const updStr = inv.priceUpdatedAt
+    ? '更新於 ' + new Date(inv.priceUpdatedAt).toLocaleDateString('zh-TW',{month:'numeric',day:'numeric'})
+    : '尚未更新市值';
+
+  return `<div class="inv-card">
+    <!-- 標題列 -->
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span style="font-size:1.4rem;line-height:1">${t.icon}</span>
+        <div>
+          <div style="font-size:.95rem;font-weight:900;color:var(--t);line-height:1.2">${inv.name}</div>
+          ${inv.fullName ? `<div style="font-size:.72rem;color:var(--t3);margin-top:2px">${inv.fullName}</div>` : ''}
+        </div>
+      </div>
+      <span style="font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:50px;background:${t.color}22;color:${t.color};white-space:nowrap;flex-shrink:0">${t.label}</span>
+    </div>
+
+    <!-- 三欄金額 -->
+    <div class="tri-grid">
+      <div>
+        <div class="tri-l">買入成本</div>
+        <div class="tri-v" style="color:var(--t2)">$${fmt(cost)}</div>
+      </div>
+      <div>
+        <div class="tri-l">目前市值</div>
+        <div class="tri-v" style="color:var(--p)">$${fmt(cur)}</div>
+      </div>
+      <div>
+        <div class="tri-l">損益</div>
+        <div class="tri-v" style="color:${pc}">${sign}$${fmt(Math.abs(pnl))}</div>
+      </div>
+    </div>
+
+    <!-- 報酬率 bar -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;overflow:hidden">
+        <div style="height:5px;width:${barW}%;background:${pc};border-radius:3px;transition:.4s"></div>
+      </div>
+      <div style="font-size:.8rem;font-weight:700;color:${pc};white-space:nowrap">${(pct>=0?'+':'')}${pct.toFixed(2)}%</div>
+    </div>
+
+    <!-- 標籤列 -->
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;font-size:.72rem;color:var(--t3)">
+      ${inv.shares ? `<span>🔢 ${inv.shares} 股 × $${cost && inv.shares ? (cost/inv.shares).toFixed(1) : '—'}</span>` : ''}
+      ${inv.buyDate ? `<span>📅 買入 ${inv.buyDate}</span>` : ''}
+      <span>⏱ ${updStr}</span>
+      ${inv.note ? `<span>📝 ${inv.note}</span>` : ''}
+    </div>
+
+    <!-- 操作 -->
+    <div style="display:flex;gap:7px">
+      <button onclick="showPriceUpdate('${inv.id}')"
+        style="flex:1;padding:9px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">💹 更新市值</button>
+      <button onclick="editInv('${inv.id}')"
+        style="padding:9px 12px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">✏️</button>
+      <button onclick="confirmDelInv('${inv.id}')"
+        style="padding:9px 12px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">🗑️</button>
+    </div>
+  </div>`;
+}
+
+// ── 新增 / 編輯 ───────────────────────────────────────
+function showAddInv() {
+  _editId = null; _selType = 'etf';
+  buildTypeChips();
+  document.getElementById('im-title').textContent = '➕ 新增投資';
+  document.getElementById('im-ok').textContent    = '新增';
+  ['im-name','im-fullname','im-shares','im-avgprice','im-note'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  document.getElementById('im-cost').value    = '';
+  document.getElementById('im-current').value = '';
+  const n = new Date();
+  document.getElementById('im-buydate').value =
+    n.getFullYear() + '-' + String(n.getMonth()+1).padStart(2,'0') + '-' + String(n.getDate()).padStart(2,'0');
+  showModal('inv-modal');
+}
+
+function editInv(id) {
+  const inv = getInvestments().find(i => i.id === id); if (!inv) return;
+  _editId = id; _selType = inv.type || 'etf';
+  buildTypeChips();
+  document.getElementById('im-title').textContent  = '✏️ 編輯投資';
+  document.getElementById('im-ok').textContent     = '儲存';
+  document.getElementById('im-name').value         = inv.name || '';
+  document.getElementById('im-fullname').value     = inv.fullName || '';
+  document.getElementById('im-cost').value         = inv.costAmt || '';
+  document.getElementById('im-shares').value       = inv.shares || '';
+  document.getElementById('im-avgprice').value     = (inv.costAmt && inv.shares) ? (inv.costAmt / inv.shares).toFixed(2) : '';
+  document.getElementById('im-buydate').value      = inv.buyDate || '';
+  document.getElementById('im-current').value      = inv.currentAmt || '';
+  document.getElementById('im-note').value         = inv.note || '';
+  showModal('inv-modal');
+}
+
+function submitInv() {
+  const name    = document.getElementById('im-name').value.trim();
+  const costAmt = parseInt(document.getElementById('im-cost').value) || 0;
+  if (!name)    { toast('請輸入名稱', 'warn'); return; }
+  if (!costAmt) { toast('請輸入買入金額', 'warn'); return; }
+
+  const curInput = parseInt(document.getElementById('im-current').value) || 0;
+
+  const inv = {
+    id:             _editId || 'inv_' + Date.now().toString(36) + Math.random().toString(36).slice(2,4),
+    type:           _selType,
+    name,
+    fullName:       document.getElementById('im-fullname').value.trim(),
+    costAmt,
+    shares:         parseFloat(document.getElementById('im-shares').value) || null,
+    currentAmt:     curInput || costAmt,
+    priceUpdatedAt: curInput ? Date.now() : null,
+    buyDate:        document.getElementById('im-buydate').value,
+    note:           document.getElementById('im-note').value.trim(),
+    person:         currentUser(),
+    createdAt:      _editId ? (getInvestments().find(i=>i.id===_editId)?.createdAt || Date.now()) : Date.now(),
+    updatedAt:      Date.now(),
+  };
+
+  if (_editId) updateInvestment(_editId, inv);
+  else         addInvestment(inv);
+
+  fbSyncInvestments();
+  closeModal('inv-modal');
+  render();
+  toast(_editId ? '已儲存修改 ✅' : '投資記錄已新增 ✅');
+}
+
+// ── 更新市值 ──────────────────────────────────────────
+function showPriceUpdate(id) {
+  _priceTarget = id;
+  const inv = getInvestments().find(i => i.id === id); if (!inv) return;
+  const t = INV_TYPES[inv.type || 'other'] || INV_TYPES.other;
+  document.getElementById('ipm-name').textContent = t.icon + ' ' + inv.name + (inv.fullName ? '（' + inv.fullName + '）' : '');
+  const cost = inv.costAmt || 0;
+  const prev = inv.currentAmt || cost;
+  const pnl  = prev - cost;
+  const pct  = cost ? (pnl / cost * 100).toFixed(2) : '0.00';
+  document.getElementById('ipm-meta').innerHTML =
+    `成本 $${fmt(cost)} → 現值 <b style="color:var(--p)">$${fmt(prev)}</b>
+     （<span style="color:${pnl>=0?'#22c55e':'#ef4444'}">${pnl>=0?'+':''}${pct}%</span>）`;
+  document.getElementById('ipm-val').value = prev || '';
+  showModal('inv-price-modal');
+  setTimeout(() => document.getElementById('ipm-val').select(), 300);
+}
+
+function submitPriceUpdate() {
+  const val = parseInt(document.getElementById('ipm-val').value);
+  if (!val || val <= 0) { toast('請輸入有效金額', 'warn'); return; }
+  updateInvestment(_priceTarget, { currentAmt: val, priceUpdatedAt: Date.now() });
+  fbSyncInvestments();
+  closeModal('inv-price-modal');
+  render();
+  toast('💹 市值已更新！');
+}
+
+// ── 刪除 ─────────────────────────────────────────────
+function confirmDelInv(id) {
+  const inv = getInvestments().find(i => i.id === id);
+  document.getElementById('idm-msg').textContent = `確定刪除「${inv?.name || ''}」的投資記錄？此操作無法復原。`;
+  showModal('inv-del-modal');
+  document.getElementById('idm-ok').onclick = () => {
+    delInvestment(id);
+    fbSyncInvestments();
+    closeModal('inv-del-modal');
+    render();
+    toast('已刪除', 'err');
+  };
+}
+
+// ── 工具 ─────────────────────────────────────────────
+function showModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+let _tt;
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(_tt); _tt = setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── 啟動 ─────────────────────────────────────────────
+
+// ══ 財務健康診斷 ══════════════════════════════════════
+
+// ── 分頁切換 ──────────────────────────────────────────
+let _invTab = 'portfolio';
+function switchInvTab(tab, el) {
+  _invTab = tab;
+  ['portfolio','health','yu'].forEach(t => {
+    const panel = document.getElementById('panel-' + t);
+    if (panel) panel.style.display = t === tab ? (t === 'yu' ? 'flex' : 'block') : 'none';
+  });
+  ['inv-tab-port','inv-tab-health','inv-tab-yu'].forEach((id, i) => {
+    const key = ['portfolio','health','yu'][i];
+    const b = document.getElementById(id);
+    if (!b) return;
+    b.style.background = key === tab ? 'var(--p)'       : 'transparent';
+    b.style.color      = key === tab ? '#000'           : 'var(--t3)';
+  });
+  if (tab === 'health') renderHealth();
+  if (tab === 'yu')     initYuPanel();
+}
+
+// ── 健康診斷主函數 ────────────────────────────────────
+function renderHealth() {
+  const now   = new Date();
+
+  // ① 近3個月收入均值
+  const avgIncome = calcAvgIncome(now);
+
+  // ② 近3個月支出均值（exclude 分類=income 類型）
+  const avgExpense = calcAvgExpense(now);
+
+  // ③ 每月分期負擔（active 分期的 monthlyAmt 加總）
+  const monthlyInst = getInstallments()
+    .filter(i => i.status === 'active')
+    .reduce((s, i) => s + (i.monthlyAmt || Math.floor(i.totalAmt / i.months)), 0);
+
+  // ④ 可投資金額
+  const investable = Math.max(0, avgIncome - avgExpense - monthlyInst);
+
+  // ⑤ 緊急備用金
+  const walBal   = (getWal && getWal().balance) || 0;
+  const acctBal  = getAccts(false).reduce((s, a) => s + (a.balance || 0), 0);
+  const shAcctBal= getAccts(true).reduce((s, a) => s + (a.balance || 0), 0);
+  const totalCash = walBal + acctBal + shAcctBal;
+  const efGoal    = avgExpense * 6;
+
+  // ⑥ 負債
+  const pendingBills = getPendingBills().reduce((s, b) => s + (b.total || 0), 0);
+  const instRemaining = getInstallments()
+    .filter(i => i.status === 'active')
+    .reduce((s, i) => {
+      const paid = i.paidCount || 0;
+      const left = i.months - paid;
+      return s + left * (i.monthlyAmt || Math.floor(i.totalAmt / i.months));
+    }, 0);
+  const totalDebt    = pendingBills + instRemaining;
+  const debtRatio    = avgIncome > 0 ? (totalDebt / avgIncome * 100) : 0;
+
+  // ⑦ 投資現況
+  const invList    = getInvestments();
+  const invCost    = invList.reduce((s, i) => s + (i.costAmt || 0), 0);
+  const invCur     = invList.reduce((s, i) => s + (i.currentAmt ?? i.costAmt ?? 0), 0);
+  const invPnl     = invCur - invCost;
+
+  // ⑧ 1年預估（現有市值 + 每月投入×12，年化5%複利簡算）
+  const monthlyRate = 0.05 / 12;
+  let proj = invCur;
+  for (let m = 0; m < 12; m++) proj = (proj + investable) * (1 + monthlyRate);
+
+  // ══ 渲染 ══
+  renderIncomeSection(avgIncome, avgExpense, monthlyInst, investable);
+  renderEmergencyFund(totalCash, efGoal, avgExpense);
+  renderDebt(pendingBills, instRemaining, totalDebt, debtRatio, avgIncome);
+  renderInvSection(invCur, invPnl, proj);
+  renderAdvice(avgIncome, avgExpense, investable, totalCash, efGoal, debtRatio, invCur);
+}
+
+// ── 近3個月均值計算 ───────────────────────────────────
+function calcAvgIncome(now) {
+  const incomes  = getIncomes();
+  if (!incomes.length) return 0;
+  // 取近3個月的收入記錄
+  const threeMonthsAgo = new Date(now);
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const recent = incomes.filter(i => new Date(i.at) >= threeMonthsAgo);
+  if (!recent.length) return incomes.reduce((s, i) => s + (i.amount || 0), 0) / Math.max(1, incomes.length);
+  // 計算跨越的完整月數（最少1）
+  const months = Math.max(1, Math.min(3, (()=>{
+    const dates = recent.map(i => new Date(i.at));
+    const minD  = new Date(Math.min(...dates));
+    return Math.ceil((now - minD) / (1000 * 60 * 60 * 24 * 30));
+  })()));
+  return recent.reduce((s, i) => s + (i.amount || 0), 0) / months;
+}
+
+function calcAvgExpense(now) {
+  const txs = getTx();
+  if (!txs.length) return 0;
+  const threeMonthsAgo = new Date(now);
+  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+  const recent = txs.filter(t => new Date(t.at) >= threeMonthsAgo && (t.amount || 0) > 0);
+  if (!recent.length) return 0;
+  // 計算跨越月數
+  const months = 3;
+  return recent.reduce((s, t) => s + (t.amount || 0), 0) / months;
+}
+
+// ── 各區塊渲染 ────────────────────────────────────────
+function renderIncomeSection(avgInc, avgExp, instAmt, investable) {
+  const set = (id, v, color) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = v;
+    if (color) el.style.color = color;
+  };
+  set('hc-income',     avgInc > 0 ? '$' + fmt(Math.round(avgInc))     : '尚無收入記錄', avgInc > 0 ? '#22c55e' : 'var(--t3)');
+  set('hc-expense',    '$' + fmt(Math.round(avgExp)));
+  set('hc-installment',instAmt > 0 ? '$' + fmt(Math.round(instAmt))   : '無分期');
+  set('hc-investable', avgInc > 0 ? '$' + fmt(Math.round(investable)) : '—',
+      investable > 0 ? 'var(--p)' : investable === 0 ? 'var(--warn)' : '#ef4444');
+
+  const noteEl = document.getElementById('hc-income-note');
+  if (noteEl) {
+    if (avgInc === 0) noteEl.textContent = '💡 請先在錢包頁→收入分頁記錄收入，才能計算可投資金額';
+    else noteEl.textContent = '以近3個月資料估算，每月支出含所有記帳消費';
+  }
+}
+
+function renderEmergencyFund(have, goal, avgExp) {
+  const dot    = document.getElementById('ef-dot');
+  const bar    = document.getElementById('ef-bar');
+  const pctLbl = document.getElementById('ef-pct-lbl');
+  const stsLbl = document.getElementById('ef-status-lbl');
+  if (!dot) return;
+
+  const pct = goal > 0 ? Math.min(100, have / goal * 100) : 100;
+  document.getElementById('ef-have').textContent = '$' + fmt(Math.round(have));
+  document.getElementById('ef-goal').textContent = '$' + fmt(Math.round(goal));
+  bar.style.width = pct + '%';
+
+  let color, cls, sts;
+  if (pct >= 100) { color = '#22c55e'; cls = 'tl-green'; sts = '✅ 充足'; }
+  else if (pct >= 50) { color = '#f59e0b'; cls = 'tl-yellow'; sts = '⚠️ 尚可'; }
+  else { color = '#ef4444'; cls = 'tl-red'; sts = '🚨 不足'; }
+
+  bar.style.background    = color;
+  dot.className           = 'tl-dot ' + cls;
+  pctLbl.textContent      = pct.toFixed(0) + '%（建議100%以上）';
+  pctLbl.style.color      = color;
+  stsLbl.textContent      = sts;
+  stsLbl.style.color      = color;
+}
+
+function renderDebt(bills, instRem, total, ratio, income) {
+  const dot = document.getElementById('debt-dot');
+  if (!dot) return;
+  document.getElementById('debt-bills').textContent = '$' + fmt(Math.round(bills));
+  document.getElementById('debt-inst').textContent  = '$' + fmt(Math.round(instRem));
+
+  const barW = Math.min(100, ratio);
+  const ratioEl = document.getElementById('debt-ratio');
+  const barEl   = document.getElementById('debt-bar');
+  const advEl   = document.getElementById('debt-advice');
+
+  let color, cls, advice;
+  if (ratio <= 20) {
+    color = '#22c55e'; cls = 'tl-green';
+    advice = '負債比率健康，繼續保持！可以安心增加投資比例。';
+  } else if (ratio <= 35) {
+    color = '#f59e0b'; cls = 'tl-yellow';
+    advice = '負債比率稍高，建議優先清償信用卡帳單後再增加投資。';
+  } else {
+    color = '#ef4444'; cls = 'tl-red';
+    advice = '負債比率偏高！建議暫緩新增投資，集中火力清償負債。';
+  }
+
+  ratioEl.textContent    = ratio.toFixed(1) + '%';
+  ratioEl.style.color    = color;
+  barEl.style.width      = barW + '%';
+  barEl.style.background = color;
+  dot.className          = 'tl-dot ' + cls;
+  if (advEl) advEl.textContent = advice;
+}
+
+function renderInvSection(cur, pnl, proj) {
+  const curEl  = document.getElementById('hc-inv-cur');
+  const pnlEl  = document.getElementById('hc-inv-pnl');
+  const projEl = document.getElementById('hc-proj');
+  if (curEl)  curEl.textContent  = '$' + fmt(Math.round(cur));
+  if (pnlEl) {
+    pnlEl.textContent = (pnl >= 0 ? '+$' : '-$') + fmt(Math.abs(Math.round(pnl)));
+    pnlEl.style.color = pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : 'var(--t3)';
+  }
+  if (projEl) projEl.textContent = cur > 0 || proj > 0 ? '$' + fmt(Math.round(proj)) : '—';
+}
+
+// ── 老余建議 ──────────────────────────────────────────
+function renderAdvice(income, expense, investable, cash, efGoal, debtRatio, invCur) {
+  const el = document.getElementById('hc-advice');
+  if (!el) return;
+
+  const tips = [];
+
+  if (income === 0) {
+    tips.push('老余說：先去錢包頁把收入記下來，我才能幫你算 🦁');
+  } else {
+    const savingRate = income > 0 ? (investable / income * 100) : 0;
+
+    if (savingRate >= 30) {
+      tips.push(`儲蓄率 ${savingRate.toFixed(0)}%，相當不錯！你每個月有 $${fmt(Math.round(investable))} 可以投資。`);
+    } else if (savingRate >= 10) {
+      tips.push(`儲蓄率 ${savingRate.toFixed(0)}%，還有進步空間。試著從支出中找出可以削減的部分。`);
+    } else if (savingRate > 0) {
+      tips.push(`儲蓄率只有 ${savingRate.toFixed(0)}%，要小心入不敷出的風險。`);
+    } else {
+      tips.push('⚠️ 支出超過收入！請優先檢視消費習慣，暫緩新投資。');
+    }
+
+    const efPct = efGoal > 0 ? cash / efGoal * 100 : 100;
+    if (efPct < 50) {
+      tips.push('緊急備用金嚴重不足，建議先把3個月生活費存起來，再開始投資。');
+    } else if (efPct < 100) {
+      tips.push('緊急備用金還差一點，可以邊存備用金邊少量投資。');
+    }
+
+    if (debtRatio > 35) {
+      tips.push('負債壓力偏重，把每月可投資金額的一半拿去清債，另一半再投資。');
+    }
+
+    if (invCur === 0 && investable > 0) {
+      tips.push(`你還沒有投資！每月 $${fmt(Math.round(investable))} 若放著不動，通膨就悄悄吃掉了。`);
+    }
+
+    if (tips.length === 1 && savingRate >= 20 && efPct >= 100 && debtRatio <= 20) {
+      tips.push('整體財務狀況良好，可以考慮提高股債比例，或設定具體的儲蓄目標。加油！💪');
+    }
+  }
+
+  el.innerHTML = tips.map(t => `<div style="margin-bottom:8px;padding-left:4px;border-left:3px solid var(--p)">　${t}</div>`).join('');
+}
+
+
+// ══ 老余 AI 投資顧問 ══════════════════════════════════
+
+let _yuHistory  = [];   // 對話歷史（session 記憶體）
+let _yuBusy     = false;
+let _yuInited   = false;
+
+// ── 財務快照組裝 ──────────────────────────────────────
+function buildFinanceSnapshot() {
+  const now = new Date();
+
+  const avgInc  = calcAvgIncome(now);
+  const avgExp  = calcAvgExpense(now);
+  const instAmt = getInstallments()
+    .filter(i => i.status === 'active')
+    .reduce((s, i) => s + (i.monthlyAmt || Math.floor(i.totalAmt / i.months)), 0);
+  const investable = Math.max(0, avgInc - avgExp - instAmt);
+
+  const walBal  = (typeof getWal === 'function' ? getWal().balance : 0) || 0;
+  const acctBal = getAccts(false).reduce((s, a) => s + (a.balance || 0), 0);
+  const shBal   = getAccts(true).reduce((s, a) => s + (a.balance || 0), 0);
+  const totalCash = walBal + acctBal + shBal;
+  const efGoal    = avgExp * 6;
+  const efMonths  = avgExp > 0 ? totalCash / avgExp : 0;
+
+  const pendingBills = getPendingBills().reduce((s, b) => s + (b.total || 0), 0);
+  const instRem = getInstallments()
+    .filter(i => i.status === 'active')
+    .reduce((s, i) => {
+      const left = i.months - (i.paidCount || 0);
+      return s + left * (i.monthlyAmt || Math.floor(i.totalAmt / i.months));
+    }, 0);
+
+  const invList = getInvestments();
+  const invCost = invList.reduce((s, i) => s + (i.costAmt || 0), 0);
+  const invCur  = invList.reduce((s, i) => s + (i.currentAmt ?? i.costAmt ?? 0), 0);
+
+  return {
+    user: currentUser() || '用戶',
+    月均收入: Math.round(avgInc),
+    月均支出: Math.round(avgExp),
+    分期月付: Math.round(instAmt),
+    每月可投資: Math.round(investable),
+    儲蓄率: avgInc > 0 ? (investable / avgInc * 100).toFixed(1) + '%' : '無收入資料',
+    緊急備用金: {
+      現有: Math.round(totalCash),
+      目標: Math.round(efGoal),
+      目前可維持月數: efMonths.toFixed(1) + ' 個月',
+      狀態: efMonths >= 6 ? '充足' : efMonths >= 3 ? '尚可' : '不足',
+    },
+    負債: {
+      信用卡未繳帳單: Math.round(pendingBills),
+      分期剩餘: Math.round(instRem),
+      負債收入比: avgInc > 0 ? ((pendingBills + instRem) / avgInc * 100).toFixed(1) + '%' : '無資料',
+    },
+    投資組合: invList.map(i => ({
+      類型: (INV_TYPES[i.type]?.label || i.type),
+      名稱: i.name + (i.fullName ? `（${i.fullName}）` : ''),
+      買入: i.costAmt,
+      現值: i.currentAmt ?? i.costAmt,
+      損益: (i.currentAmt ?? i.costAmt) - i.costAmt,
+      報酬率: i.costAmt ? (((i.currentAmt ?? i.costAmt) - i.costAmt) / i.costAmt * 100).toFixed(2) + '%' : '0%',
+    })),
+    投資總成本: Math.round(invCost),
+    投資現值: Math.round(invCur),
+    進行中分期: getInstallments()
+      .filter(i => i.status === 'active')
+      .map(i => ({ 名稱: i.name, 剩餘: `${i.months - (i.paidCount||0)}/${i.months}期`, 月付: i.monthlyAmt || Math.floor(i.totalAmt/i.months) })),
+  };
+}
+
+// ── 系統 prompt ───────────────────────────────────────
+function buildYuSystemPrompt(snapshot) {
+  return `你是老余（余量），住在這個家庭記帳 App 裡的 AI 投資理財顧問。
+個性：務實、穩重、說話直接、偶爾夾一句台語，不鼓勵投機，重視長期複利。
+口頭禪：「先顧肚子，再拼錢途」。
+
+以下是 ${snapshot.user} 的真實財務快照（從記帳 App 即時擷取）：
+${JSON.stringify(snapshot, null, 2)}
+
+你的任務：
+- 基於上面的真實數據，給出個人化、有具體數字的建議
+- 回答簡潔，適合手機閱讀（每次回覆不超過250字）
+- 可以提到台灣常見投資工具：0050、00878、00919、SCHD等ETF，或定期定額策略
+- 如果用戶問市場行情、個股預測，誠實說你沒有即時資料，但可以給策略建議
+- 非正式投資建議，最後如有需要可提醒自行判斷
+- 如果某項數據為0或空，說明可能還沒記錄，引導去記錄
+
+【重要】必須使用台灣繁體中文，不用簡體字。`;
+}
+
+// ── UI 初始化 ─────────────────────────────────────────
+function initYuPanel() {
+  if (_yuInited) return;
+  _yuInited = true;
+  // 顯示老余開場白
+  const snapshot = buildFinanceSnapshot();
+  let greeting = '嗨！我是老余。根據你的記帳資料，';
+  if (snapshot.月均收入 > 0) {
+    const savePct = parseFloat(snapshot.儲蓄率);
+    if (savePct >= 20) {
+      greeting += `你的儲蓄率有 ${snapshot.儲蓄率}，底子不錯！先顧肚子，再拼錢途——你現在兩樣都做到了。`;
+    } else if (savePct > 0) {
+      greeting += `你目前儲蓄率是 ${snapshot.儲蓄率}，還有進步空間。`;
+    } else {
+      greeting += '支出已經超過收入了，先一起把這塊整理好。';
+    }
+    greeting += `每月可投資約 $${snapshot.每月可投資.toLocaleString()}。有什麼想問的？`;
+  } else {
+    greeting += '我還沒看到你的收入記錄。去錢包頁→收入分頁記一下，我才能給你準確的建議！';
+  }
+  appendYuBubble('yu', greeting);
+}
+
+// ── 傳送訊息 ──────────────────────────────────────────
+async function sendYu() {
+  const input = document.getElementById('yu-input');
+  const text  = input?.value.trim();
+  if (!text || _yuBusy) return;
+  await askYu(text);
+}
+
+async function askYu(text) {
+  if (_yuBusy) return;
+  const input = document.getElementById('yu-input');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+
+  // 隱藏建議 chips（第一次問後）
+  const sugEl = document.getElementById('yu-suggestions');
+  if (sugEl) sugEl.style.display = 'none';
+
+  appendYuBubble('user', text);
+  _yuHistory.push({ role: 'user', content: text });
+
+  _yuBusy = true;
+  const sendBtn = document.getElementById('yu-send');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '.5'; }
+
+  // 顯示思考中動畫
+  const thinkId = appendThinking();
+
+  try {
+    const key = localStorage.getItem('claude_api_key') || '';
+    if (!key) { removeThinking(thinkId); appendYuBubble('yu', '⚠️ 請先在設定頁填入 Claude API Key，老余才能開口。'); return; }
+
+    const snapshot = buildFinanceSnapshot();
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1024,
+        system: buildYuSystemPrompt(snapshot),
+        messages: _yuHistory.slice(-12),   // 保留最近6輪對話（12條）
+      }),
+    });
+
+    removeThinking(thinkId);
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = err?.error?.message || `HTTP ${res.status}`;
+      appendYuBubble('yu', `老余說：出了點問題（${msg}），請稍後再試。`);
+      _yuHistory.pop();
+      return;
+    }
+
+    const data  = await res.json();
+    const reply = (data.content?.[0]?.text || '老余暫時說不出話…').trim();
+    appendYuBubble('yu', reply);
+    _yuHistory.push({ role: 'assistant', content: reply });
+
+    // 對話超過20輪，截斷舊的（保持最近10輪）
+    if (_yuHistory.length > 20) _yuHistory = _yuHistory.slice(-20);
+
+  } catch(e) {
+    removeThinking(thinkId);
+    appendYuBubble('yu', '老余連線失敗，請確認網路和 API Key。');
+    _yuHistory.pop();
+    console.warn('[老余]', e);
+  } finally {
+    _yuBusy = false;
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.style.opacity = '1'; }
+    scrollYuToBottom();
+  }
+}
+
+// ── 氣泡渲染 ──────────────────────────────────────────
+function appendYuBubble(role, text) {
+  const chatEl = document.getElementById('yu-chat');
+  if (!chatEl) return;
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:12px' +
+    (role === 'user' ? ';flex-direction:row-reverse' : '');
+
+  if (role === 'yu') {
+    // 老余頭像
+    const av = document.createElement('div');
+    av.style.cssText = 'width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0';
+    av.textContent = '🦁';
+    wrap.appendChild(av);
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = role === 'user' ? 'yu-bubble-user' : 'yu-bubble-yu';
+  // 換行轉 <br>，支援簡單 markdown bold
+  bubble.innerHTML = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/\n/g,'<br>');
+  wrap.appendChild(bubble);
+  chatEl.appendChild(wrap);
+  scrollYuToBottom();
+  return wrap;
+}
+
+let _thinkCounter = 0;
+function appendThinking() {
+  const id = 'think-' + (++_thinkCounter);
+  const chatEl = document.getElementById('yu-chat');
+  if (!chatEl) return id;
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.style.cssText = 'display:flex;align-items:flex-start;gap:8px;margin-bottom:12px';
+  wrap.innerHTML = `
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f59e0b,#ef4444);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0">🦁</div>
+    <div class="yu-bubble-yu" style="padding:10px 14px">
+      <div class="yu-thinking">
+        <div class="yu-dot"></div><div class="yu-dot"></div><div class="yu-dot"></div>
+      </div>
+    </div>`;
+  chatEl.appendChild(wrap);
+  scrollYuToBottom();
+  return id;
+}
+
+function removeThinking(id) {
+  document.getElementById(id)?.remove();
+}
+
+function scrollYuToBottom() {
+  const el = document.getElementById('yu-chat');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+  applyTheme();
+  await fbPullInvestments();
+  fbListenInvestments(() => render());
+  render();
+  // 台股交易入口僅宏龍可見
+  setTimeout(() => {
+    const te = document.getElementById('trade-entry');
+    if (te && typeof isKevin === 'function' && isKevin()) te.style.display = 'flex';
+  }, 200);
+});
+</script>
+</body>
+</html>

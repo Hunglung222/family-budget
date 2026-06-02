@@ -172,6 +172,17 @@
       <button onclick="saveDiscordUrl()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存</button>
       <button onclick="testDiscordBtn()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
     </div>
+    <!-- 報表・警示・提醒頻道 -->
+    <div style="border-top:1px dashed var(--border);padding-top:12px;margin-bottom:4px">
+      <div class="flbl" style="margin-bottom:4px">📊 報表・警示・提醒頻道</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-bottom:8px;line-height:1.5">日結報表、月結報表、預算警示、固定消費提醒，統一推播到此頻道</div>
+      <input type="text" class="fc" id="report-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button onclick="saveReportWebhook()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存並同步</button>
+        <button onclick="testReportWebhook()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:6px">GAS 從 Firebase 讀取，更換後無需修改程式碼</div>
+    </div>
     <div id="chat-log-webhook-row" style="display:none;border-top:1px dashed var(--border);padding-top:12px">
       <div class="flbl" style="margin-bottom:10px">🤖 AI 對話記錄頻道（宏龍專屬，可留空）</div>
       <input type="text" class="fc" id="chat-log-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
@@ -180,6 +191,17 @@
         <button onclick="testChatLogBtn()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
       </div>
       <div style="font-size:.7rem;color:var(--t3);margin-top:6px">留空 = 不備份 AI 對話到 Discord</div>
+    </div>
+    <!-- 台股交易 Discord Webhook（宏龍專屬）-->
+    <div id="trade-webhook-row" style="display:none;border-top:1px dashed var(--border);padding-top:12px;margin-top:4px">
+      <div class="flbl" style="margin-bottom:6px">📊 台股盤後推播頻道（宏龍專屬）</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-bottom:8px;line-height:1.5">台股交易輔助 GAS 盤後抓資料後，推播到此頻道。建議在 Discord 開一個獨立的「台股盤後」頻道。</div>
+      <input type="text" class="fc" id="trade-webhook-url" placeholder="https://discord.com/api/webhooks/..." style="font-size:.78rem;margin-bottom:10px">
+      <div style="display:flex;gap:8px">
+        <button onclick="saveTradeWebhook()" style="flex:1;padding:11px;background:var(--pdim);color:var(--p);border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">儲存並同步</button>
+        <button onclick="testTradeWebhook()" style="flex:1;padding:11px;background:var(--card2);color:var(--t2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit">測試</button>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:6px">GAS 直接從 Firebase 讀取，更換後無需修改 GAS 程式碼</div>
     </div>
   </div>
 
@@ -749,7 +771,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.05.31 03:08';
+const APP_VERSION = 'v2026.06.02 09:38';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
@@ -891,6 +913,7 @@ function renderNotifySettings(){
   const cfg=getDiscord();
   // 優先讀 localStorage（最新值），其次讀 discord 設定
   document.getElementById('discord-url').value=localStorage.getItem('discord_webhook')||cfg.webhook||'';
+  document.getElementById('report-webhook-url').value=localStorage.getItem('report_webhook')||'';
 
   // AI 對話記錄頻道：宏龍才看得到，盈慧的話這個區塊隱藏
   const email = localStorage.getItem('current_email') || '';
@@ -899,6 +922,11 @@ function renderNotifySettings(){
     if (row) row.style.display = 'block';
     const input = document.getElementById('chat-log-url');
     if (input) input.value = localStorage.getItem('chat_log_webhook') || '';
+    // 台股 webhook
+    const tradeRow = document.getElementById('trade-webhook-row');
+    if (tradeRow) tradeRow.style.display = 'block';
+    const tradeInput = document.getElementById('trade-webhook-url');
+    if (tradeInput) tradeInput.value = localStorage.getItem('trade_webhook') || '';
   }
   document.getElementById('sw-add').checked=cfg.onAdd!==false;
   document.getElementById('sw-daily').checked=cfg.onDaily!==false;
@@ -955,6 +983,53 @@ function saveDiscordUrl(){
   saveDiscord({webhook:url});
   fbSyncAppConfig(); // 同步給盈慧
   toast(url?'✅ 已儲存並同步給盈慧':'已清除 Webhook');
+}
+
+// ── 報表・警示・提醒頻道 ──────────────────────────────
+function saveReportWebhook() {
+  const url = document.getElementById('report-webhook-url').value.trim();
+  localStorage.setItem('report_webhook', url);
+  fbSyncAppConfig();
+  toast(url ? '✅ 報表頻道已儲存並同步到 Firebase' : '已清除報表 Webhook');
+}
+
+async function testReportWebhook() {
+  const url = document.getElementById('report-webhook-url').value.trim()
+           || localStorage.getItem('report_webhook') || '';
+  if (!url) { toast('請先填入報表頻道 Webhook URL', 'warn'); return; }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '📊 報表・警示・提醒頻道測試：連線成功！GAS 準備就緒。' }),
+    });
+    toast(res.ok ? '✅ 測試推播成功！' : `推播失敗 HTTP ${res.status}`, res.ok ? '' : 'err');
+  } catch(e) {
+    toast('連線失敗：' + e.message, 'err');
+  }
+}
+
+// ── 台股交易 Discord Webhook（宏龍專屬）────────────────
+function saveTradeWebhook() {
+  const url = document.getElementById('trade-webhook-url').value.trim();
+  localStorage.setItem('trade_webhook', url);
+  fbSyncAppConfig();   // 一起同步進 shared/app_config
+  toast(url ? '✅ 台股 Webhook 已儲存並同步到 Firebase' : '已清除台股 Webhook');
+}
+
+async function testTradeWebhook() {
+  const url = document.getElementById('trade-webhook-url').value.trim() || localStorage.getItem('trade_webhook') || '';
+  if (!url) { toast('請先填入台股 Webhook URL', 'warn'); return; }
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: '📊 台股盤後推播測試：連線成功！GAS 準備就緒。' }),
+    });
+    toast(res.ok ? '✅ 測試推播成功！' : `推播失敗 HTTP ${res.status}`, res.ok ? '' : 'err');
+  } catch(e) {
+    toast('連線失敗：' + e.message, 'err');
+  }
 }
 
 // ── AI 對話記錄頻道（宏龍專屬，存 localStorage，不同步給盈慧）──

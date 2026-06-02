@@ -181,6 +181,11 @@
     <div id="card-list-full"></div>
     <div class="sec-t">📋 帳單記錄</div>
     <div id="all-bills"></div>
+    <!-- 分期付款總覽 -->
+    <div id="installment-section" style="display:none">
+      <div class="sec-t" style="margin-top:18px">🔀 進行中分期</div>
+      <div id="installment-list"></div>
+    </div>
     <div style="height:120px"></div>
   </div>
 
@@ -489,6 +494,7 @@
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
   <a class="ni on" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
 </nav>
@@ -792,7 +798,82 @@ function renderCards() {
       ${!b.paid?`<button onclick="showPayBill('${b.id}')" style="width:100%;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;margin-top:6px">💳 繳費</button>`:''}
     </div>`;
   }).join('');
+  // 分期付款總覽
+  renderInstallments();
 }
+
+// ── 分期付款總覽 ─────────────────────────────────────
+function renderInstallments() {
+  const section = document.getElementById('installment-section');
+  const listEl  = document.getElementById('installment-list');
+  if (!section || !listEl) return;
+  if (typeof getInstallments !== 'function') return;
+
+  const active = getInstallments().filter(i => i.status === 'active');
+  if (!active.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+
+  listEl.innerHTML = active.map(inst => {
+    const paid    = inst.paidCount || 0;
+    const total   = inst.months;
+    const left    = total - paid;
+    const pct     = Math.round(paid / total * 100);
+    const remaining = inst.totalAmt - (inst.paidMonths || []).reduce((s, ym) => {
+      const idx = (inst.paidMonths || []).indexOf(ym);
+      return s + installmentPeriodAmt(inst, idx);
+    }, 0);
+    const [sy, sm] = inst.startYM.split('-').map(Number);
+    let ey = sy, em = sm + total - 1;
+    ey += Math.floor((em - 1) / 12); em = ((em - 1) % 12) + 1;
+
+    // 下一期
+    const now = new Date();
+    const nextYM = (()=>{
+      const paidSet = new Set(inst.paidMonths || []);
+      for (let m = 0; m < total; m++) {
+        let y = sy, mo = sm + m - 1;
+        y += Math.floor(mo / 12); mo = mo % 12 + 1;
+        const ym = y + '-' + String(mo).padStart(2,'0');
+        if (!paidSet.has(ym)) return ym;
+      }
+      return null;
+    })();
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:.9rem;font-weight:900;color:var(--t)">${inst.name}</div>
+          <div style="font-size:.75rem;color:var(--t3);margin-top:2px">${inst.cardName || '信用卡'} &nbsp;·&nbsp; ${sy}/${sm} ～ ${ey}/${em}</div>
+        </div>
+        <button onclick="cancelInstallment('${inst.id}')"
+          style="padding:4px 10px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:50px;font-size:.72rem;cursor:pointer;font-family:inherit">終止</button>
+      </div>
+      <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:8px">
+        <div style="height:6px;width:${pct}%;background:var(--p);border-radius:3px;transition:.3s"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:.78rem;color:var(--t2)">
+        <span>已繳 <b style="color:var(--p)">${paid}</b>/${total} 期</span>
+        <span>剩餘 <b style="color:var(--t)">${left}</b> 期</span>
+        <span>未繳 <b style="color:var(--danger)">$${fmt(inst.totalAmt - (paid * inst.monthlyAmt))}</b></span>
+      </div>
+      ${nextYM ? `<div style="margin-top:8px;padding:8px 10px;background:var(--pdim);border-radius:8px;font-size:.8rem;color:var(--p)">
+        📅 下一期：${nextYM.replace('-','年')}月 &nbsp;·&nbsp; $${fmt(installmentPeriodAmt(inst, paid))}
+      </div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function cancelInstallment(id) {
+  const inst = getInstallments().find(i => i.id === id);
+  if (!inst) return;
+  if (!confirm(`確定終止「${inst.name}」的分期計劃？
+已記帳的部分不受影響。`)) return;
+  updateInstallment(id, { status: 'cancelled' });
+  if (typeof fbSyncInstallments === 'function') fbSyncInstallments();
+  renderInstallments();
+  toast('分期計劃已終止');
+}
+
 
 function pickColor(color,el){pickedColor=color;document.querySelectorAll('.cdot-pick').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}
 function pickEditColor(color,el){pickedEditColor=color;document.querySelectorAll('.cdot-pick-e').forEach(d=>{d.style.border='3px solid transparent';d.style.boxShadow='none';});el.style.border='3px solid white';el.style.boxShadow=`0 0 0 2px ${color}`;}

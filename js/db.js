@@ -700,6 +700,192 @@ function groupDay(list) {
   return g;
 }
 
+
+// ── 分期付款 ──────────────────────────────────────────
+function getInstallments()      { return DB.get('installments') || []; }
+function saveInstallments(list) { DB.set('installments', list); }
+
+function addInstallment(data) {
+  const list = getInstallments();
+  list.unshift(data);
+  saveInstallments(list);
+  return data;
+}
+
+function updateInstallment(id, patch) {
+  const list = getInstallments();
+  const idx  = list.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  Object.assign(list[idx], patch);
+  saveInstallments(list);
+}
+
+function delInstallment(id) {
+  saveInstallments(getInstallments().filter(i => i.id !== id));
+}
+
+// 計算某分期某期次的金額
+function installmentPeriodAmt(inst, periodIdx) {
+  const base = Math.floor(inst.totalAmt / inst.months);
+  const rem  = inst.totalAmt - base * inst.months;
+  if (rem === 0) return base;
+  if (inst.remainderOn === 'first' && periodIdx === 0)              return base + rem;
+  if (inst.remainderOn === 'last'  && periodIdx === inst.months - 1) return base + rem;
+  return base;
+}
+
+// 取得「當月 + 過去未記帳」的提醒清單
+function getPendingInstallments() {
+  const now = new Date();
+  const currentYM = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const pending = [];
+
+  getInstallments().filter(i => i.status === 'active').forEach(inst => {
+    const [sy, sm] = inst.startYM.split('-').map(Number);
+    const paidSet  = new Set(inst.paidMonths || []);
+
+    for (let m = 0; m < inst.months; m++) {
+      let y = sy, mo = sm + m - 1;
+      y += Math.floor(mo / 12);
+      mo = mo % 12 + 1;
+      const ym = y + '-' + String(mo).padStart(2,'0');
+      if (ym <= currentYM && !paidSet.has(ym)) {
+        pending.push({
+          inst,
+          periodYM:  ym,
+          periodNo:  m + 1,
+          periodAmt: installmentPeriodAmt(inst, m),
+        });
+      }
+    }
+  });
+
+  return pending;
+}
+
+
+// ── 投資記錄 ──────────────────────────────────────────
+function getInvestments()      { return DB.get('investments') || []; }
+function saveInvestments(list) { DB.set('investments', list); }
+
+function addInvestment(data) {
+  const list = getInvestments();
+  list.unshift(data);
+  saveInvestments(list);
+  return data;
+}
+
+function updateInvestment(id, patch) {
+  const list = getInvestments();
+  const idx  = list.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  Object.assign(list[idx], patch);
+  saveInvestments(list);
+}
+
+function delInvestment(id) {
+  saveInvestments(getInvestments().filter(i => i.id !== id));
+}
+
+
+// ── 台股交易日誌（宏龍私密）──────────────────────────
+function getTrades()      { return DB.get('trades') || []; }
+function saveTrades(list) { DB.set('trades', list); }
+
+function addTrade(data) {
+  const list = getTrades();
+  list.unshift(data);
+  saveTrades(list);
+  return data;
+}
+function updateTrade(id, patch) {
+  const list = getTrades();
+  const idx  = list.findIndex(t => t.id === id);
+  if (idx < 0) return;
+  Object.assign(list[idx], patch);
+  saveTrades(list);
+}
+function delTrade(id) {
+  saveTrades(getTrades().filter(t => t.id !== id));
+}
+
+// 紀律規則設定
+function getTradeRules() {
+  return DB.get('trade_rules') || {
+    maxDailyLoss:       5000,    // 單日最大虧損（達到提醒停手）
+    maxPositionSize:    100000,  // 單筆最大部位金額
+    maxConsecutiveLoss: 3,       // 連虧幾次停手
+    maxTradesPerDay:    10,      // 單日最大交易次數
+    feeRate:            0.1425,  // 手續費率 %
+    feeDiscount:        0.28,    // 折扣（如 2.8折=0.28；無折扣填1）
+    minFee:             20,      // 最低手續費
+    enabled:            true,
+  };
+}
+function saveTradeRules(r) { DB.set('trade_rules', {...getTradeRules(), ...r}); }
+
+// 台股交易成本計算（傳入交易物件，回傳含損益的明細）
+function calcTradeCost(t) {
+  const rules    = getTradeRules();
+  const feeRate  = (rules.feeRate / 100) * (rules.feeDiscount || 1);
+  const minFee   = rules.minFee || 20;
+  const entry    = t.entryPrice || 0;
+  const exit     = t.exitPrice || 0;
+  const shares   = t.shares || 0;
+  const isDay    = t.type === 'intraday';          // 當沖證交稅減半
+  const taxRate  = isDay ? 0.0015 : 0.003;
+
+  const buyAmt   = entry * shares;
+  const sellAmt  = exit  * shares;
+
+  // 手續費：買賣各一次，取 max(金額×費率, 最低費)
+  const buyFee   = entry && shares ? Math.max(Math.round(buyAmt * feeRate), minFee) : 0;
+  const sellFee  = exit  && shares ? Math.max(Math.round(sellAmt * feeRate), minFee) : 0;
+  // 證交稅：賣出時課（放空為買回時，金額用成交額計，這裡以 sellAmt 計）
+  const tax      = exit && shares ? Math.round(sellAmt * taxRate) : 0;
+
+  const fees     = buyFee + sellFee;
+  // 損益方向：做多 = (賣-買)；做空 = (買-賣)
+  const grossPnl = t.direction === 'short'
+    ? (entry - exit) * shares
+    : (exit - entry) * shares;
+  const netPnl   = grossPnl - fees - tax;
+
+  return { buyFee, sellFee, fees, tax, grossPnl, netPnl, totalCost: fees + tax };
+}
+
+// 今日交易統計（給紀律守門員用）
+function getTodayTradeStats() {
+  const today = toLocalISO();
+  const todayTrades = getTrades().filter(t => t.date === today && t.status === 'closed');
+  let netSum = 0, count = todayTrades.length, consecutiveLoss = 0, maxConsec = 0;
+  // 依時間排序算連虧
+  const sorted = [...todayTrades].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  sorted.forEach(t => {
+    const { netPnl } = calcTradeCost(t);
+    netSum += netPnl;
+    if (netPnl < 0) { consecutiveLoss++; maxConsec = Math.max(maxConsec, consecutiveLoss); }
+    else consecutiveLoss = 0;
+  });
+  return { netSum, count, currentConsecutiveLoss: consecutiveLoss, maxConsecutiveLoss: maxConsec };
+}
+
+
+// ── 關注清單（給交易 GAS 盤後抓資料用）────────────────
+function getWatchlist()      { return DB.get('trade_watchlist') || []; }
+function saveWatchlist(list) { DB.set('trade_watchlist', list); }
+
+function addWatchItem(item) {
+  const list = getWatchlist();
+  if (list.some(w => w.ticker === item.ticker)) return false;  // 已存在
+  list.push(item);
+  saveWatchlist(list);
+  return true;
+}
+function delWatchItem(ticker) {
+  saveWatchlist(getWatchlist().filter(w => w.ticker !== ticker));
+}
+
 // ── 清除 ─────────────────────────────────────────────
 function clearAll() {
   const keys = Object.keys(localStorage).filter(k =>
