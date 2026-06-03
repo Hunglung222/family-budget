@@ -67,9 +67,13 @@
   <!-- 分頁切換 -->
   <div style="display:flex;background:var(--card2);border-radius:12px;padding:3px;margin-bottom:14px;gap:3px">
     <button id="inv-tab-port" onclick="switchInvTab('portfolio',this)"
-      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#000;transition:.18s">📊 持倉</button>
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#000;transition:.18s">📊 持倉</button>
     <button id="inv-tab-health" onclick="switchInvTab('health',this)"
-      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">🏥 財務健康</button>
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">🏥 財務健康</button>
+    <button id="inv-tab-yu" onclick="switchInvTab('yu',this)"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">🦁 老余</button>
+    <button id="inv-tab-kb" onclick="switchInvTab('kb',this)"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">📚 知識庫</button>
   </div>
 
   <!-- ══ 持倉分頁 ══ -->
@@ -113,7 +117,7 @@
       <div style="font-size:.88rem;font-weight:900;color:var(--t)">老余 AI 投資顧問</div>
       <div style="font-size:.72rem;color:var(--t3);margin-top:2px">根據你的真實收支，給出個人化建議</div>
     </div>
-    <div style="font-size:.7rem;color:var(--t3);background:var(--card2);padding:4px 9px;border-radius:20px;white-space:nowrap;border:1px solid var(--border)">即將推出</div>
+    <button onclick="switchInvTab('yu',document.getElementById('inv-tab-yu'))" style="font-size:.7rem;color:var(--p);background:var(--pdim);padding:4px 12px;border-radius:20px;white-space:nowrap;border:1px solid var(--p);cursor:pointer;font-family:inherit;font-weight:700">立即體驗 →</button>
   </div>
 
   <!-- 台股交易輔助入口（僅宏龍顯示）-->
@@ -415,6 +419,12 @@
     </div>
   </div>
 </div>
+
+  <!-- ══ 知識庫 ══ -->
+  <div id="panel-kb" style="display:none;height:calc(100dvh - 185px);overflow:hidden;border-radius:var(--r);border:1px solid var(--border)">
+    <iframe id="inv-kb-frame" style="width:100%;height:100%;border:none" src="about:blank"
+      title="投資交易知識庫"></iframe>
+  </div>
 
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
@@ -965,12 +975,12 @@ function toast(msg, type='') {
 let _invTab = 'portfolio';
 function switchInvTab(tab, el) {
   _invTab = tab;
-  ['portfolio','health','yu'].forEach(t => {
+  ['portfolio','health','yu','kb'].forEach(t => {
     const panel = document.getElementById('panel-' + t);
     if (panel) panel.style.display = t === tab ? (t === 'yu' ? 'flex' : 'block') : 'none';
   });
-  ['inv-tab-port','inv-tab-health','inv-tab-yu'].forEach((id, i) => {
-    const key = ['portfolio','health','yu'][i];
+  ['inv-tab-port','inv-tab-health','inv-tab-yu','inv-tab-kb'].forEach((id, i) => {
+    const key = ['portfolio','health','yu','kb'][i];
     const b = document.getElementById(id);
     if (!b) return;
     b.style.background = key === tab ? 'var(--p)'       : 'transparent';
@@ -978,6 +988,10 @@ function switchInvTab(tab, el) {
   });
   if (tab === 'health') renderHealth();
   if (tab === 'yu')     initYuPanel();
+  if (tab === 'kb') {
+    const f = document.getElementById('inv-kb-frame');
+    if (f && f.src === 'about:blank') f.src = './knowledge.html?embed=1';
+  }
 }
 
 // ── 健康診斷主函數 ────────────────────────────────────
@@ -1374,6 +1388,8 @@ async function askYu(text) {
 
     const data  = await res.json();
     const reply = (data.content?.[0]?.text || '老余暫時說不出話…').trim();
+    // Discord AI 對話記錄（宏龍專屬）
+    if (typeof discordAiLog === 'function') discordAiLog('老余 AI 投資顧問', input, reply);
     appendYuBubble('yu', reply);
     _yuHistory.push({ role: 'assistant', content: reply });
 

@@ -1179,6 +1179,10 @@ async function askCoach(text) {
     const data = await res.json();
     const reply = (data.content?.[0]?.text || '鐵衛沉默了…').trim();
     appendCoachBubble('coach', reply);
+    if (typeof discordAiLog === 'function') {
+      const lastQ = _coachHistory.filter(m=>m.role==='user').at(-1)?.content || '';
+      discordAiLog('鐵衛教練', lastQ, reply);
+    }
     _coachHistory.push({ role:'assistant', content:reply });
     if (_coachHistory.length > 20) _coachHistory = _coachHistory.slice(-20);
   } catch(e) {
