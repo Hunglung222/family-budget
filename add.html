@@ -138,6 +138,12 @@
         ✓ 確認金額
       </button>
     </div>
+
+    <!-- ⏳ 金額待確認快速入口（兩種模式共用）-->
+    <button onclick="goStep2Pending()"
+      style="width:100%;margin-top:12px;padding:13px 0;border-radius:var(--rs);border:1.5px dashed var(--warn);background:rgba(251,191,36,.08);color:var(--warn);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px">
+      ⏳ 不知道金額？先記帳，由對方確認
+    </button>
   </div>
 
   <!-- Step 2：詳情 -->
@@ -1066,6 +1072,11 @@ function backToStep1() {
   setStep(0);
   document.getElementById('edit-hint').style.display = 'none';
   document.getElementById('amt-card').style.cursor = 'default';
+  // 若從待確認模式返回，重置金額顯示
+  if (_pendingOn) {
+    const avalEl = document.getElementById('aval');
+    if (avalEl && avalEl.textContent === '待確認') avalEl.textContent = '0';
+  }
 }
 
 function buildCatChips() {
@@ -1323,6 +1334,26 @@ function goStep2() {
   setStep(1);
 }
 
+// 金額待確認：跳過金額直接進第二步，並自動勾選待確認
+function goStep2Pending() {
+  astr = ''; calcExpr = ''; calcDisp = '';
+  if (calcMode) toggleCalcMode();        // 關閉計算機模式（如果開著）
+  // 金額卡顯示「待確認」
+  const avalEl = document.getElementById('aval');
+  if (avalEl) avalEl.textContent = '待確認';
+  document.getElementById('adisp')?.classList.remove('has-val');
+  // 進入第二步
+  document.getElementById('s1').style.display = 'none';
+  document.getElementById('s2').style.display = 'block';
+  document.getElementById('edit-hint').style.display = 'inline';
+  document.getElementById('amt-card').style.cursor = 'pointer';
+  setStep(1);
+  // 自動勾選金額待確認
+  const toggle = document.getElementById('pending-toggle');
+  if (toggle) { toggle.checked = true; togglePendingConfirm(true); }
+  window.scrollTo(0, 0);
+}
+
 function triggerCatSub(id) {
   const cat = catFind(id);
   const sf = document.getElementById('sub-fg');
@@ -1379,6 +1410,12 @@ function togglePendingConfirm(on) {
   if (on && _aaOn) {
     document.getElementById('aa-toggle').checked = false;
     toggleAASplit(false);
+  }
+  // 取消待確認且金額尚未填寫 → 提示回第一步輸入金額
+  if (!on && !(parseInt(astr)||0)) {
+    const avalEl = document.getElementById('aval');
+    if (avalEl) avalEl.textContent = '0';
+    toast('取消待確認後，請點上方金額卡片輸入金額', 'info');
   }
   updateSubmitBtn();
 }
