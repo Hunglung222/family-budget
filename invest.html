@@ -835,23 +835,23 @@ function resetKlIndicators() {
   document.querySelectorAll('.kl-ind-btn').forEach(b => b.classList.remove('on'));
   const countEl = document.getElementById('kl-ind-count');
   if (countEl) countEl.textContent = '';
-  updateKlineChart();
+  setKlineInterval(_klInterval);
 }
 
 // 套用（debounce 後呼叫）
-function applyKlIndicators() { updateKlineChart(); }
+function applyKlIndicators() { setKlineInterval(_klInterval); }
 
 // 依投資類型建立 TradingView symbol
 function buildTVSymbol(inv) {
-  const ticker = (inv.name || '').toUpperCase().replace(/\s/g,'');
-  const type   = inv.type || 'stock';
-  if (type === 'us_stock')  return ticker;              // 美股：直接代號，TV 自動找交易所
+  // 優先用 ticker 欄位（若有），否則 fallback 到 name
+  const rawTicker = (inv.ticker || inv.name || '').toUpperCase().replace(/[\s　]/g, '');
+  const type = inv.type || 'stock';
+  if (type === 'us_stock') return rawTicker;
   if (type === 'crypto') {
-    const t = ticker.replace(/USD.*$/,'');
+    const t = rawTicker.replace(/USDT?$|USD$/i, '');
     return 'BINANCE:' + t + 'USDT';
   }
-  // 台股 / ETF：預設 TWSE（上市），上櫃需手動改搜尋
-  return 'TWSE:' + ticker;
+  return 'TWSE:' + rawTicker;  // 台股/ETF 預設上市
 }
 
 // 開啟 K 線 Modal
@@ -897,7 +897,7 @@ function openKlineModal(invId) {
 }
 
 // 切換週期
-function setKlineInterval(interval, skipModal) {
+function setKlineInterval(interval) {
   _klInterval = interval;
 
   // 更新 tab 樣式

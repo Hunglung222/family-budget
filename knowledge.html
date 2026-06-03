@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>投資交易知識庫</title>
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.kb-hero{background:linear-gradient(135deg,rgba(251,191,36,.1),rgba(99,102,241,.08));border:1px solid rgba(251,191,36,.2);border-radius:var(--r);padding:16px;margin-bottom:16px;display:flex;align-items:center;gap:12px}
+.kb-hero-icon{font-size:2rem;flex-shrink:0}
+.kb-search{position:relative;margin-bottom:12px}
+.kb-search input{width:100%;padding:11px 14px 11px 38px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);font-size:.88rem;color:var(--t);font-family:inherit;box-sizing:border-box}
+.kb-search input:focus{outline:none;border-color:var(--p)}
+.kb-search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.9rem;pointer-events:none}
+.kb-filters{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px;margin-bottom:16px}
+.kb-filters::-webkit-scrollbar{display:none}
+.kb-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:10px;overflow:hidden;transition:.2s}
+.kb-card-head{padding:14px 14px 12px;cursor:pointer;user-select:none}
+.kb-card-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.kb-card-title{font-size:.9rem;font-weight:900;color:var(--t);line-height:1.3}
+.kb-cat-badge{font-size:.65rem;padding:2px 8px;border-radius:50px;font-weight:700;flex-shrink:0;white-space:nowrap}
+.kb-summary{font-size:.78rem;color:var(--t2);line-height:1.5}
+.kb-card-body{padding:0 14px 14px;display:none;border-top:1px solid var(--border);padding-top:12px}
+.kb-card-body.open{display:block}
+.kb-point{display:flex;gap:8px;margin-bottom:8px;font-size:.8rem;color:var(--t2);line-height:1.5}
+.kb-point:last-child{margin-bottom:0}
+.kb-point-dot{color:var(--p);flex-shrink:0;font-weight:900;margin-top:1px}
+.kb-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.kb-tag{font-size:.67rem;padding:2px 7px;background:var(--card2);color:var(--t3);border-radius:50px}
+.kb-arrow{color:var(--t3);transition:.2s;flex-shrink:0}
+.kb-arrow.open{transform:rotate(180deg)}
+.kb-count{font-size:.75rem;color:var(--t3);margin-bottom:12px}
+.kb-qa-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.kb-qa-title{font-size:.88rem;font-weight:900;color:var(--t);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.kb-answer{margin-top:12px;background:var(--card2);border-radius:var(--rs);padding:12px;font-size:.82rem;color:var(--t2);line-height:1.7;display:none}
+.kb-answer.show{display:block}
+.kb-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.kb-chip{font-size:.76rem;padding:6px 12px;background:rgba(251,191,36,.1);color:var(--warn);border:1px solid rgba(251,191,36,.25);border-radius:50px;cursor:pointer;font-family:inherit;font-weight:600}
+.kb-hept{background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.2);border-radius:var(--r);padding:16px;margin-bottom:80px}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div style="display:flex;align-items:center;gap:10px">
+    <button onclick="history.back()" class="hdr-btn">‹</button>
+    <div>
+      <h1 style="font-size:1rem;margin:0">📚 投資交易知識庫</h1>
+      <div style="font-size:.68rem;color:var(--t3)">27 個核心概念 · AI 問答</div>
+    </div>
+  </div>
+</header>
+
+<div class="w">
+  <!-- 搜尋 -->
+  <div class="kb-search">
+    <span class="kb-search-icon">🔍</span>
+    <input type="search" id="kb-q" placeholder="搜尋關鍵字，例：RSI、停損、處置效應…" oninput="renderCards()">
+  </div>
+
+  <!-- 分類篩選 -->
+  <div class="kb-filters" id="kb-filters">
+    <button class="pill-sm on" data-cat="全部" onclick="setCat('全部',this)">全部</button>
+    <button class="pill-sm" data-cat="技術分析" onclick="setCat('技術分析',this)">📐 技術分析</button>
+    <button class="pill-sm" data-cat="資金控管" onclick="setCat('資金控管',this)">💰 資金控管</button>
+    <button class="pill-sm" data-cat="心理偏誤" onclick="setCat('心理偏誤',this)">🧠 心理偏誤</button>
+    <button class="pill-sm" data-cat="台股規則" onclick="setCat('台股規則',this)">🇹🇼 台股規則</button>
+    <button class="pill-sm" data-cat="交易策略" onclick="setCat('交易策略',this)">🎯 交易策略</button>
+  </div>
+
+  <div id="kb-count" class="kb-count"></div>
+  <div id="kb-cards"></div>
+
+  <!-- AI 問答 -->
+  <div class="kb-qa-wrap">
+    <div class="kb-qa-title">🤖 問鐵衛（AI 知識問答）</div>
+    <textarea class="fc" id="kb-qa-input" rows="2" placeholder="問任何投資交易問題，例：MACD 金叉是什麼？如何判斷一個突破是否有效？" style="resize:none;font-size:.84rem"></textarea>
+    <div style="display:flex;justify-content:flex-end;margin-top:8px;gap:8px">
+      <div id="kb-qa-status" style="font-size:.72rem;color:var(--t3);align-self:center"></div>
+      <button class="btn btn-p" onclick="askKb()" id="kb-qa-btn" style="padding:8px 18px;font-size:.82rem">問鐵衛</button>
+    </div>
+    <div class="kb-chips" id="kb-chips">
+      <button class="kb-chip" onclick="quickAsk(this)">MACD 如何判讀？</button>
+      <button class="kb-chip" onclick="quickAsk(this)">什麼是處置效應？</button>
+      <button class="kb-chip" onclick="quickAsk(this)">停損該設在哪裡？</button>
+      <button class="kb-chip" onclick="quickAsk(this)">2% 法則怎麼算？</button>
+      <button class="kb-chip" onclick="quickAsk(this)">FOMO 如何克服？</button>
+      <button class="kb-chip" onclick="quickAsk(this)">盈虧比 1:2 是什麼意思？</button>
+    </div>
+    <div id="kb-answer" class="kb-answer"></div>
+  </div>
+
+  <!-- Heptabase 匯入 -->
+  <div class="kb-hept">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <span style="font-size:1.5rem">📦</span>
+      <div>
+        <div style="font-size:.88rem;font-weight:900;color:var(--t)">Heptabase 知識庫匯入</div>
+        <div style="font-size:.72rem;color:var(--t3)">將你的個人筆記整合進來</div>
+      </div>
+    </div>
+    <div style="font-size:.8rem;color:var(--t2);line-height:1.7;margin-bottom:12px">
+      計劃透過 Heptabase CLI 匯出你整理好的交易筆記，合併到此知識庫，讓 AI 問答能引用你的私人筆記內容。<br>
+      <span style="color:var(--t3)">格式確認後即可開發。</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-s" style="font-size:.78rem" onclick="toast('📦 Heptabase 匯入功能開發中，格式確認後上線')">匯入筆記（開發中）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+// 知識庫資料
+// ════════════════════════════════════════════════════
+const KB_DATA = [
+  // ── 技術分析 ──────────────────────────────────────
+  {
+    id:'t1', cat:'技術分析', icon:'📐',
+    title:'突破型態',
+    summary:'股價突破關鍵阻力後，往往延續上漲動能，是趨勢交易的核心訊號。',
+    points:[
+      '有效突破需要成交量明顯放大，量縮突破可信度低，容易形成假突破。',
+      '突破後若「回測前阻力」守住不破，確認突破有效，是二次進場的機會。',
+      '常見型態：箱型整理突破、前高突破、頸線突破（頭肩型）、三角收斂突破。',
+      '假突破辨識：突破隔日馬上跌回、成交量未配合、市場整體弱勢。',
+    ],
+    tags:['突破','阻力','型態','量能'],
+  },
+  {
+    id:'t2', cat:'技術分析', icon:'📐',
+    title:'反轉 K 棒訊號',
+    summary:'特定 K 棒型態暗示多空力道轉換，可作為進出場參考。',
+    points:[
+      '錘子線（Hammer）：長下影線，出現在跌勢底部，代表支撐強力，買盤積極。',
+      '吞噬型態（Engulfing）：後一根 K 棒完全涵蓋前一根，多頭/空頭吞噬力道強。',
+      '十字線（Doji）：開收盤相近，顯示多空拉鋸，後續方向待確認。',
+      '上吊線（Hanging Man）：外形似錘子但出現在漲勢頂部，暗示反轉警訊。',
+      '僅靠單根 K 棒判斷風險較高，需結合趨勢位置與成交量確認。',
+    ],
+    tags:['K棒','反轉','錘子','吞噬','頂底'],
+  },
+  {
+    id:'t3', cat:'技術分析', icon:'📐',
+    title:'均線系統',
+    summary:'移動平均線反映特定期間的平均成本，是趨勢判斷的基礎工具。',
+    points:[
+      '短期均線（MA5/MA10）反應快，適合短線；長期均線（MA60/MA120）反應慢，適合波段。',
+      '黃金交叉：短線均線向上穿越長線，代表趨勢翻多訊號。',
+      '死亡交叉：短線均線向下穿越長線，代表趨勢翻空訊號。',
+      '多頭排列：MA5 > MA10 > MA20 > MA60，股價在所有均線之上，趨勢強。',
+      '台灣散戶常用 MA20（月線）判斷個股中期趨勢，法人關注 MA120（半年線）。',
+    ],
+    tags:['均線','MA','黃金交叉','趨勢'],
+  },
+  {
+    id:'t4', cat:'技術分析', icon:'📐',
+    title:'量價關係',
+    summary:'「量是因，價是果」，成交量是趨勢強弱最直接的確認指標。',
+    points:[
+      '價漲量增：強勢上漲，趨勢健康，買方積極。',
+      '價漲量縮：上漲動能減弱，小心頂部或假突破。',
+      '價跌量增：下跌加速，賣壓沉重，避免承接。',
+      '價跌量縮：跌幅收斂，賣壓減少，可能接近底部。',
+      '爆量長紅後量縮整理：正常換手，是多方健康訊號。',
+    ],
+    tags:['量價','成交量','趨勢確認'],
+  },
+  {
+    id:'t5', cat:'技術分析', icon:'📐',
+    title:'支撐與壓力',
+    summary:'技術分析的核心邏輯：過去的壓力突破後轉為支撐，過去的支撐跌破後轉為壓力。',
+    points:[
+      '整數關卡（如 $100、$500、$1000）往往是心理支撐/壓力。',
+      '前高前低：過去成交密集區或轉折點是重要參考位。',
+      '支撐跌破後賣出，壓力突破後買進，是基本操作邏輯。',
+      '壓力突破若未能放量，容易被壓回，需謹慎追價。',
+    ],
+    tags:['支撐','壓力','關鍵位','技術'],
+  },
+  {
+    id:'t6', cat:'技術分析', icon:'📐',
+    title:'MACD 指標判讀',
+    summary:'MACD 同時反映趨勢方向與動能強弱，是最常用的輔助指標之一。',
+    points:[
+      'MACD 線（DIF）= EMA12 - EMA26；訊號線（DEA）= DIF 的 9 日 EMA。',
+      '金叉：DIF 向上穿越 DEA，買進訊號；死叉：DIF 向下穿越 DEA，賣出訊號。',
+      '柱狀圖（MACD Histogram）收縮代表趨勢動能減弱，需警惕。',
+      '背離（Divergence）：股價創新高但 MACD 未創新高 = 頂背離，暗示走勢疲軟。',
+      'MACD 屬於落後指標，不適合抄底摸頂，更適合趨勢確認後追單。',
+    ],
+    tags:['MACD','DIF','DEA','指標','背離'],
+  },
+  // ── 資金控管 ──────────────────────────────────────
+  {
+    id:'m1', cat:'資金控管', icon:'💰',
+    title:'2% 風險法則',
+    summary:'每筆交易的最大虧損不超過帳戶總資金的 2%，是保護資本最重要的法則。',
+    points:[
+      '帳戶 $500,000 × 2% = $10,000，這是每筆最大可承擔虧損。',
+      '超過 2% 會讓連虧幾筆就讓帳戶大幅縮水，恢復困難。',
+      '謹慎型：1%；標準型：2%；積極型：3%。超過 5% 屬高風險。',
+      '用 2% 法則搭配停損位，反推出你能買多少股，而不是先決定股數。',
+    ],
+    tags:['風險控管','2%','停損','資金管理'],
+  },
+  {
+    id:'m2', cat:'資金控管', icon:'💰',
+    title:'部位大小計算',
+    summary:'科學計算每筆交易應該買多少股，避免憑感覺決定部位大小。',
+    points:[
+      '公式：股數 = （帳戶 × 風險%）÷（進場價 - 停損價）',
+      '範例：帳戶 $500,000，風險 2%，進場 $100，停損 $95 → 股數 = $10,000 ÷ $5 = 2,000 股（2 張）',
+      '台灣股票以「張」為最小交易單位（1張 = 1000股），計算後向下取整張數。',
+      '部位金額不宜超過帳戶 30-40%，避免過度集中單一標的。',
+    ],
+    tags:['部位','計算','股數','資金管理'],
+  },
+  {
+    id:'m3', cat:'資金控管', icon:'💰',
+    title:'盈虧比（R:R Ratio）',
+    summary:'每承擔 1 元風險，預期能獲得幾元報酬，盈虧比是評估交易機會的關鍵。',
+    points:[
+      '盈虧比 1:2 代表：停損虧 $1，目標賺 $2。',
+      '即使勝率只有 40%，只要盈虧比 ≥ 1:2.5，長期仍是正期望值。',
+      '盈虧比 < 1:1 的交易不建議，除非勝率極高（>70%）。',
+      '設定目標前需確認合理的阻力位置，不要為了達到盈虧比而亂設目標。',
+    ],
+    tags:['盈虧比','R:R','期望值','報酬'],
+  },
+  {
+    id:'m4', cat:'資金控管', icon:'💰',
+    title:'多筆交易管理',
+    summary:'同時持有多筆部位時，需要管理整體曝險，避免相關性過高導致集體虧損。',
+    points:[
+      '總曝險限制：所有部位的總風險不超過帳戶 6-8%（約 3-4 筆 × 2%）。',
+      '板塊集中風險：同時持有太多半導體股，一旦板塊回檔全部受傷。',
+      '連虧停機制：連輸 3 筆後當日停止交易，冷靜後再看。',
+      '帳戶縮水 10% 後，縮小每筆風險至 1%，等狀態恢復再恢復。',
+    ],
+    tags:['多筆','分散','曝險','連虧'],
+  },
+  {
+    id:'m5', cat:'資金控管', icon:'💰',
+    title:'Kelly 公式（進階）',
+    summary:'用勝率和盈虧比計算理論上最佳的每筆投入比例。',
+    points:[
+      'Kelly% = W - (1-W)/R，W = 勝率，R = 盈虧比。',
+      '範例：勝率 50%，盈虧比 2 → Kelly = 0.5 - 0.5/2 = 25%。',
+      'Full Kelly 過於激進，實務多用 Half Kelly（結果 ÷ 2）降低波動。',
+      'Kelly 公式假設勝率/盈虧比穩定，實際交易中這兩個數字會變動。',
+    ],
+    tags:['Kelly','公式','最佳化','進階'],
+  },
+  // ── 心理偏誤 ──────────────────────────────────────
+  {
+    id:'p1', cat:'心理偏誤', icon:'🧠',
+    title:'處置效應（Disposition Effect）',
+    summary:'投資人傾向太早獲利了結，卻讓虧損部位繼續擴大，是最普遍的心理偏誤。',
+    points:[
+      '表現：賺一點點就出場（怕跑掉），卻把虧損的部位死抱（等解套）。',
+      '結果：小賺大賠，長期帳戶越來越小。',
+      '破解：設定明確的停利目標（如 +8%）和停損（如 -5%），用規則取代感覺。',
+      '停損單設好後，不要手動取消。讓紀律執行，不讓情緒干預。',
+    ],
+    tags:['處置效應','停損','心理','偏誤'],
+  },
+  {
+    id:'p2', cat:'心理偏誤', icon:'🧠',
+    title:'確認偏誤（Confirmation Bias）',
+    summary:'人們傾向尋找支持自己已有觀點的資訊，忽視反面訊號，在投資中極其危險。',
+    points:[
+      '已買進某股票後，只看利多新聞，忽略技術面轉弱訊號。',
+      '破解：進場前刻意列出「這筆交易最有可能失敗的 3 個原因」。',
+      '設定客觀的出場條件（停損/停利），不要在持倉期間重新詮釋目標。',
+      '尋求反方意見：問自己「如果有人要做空這支，他的理由是什麼？」',
+    ],
+    tags:['確認偏誤','認知','心理','偏誤'],
+  },
+  {
+    id:'p3', cat:'心理偏誤', icon:'🧠',
+    title:'損失厭惡（Loss Aversion）',
+    summary:'人對虧損的痛苦感受是同等金額獲利的 2.5 倍，導致大量非理性決策。',
+    points:[
+      '虧損 $10,000 的痛苦感，相當於賺 $25,000 的快感 — 這不對稱。',
+      '後果：停損太慢（怕確認虧損）、停利太快（怕賺了又賠回去）。',
+      '理解損失厭惡不會讓它消失，但能讓你識別自己「因為怕痛而做出的決定」。',
+      '每次停損前問：「這是依照我的計劃在停損？還是因為已經虧太多才停損？」',
+    ],
+    tags:['損失厭惡','心理','偏誤','情緒'],
+  },
+  {
+    id:'p4', cat:'心理偏誤', icon:'🧠',
+    title:'報復性交易（Revenge Trading）',
+    summary:'虧損後急於快速扳平，放大部位或降低標準倉促進場，往往加速虧損。',
+    points:[
+      '特徵：連虧後立即再進場，部位比平時更大，選股標準比平時更寬鬆。',
+      '根本原因：把虧損當成「欠了市場的錢」，誤以為拚回來是應該的。',
+      '破解：設定「連虧 X 筆後當日停止交易」的硬規則。',
+      '虧損後的正確做法：記日誌、找原因、第二天重新開始，不是馬上報復。',
+    ],
+    tags:['報復交易','心理','連虧','紀律'],
+  },
+  {
+    id:'p5', cat:'心理偏誤', icon:'🧠',
+    title:'FOMO 追高（Fear of Missing Out）',
+    summary:'看到股票大漲後，害怕錯過行情而衝動進場，往往在相對高點買進。',
+    points:[
+      'FOMO 進場的時間點通常是漲幅已大、風險報酬最差的時候。',
+      '衝動進場前問：「我的停損在哪？部位多少是 2% 法則允許的？」',
+      '股票永遠有機會，沒有一定要搭的車；但本金賠光就沒機會了。',
+      '建立個人選股清單，等待符合條件的機會，而不是看到漲就追。',
+    ],
+    tags:['FOMO','追高','心理','衝動'],
+  },
+  {
+    id:'p6', cat:'心理偏誤', icon:'🧠',
+    title:'過度自信（Overconfidence）',
+    summary:'連續獲利後，交易者容易高估自己的能力，降低風控意識，最終導致大虧。',
+    points:[
+      '連贏幾筆後，開始覺得「我已經掌握市場規律」，部位開始放大。',
+      '實際上連贏可能只是運氣，不代表能力提升；市場隨時會改變特性。',
+      '每筆交易都應嚴格執行同樣的風控流程，不因「最近狀態好」而放寬。',
+      '定期回顧：過去 20 筆的勝率和盈虧比是否符合預期？',
+    ],
+    tags:['過度自信','心理','偏誤','連勝'],
+  },
+  // ── 台股規則 ──────────────────────────────────────
+  {
+    id:'r1', cat:'台股規則', icon:'🇹🇼',
+    title:'處置股 / 注意股',
+    summary:'異常交易的股票會被列為注意股或處置股，交易限制大幅增加。',
+    points:[
+      '注意股（Notice Stock）：交易異常，進入觀察期，無額外交易限制。',
+      '處置股（Disposition Stock）：更嚴重，改為「人工管制」撮合，每 5 分鐘才撮合一次。',
+      '處置股流動性極差，即使方向看對，也可能進不去、出不來，應避免交易。',
+      '連續 6 個交易日達到漲跌停或成交量異常，可能觸發處置。',
+    ],
+    tags:['處置股','注意股','台股','限制'],
+  },
+  {
+    id:'r2', cat:'台股規則', icon:'🇹🇼',
+    title:'融資融券',
+    summary:'融資是借錢買股票，融券是借股票放空，台灣市場特有的槓桿工具。',
+    points:[
+      '融資：最多借 60% 股款，自備 40%，等於 2.5 倍槓桿；有融資維持率要求（120%）。',
+      '融券：借股票賣出，預期下跌後低價買回（回補），需繳保證金。',
+      '融資斷頭：維持率跌破 130% 發追繳通知，跌破 120% 強制賣出。',
+      '除權息時融資/融券有特殊規定（融資配股、融券強制回補日），需注意。',
+      '高融資比例股票下跌時容易引發連鎖斷頭，跌勢更猛烈。',
+    ],
+    tags:['融資','融券','槓桿','台股'],
+  },
+  {
+    id:'r3', cat:'台股規則', icon:'🇹🇼',
+    title:'當沖與隔日沖',
+    summary:'當沖是當天買賣，隔日沖是買進後次一交易日賣出，各有不同稅率和規定。',
+    points:[
+      '當沖：當天買進當天賣出（或先賣後買），證交稅 0.15%（一般為 0.3%）。',
+      '當沖須先開啟當沖帳戶資格（向券商申請），新開戶有限制。',
+      '隔日沖：T 日買進，T+1 賣出，適合隔日開高走強的型態。',
+      '現股當沖佔台股每日交易量 30-40%，是主要的短線力量。',
+    ],
+    tags:['當沖','隔日沖','稅率','台股'],
+  },
+  {
+    id:'r4', cat:'台股規則', icon:'🇹🇼',
+    title:'漲跌停板制度',
+    summary:'台灣股票每日漲跌幅限制 ±10%，ETF ±10%，但有例外情況。',
+    points:[
+      '一般股票每日漲跌幅限制 ±10%（以前一日收盤價計算）。',
+      'ETF 追蹤海外指數的，因時區差異，漲跌幅可能更大。',
+      '全額交割股：資本額小、財務問題股，交易需先存入款項，無信用交易。',
+      '新上市第 5 個交易日後才恢復正常漲跌停限制（前 5 天無限制）。',
+    ],
+    tags:['漲停','跌停','台股','限制'],
+  },
+  {
+    id:'r5', cat:'台股規則', icon:'🇹🇼',
+    title:'T+2 交割制度',
+    summary:'台灣股票採 T+2 交割，買入後第 2 個交易日才需完成付款。',
+    points:[
+      'T 日（交易日）買進，T+2 日（含假日不算）需完成交割（款項扣除）。',
+      '若 T+2 帳戶資金不足，將發生「違約交割」，可能面臨法律責任並停止交易資格。',
+      '賣出的價款 T+2 才入帳，當天賣出的錢當天無法用來買入（非融資帳戶）。',
+      '「以券還券」（融券回補）和一般賣出的交割規則相同。',
+    ],
+    tags:['T+2','交割','結算','台股'],
+  },
+  // ── 交易策略 ──────────────────────────────────────
+  {
+    id:'s1', cat:'交易策略', icon:'🎯',
+    title:'趨勢跟單策略',
+    summary:'「順勢者昌，逆勢者亡」，跟隨已確立的趨勢交易，勝率高於逆勢操作。',
+    points:[
+      '判斷趨勢：股價在均線之上 + 均線多頭排列 + 成交量正常 = 多頭趨勢。',
+      '進場時機：趨勢中的「回測不破支撐/均線」是最佳進場點，風險報酬佳。',
+      '不要在趨勢中途猜頂猜底，「不追高但也不逆勢做空」。',
+      '出場：停損設在支撐下方；停利可分批出場，或等到趨勢明顯改變再全出。',
+    ],
+    tags:['趨勢','跟單','順勢','策略'],
+  },
+  {
+    id:'s2', cat:'交易策略', icon:'🎯',
+    title:'均值回歸策略',
+    summary:'股價偏離均值過遠後，往往會回歸，適用於震盪市場或超跌後的反彈交易。',
+    points:[
+      '適用情境：大盤震盪、個股非趨勢行情、布林帶觸碰下軌超賣時。',
+      '判斷超賣：RSI < 30、KD < 20、布林帶下軌、大跌後量縮 = 可能超賣。',
+      '風險：強勢下跌趨勢中不適用，超賣可以更超賣，不要接飛刀。',
+      '進場需等轉折訊號（反轉K棒、量價轉強），而非單純因為「跌太多了」。',
+    ],
+    tags:['均值回歸','震盪','超賣','策略'],
+  },
+  {
+    id:'s3', cat:'交易策略', icon:'🎯',
+    title:'停損設置方法',
+    summary:'停損不是「認輸」，是保護資本讓你能繼續交易的關鍵工具。',
+    points:[
+      '支撐下方停損：停在重要支撐稍下方（如前低下方 0.5-1%），跌破代表型態破壞。',
+      'ATR 停損：進場價 - 1~2 倍 ATR（平均真實區間），依市場波動度動態調整。',
+      '固定比例停損：進場價 × 5%（如進場 $100，停損 $95），簡單但不考慮市場結構。',
+      '停損一旦設定不要隨意移動（往上移可以，往下移不行）。',
+    ],
+    tags:['停損','ATR','風控','方法'],
+  },
+  {
+    id:'s4', cat:'交易策略', icon:'🎯',
+    title:'出場策略與分批停利',
+    summary:'如何出場往往比如何進場更決定最終損益，需要有明確的計劃。',
+    points:[
+      '分批出場：達到目標價先出一半，讓剩下的繼續跑，避免一次全出後還繼續漲的懊悔。',
+      '移動停利：股價上漲後，把停損往上移（如移到 MA10 或前日低），鎖住獲利。',
+      '時間停損：超過預期時間（如 5 個交易日）沒有動靜，即使未觸停損也考慮出場，資金使用效率。',
+      '訊號出場：出現反轉 K 棒、跌破均線、MACD 死叉等訊號時出場。',
+    ],
+    tags:['出場','停利','分批','策略'],
+  },
+  {
+    id:'s5', cat:'交易策略', icon:'🎯',
+    title:'盤後覆盤習慣',
+    summary:'頂尖交易者每天盤後花 15-30 分鐘覆盤，這是進步最快的學習方式。',
+    points:[
+      '記錄每筆交易：進出場理由、情緒狀態、是否符合策略規則。',
+      '回顧今日操作：哪裡做對了？哪裡可以改善？是否有違紀行為？',
+      '觀察關注清單：哪些股票今天出現訊號了？明天有哪些值得關注？',
+      '長期追蹤勝率和盈虧比，當這兩個指標開始下滑，代表需要調整策略。',
+    ],
+    tags:['覆盤','日誌','習慣','進步'],
+  },
+];
+
+// ════════════════════════════════════════════════════
+// 渲染與搜尋
+// ════════════════════════════════════════════════════
+const CAT_COLOR = {
+  '技術分析': 'rgba(99,102,241,.15);color:#818cf8',
+  '資金控管': 'rgba(34,197,94,.12);color:#4ade80',
+  '心理偏誤': 'rgba(244,63,94,.12);color:#fb7185',
+  '台股規則': 'rgba(0,229,180,.12);color:var(--p)',
+  '交易策略': 'rgba(251,191,36,.12);color:var(--warn)',
+};
+
+let _kbCat  = '全部';
+let _openId = null;
+
+function setCat(cat, el) {
+  _kbCat = cat;
+  document.querySelectorAll('#kb-filters .pill-sm').forEach(b => b.classList.toggle('on', b.dataset.cat === cat));
+  renderCards();
+}
+
+function renderCards() {
+  const q   = (document.getElementById('kb-q')?.value || '').toLowerCase();
+  const cards = KB_DATA.filter(c => {
+    const matchCat = _kbCat === '全部' || c.cat === _kbCat;
+    if (!q) return matchCat;
+    const hay = (c.title + c.summary + c.points.join(' ') + c.tags.join(' ')).toLowerCase();
+    return matchCat && q.split(' ').every(w => hay.includes(w));
+  });
+
+  document.getElementById('kb-count').textContent = `顯示 ${cards.length} / ${KB_DATA.length} 個卡片`;
+
+  if (!cards.length) {
+    document.getElementById('kb-cards').innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--t3)">
+      <div style="font-size:2rem;margin-bottom:8px">🔍</div>
+      <div style="font-size:.85rem">找不到符合的內容</div>
+    </div>`;
+    return;
+  }
+
+  document.getElementById('kb-cards').innerHTML = cards.map(c => {
+    const isOpen = _openId === c.id;
+    const badgeStyle = `background:${CAT_COLOR[c.cat]}`;
+    return `<div class="kb-card" id="kbc-${c.id}">
+      <div class="kb-card-head" onclick="toggleCard('${c.id}')">
+        <div class="kb-card-title-row">
+          <div class="kb-card-title">${c.icon} ${c.title}</div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span class="kb-cat-badge" style="${badgeStyle}">${c.cat}</span>
+            <span class="kb-arrow${isOpen?' open':''}">▾</span>
+          </div>
+        </div>
+        <div class="kb-summary">${c.summary}</div>
+      </div>
+      <div class="kb-card-body${isOpen?' open':''}">
+        ${c.points.map(p => `<div class="kb-point"><span class="kb-point-dot">▪</span><span>${p}</span></div>`).join('')}
+        <div class="kb-tags">${c.tags.map(t => `<span class="kb-tag">#${t}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id) {
+  _openId = _openId === id ? null : id;
+  renderCards();
+  if (_openId) {
+    setTimeout(() => document.getElementById('kbc-' + id)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// AI 問答
+// ════════════════════════════════════════════════════
+function quickAsk(el) {
+  document.getElementById('kb-qa-input').value = el.textContent;
+  askKb();
+}
+
+async function askKb() {
+  const q = (document.getElementById('kb-qa-input')?.value || '').trim();
+  if (!q) return;
+
+  const apiKey = (typeof getSettings === 'function' ? getSettings().claudeApiKey : localStorage.getItem('claude_api_key')) || '';
+  if (!apiKey) {
+    showAnswer('⚠️ 請先在「設定 → API 設定」填入 Claude API Key，鐵衛才能回答問題。');
+    return;
+  }
+
+  const btn = document.getElementById('kb-qa-btn');
+  const sta = document.getElementById('kb-qa-status');
+  if (btn) btn.disabled = true;
+  if (sta) sta.textContent = '鐵衛思考中…';
+
+  // 找相關卡片（最多 8 張）
+  const words = q.toLowerCase().split(/\s+/);
+  const scored = KB_DATA.map(c => {
+    const hay = (c.title + c.summary + c.points.join(' ') + c.tags.join(' ')).toLowerCase();
+    const score = words.filter(w => hay.includes(w)).length;
+    return { c, score };
+  }).filter(x => x.score > 0).sort((a,b) => b.score - a.score).slice(0,8);
+
+  const context = (scored.length ? scored : KB_DATA.slice(0,6)).map(({ c }) =>
+    `【${c.cat}】${c.title}：${c.summary} 重點：${c.points.join('；')}`
+  ).join('\n\n');
+
+  const prompt = `你是鐵衛，台灣股市交易知識助理，個性穩重、務實、直接。
+請根據以下知識庫內容回答使用者的問題。
+【重要】必須使用台灣繁體中文，避免過於學術化，用投資人能理解的語言表達。
+
+知識庫：
+${context}
+
+使用者問題：${q}
+
+請在 200 字以內回答，可搭配實際例子說明。`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    const data = await res.json();
+    const text = data?.content?.[0]?.text || '鐵衛暫時無法回應，請稍後再試。';
+    showAnswer(text);
+  } catch(e) {
+    showAnswer('❌ 連線失敗：' + e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+    if (sta) sta.textContent = '';
+  }
+}
+
+function showAnswer(text) {
+  const el = document.getElementById('kb-answer');
+  if (!el) return;
+  // 簡單 markdown 轉換
+  const html = text
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  el.innerHTML = '<p>' + html + '</p>';
+  el.className = 'kb-answer show';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// 初始化
+document.addEventListener('DOMContentLoaded', () => renderCards());
+</script>
+<script src="./js/auth.js"></script>
+<script src="./js/db.js"></script>
+</body>
+</html>

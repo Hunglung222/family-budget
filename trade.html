@@ -64,6 +64,7 @@
     <button class="t-tab"    id="tt-rules"   onclick="switchTradeTab('rules',this)">🛡️ 紀律</button>
     <button class="t-tab"    id="tt-coach"   onclick="switchTradeTab('coach',this)">🤖 教練</button>
     <button class="t-tab"    id="tt-watch"   onclick="switchTradeTab('watch',this)">⭐ 關注</button>
+    <button class="t-tab"    id="tt-calc"    onclick="switchTradeTab('calc',this)">🧮 計算</button>
   </div>
 
   <!-- ══ 交易日誌分頁 ══ -->
@@ -155,6 +156,9 @@
 
   <!-- ══ AI 教練分頁 ══ -->
   <div id="panel-coach" style="display:none;display:flex;flex-direction:column;height:calc(100dvh - 220px)">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+      <a href="./knowledge.html" style="padding:6px 14px;background:rgba(251,191,36,.1);color:var(--warn);border:1px solid rgba(251,191,36,.25);border-radius:50px;font-size:.74rem;font-weight:700;text-decoration:none">📚 知識庫</a>
+    </div>
     <div id="coach-suggestions" style="margin-bottom:12px">
       <div style="font-size:.75rem;color:var(--t3);margin-bottom:8px">💡 問問鐵衛教練：</div>
       <div style="display:flex;flex-wrap:wrap;gap:7px">
@@ -174,6 +178,63 @@
         onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendCoach()}"></textarea>
       <button onclick="sendCoach()" id="coach-send"
         style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">➤</button>
+    </div>
+  </div>
+
+  <!-- ══ 計算機分頁 ══ -->
+  <div id="panel-calc" style="display:none">
+    <!-- 帳戶設定 -->
+    <div class="t-card">
+      <div style="font-size:.85rem;font-weight:900;color:var(--t);margin-bottom:14px">💰 帳戶設定</div>
+      <div class="fg" style="margin-bottom:0">
+        <span class="flbl">帳戶總資金（元）</span>
+        <input type="number" class="fc" id="calc-account" placeholder="500000" inputmode="numeric" oninput="calcPosition()">
+      </div>
+      <div style="height:12px"></div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span class="flbl" style="margin:0">每筆風險比例</span>
+          <span id="calc-risk-lbl" style="font-size:.88rem;font-weight:900;color:var(--p)">2%</span>
+        </div>
+        <input type="range" id="calc-risk" min="0.5" max="5" step="0.5" value="2"
+          style="width:100%;accent-color:var(--p)" oninput="document.getElementById('calc-risk-lbl').textContent=this.value+'%';calcPosition()">
+        <div style="display:flex;justify-content:space-between;font-size:.68rem;color:var(--t3);margin-top:2px">
+          <span>0.5%（保守）</span><span>2%（標準）</span><span>5%（積極）</span>
+        </div>
+      </div>
+    </div>
+    <!-- 交易設定 -->
+    <div class="t-card">
+      <div style="font-size:.85rem;font-weight:900;color:var(--t);margin-bottom:12px">📊 交易設定</div>
+      <div class="fg">
+        <span class="flbl">方向</span>
+        <div class="tg" style="gap:6px">
+          <button class="tb on" id="calc-d-long"  onclick="setCalcDir('long',this)"  style="flex:1;padding:9px 0">📈 做多</button>
+          <button class="tb"    id="calc-d-short" onclick="setCalcDir('short',this)" style="flex:1;padding:9px 0">📉 做空</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="fg" style="margin-bottom:0">
+          <span class="flbl">進場價（元）</span>
+          <input type="number" class="fc" id="calc-entry" placeholder="100.0" inputmode="decimal" step="any" oninput="calcPosition()">
+        </div>
+        <div class="fg" style="margin-bottom:0">
+          <span class="flbl">停損價（元）</span>
+          <input type="number" class="fc" id="calc-stop" placeholder="95.0" inputmode="decimal" step="any" oninput="calcPosition()">
+        </div>
+      </div>
+      <div style="height:12px"></div>
+      <div class="fg">
+        <span class="flbl">目標價（可略）— 用來計算盈虧比</span>
+        <input type="number" class="fc" id="calc-target" placeholder="例：110.0" inputmode="decimal" step="any" oninput="calcPosition()">
+      </div>
+    </div>
+    <!-- 計算結果 -->
+    <div id="calc-result" style="display:none"></div>
+    <!-- 說明 -->
+    <div style="font-size:.72rem;color:var(--t3);line-height:1.6;padding:0 4px;margin-bottom:120px">
+      💡 採「固定風險比例法」，股數以整張（1000股）為單位向下取整。<br>
+      不含手續費滑價，實際下單請自行評估市場流動性。
     </div>
   </div>
 
@@ -360,6 +421,71 @@
 </nav>
 <div class="toast" id="toast"></div>
 
+<!-- ══ 關注標的編輯 Modal ══ -->
+<div class="ov" id="watch-edit-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st" id="wem-title">✏️ 編輯關注標的</div>
+    <div class="fg">
+      <span class="flbl">🎯 目標價（元，可略）</span>
+      <input type="number" class="fc" id="wem-target" inputmode="decimal" step="any" placeholder="達到時 Discord 推送提醒">
+    </div>
+    <div class="fg">
+      <span class="flbl">🛑 停損參考（元，可略）</span>
+      <input type="number" class="fc" id="wem-stop" inputmode="decimal" step="any" placeholder="跌破時 Discord 推送提醒">
+    </div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:14px;line-height:1.5">GAS 每天盤後比對收盤價，觸發則推播到台股 Discord 頻道</div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('watch-edit-modal')">取消</button>
+      <button class="btn btn-p" onclick="saveWatchEdit()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ K 線圖 Modal（關注清單用）══ -->
+<div class="ov" id="watch-kline-modal">
+  <div class="sheet" style="height:92dvh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div>
+        <div style="font-size:.95rem;font-weight:900;color:var(--t)" id="wkl-name"></div>
+        <div style="font-size:.72rem;color:var(--t3);margin-top:2px" id="wkl-symbol"></div>
+      </div>
+      <button onclick="closeModal('watch-kline-modal')"
+        style="width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:.9rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <!-- 週期 -->
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="pill-sm" id="wkl-tab-5"  onclick="setWklInterval('5')" >分K（5分）</button>
+      <button class="pill-sm" id="wkl-tab-60" onclick="setWklInterval('60')">時K</button>
+      <button class="pill-sm on" id="wkl-tab-D" onclick="setWklInterval('D')" >日K</button>
+      <button class="pill-sm" id="wkl-tab-W"  onclick="setWklInterval('W')" >週K</button>
+      <button class="pill-sm" id="wkl-tab-M"  onclick="setWklInterval('M')" >月K</button>
+    </div>
+    <!-- 技術指標 -->
+    <div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.72rem;color:var(--t3);font-weight:700">📊 技術指標 <span id="wkl-ind-count" style="color:var(--p)"></span></span>
+        <button onclick="resetWklIndicators()" style="padding:3px 10px;background:var(--card2);color:var(--t3);border:1px solid var(--border);border-radius:50px;font-size:.7rem;cursor:pointer;font-family:inherit">重置</button>
+      </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:3px">
+        <div id="wkl-ind-chips" style="display:flex;gap:5px;width:max-content"></div>
+      </div>
+    </div>
+    <!-- 圖表 -->
+    <div style="flex:1;position:relative;min-height:0;border-radius:10px;overflow:hidden;background:var(--card)">
+      <div id="wkl-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);font-size:.82rem;z-index:1">
+        <div style="font-size:1.5rem">📊</div><div>圖表載入中…</div>
+      </div>
+      <iframe id="wkl-iframe" style="width:100%;height:100%;border:none;display:none" allow="fullscreen"
+        onload="document.getElementById('wkl-loading').style.display='none';this.style.display='block'"></iframe>
+    </div>
+    <div style="font-size:.68rem;color:var(--t3);text-align:center;padding:8px 0 2px">
+      圖表資料來源：TradingView
+    </div>
+  </div>
+</div>
+
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="./js/auth.js"></script>
@@ -389,20 +515,19 @@ let _tradeMonth  = new Date().getMonth() + 1;
 
 // ══ 分頁切換 ══════════════════════════════════════════
 function switchTradeTab(tab, el) {
-  ['journal','review','rules','coach','watch'].forEach(t => {
+  ['journal','review','rules','coach','watch','calc'].forEach(t => {
     const p = document.getElementById('panel-' + t);
     if (p) p.style.display = t === tab ? (t === 'coach' ? 'flex' : 'block') : 'none';
   });
-  ['tt-journal','tt-review','tt-rules','tt-coach','tt-watch'].forEach((id, i) => {
-    const key = ['journal','review','rules','coach','watch'][i];
+  ['tt-journal','tt-review','tt-rules','tt-coach','tt-watch','tt-calc'].forEach((id, i) => {
+    const key = ['journal','review','rules','coach','watch','calc'][i];
     document.getElementById(id)?.classList.toggle('on', key === tab);
   });
   if (tab === 'review') renderReview();
   if (tab === 'rules')  loadRules();
   if (tab === 'coach')  initCoach();
   if (tab === 'watch')  renderWatchlist();
-  // 教練分頁隱藏 FAB（其他分頁顯示，記交易用）
-  document.getElementById('trade-fab').style.display = tab === 'coach' ? 'none' : 'flex';
+  document.getElementById('trade-fab').style.display = (tab === 'coach' || tab === 'calc') ? 'none' : 'flex';
 }
 
 // ══ 紀律守門 Banner ═══════════════════════════════════
@@ -857,6 +982,9 @@ function renderReview() {
       <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">⏱ 各交易類型表現</div>
       ${renderAggBars(byType)}
     </div>
+
+    <!-- 行為偏誤分析 -->
+    ${renderBiasAnalysis(trades, wins, losses)}
   `;
 }
 
@@ -1165,14 +1293,318 @@ function renderWatchlist() {
   if (titleEl) titleEl.textContent = `📋 關注中（${list.length} 檔）`;
   const sorted = [...list].sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
   listEl.innerHTML = sorted.map(w => `
-    <div class="t-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px">
-      <div style="flex:1">
-        <div style="font-size:.92rem;font-weight:900;color:var(--t)">${w.ticker}${w.name ? ' '+w.name : ''}</div>
-        <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${w.market === 'otc' ? '上櫃' : '上市'}</div>
+    <div class="t-card" style="padding:12px 14px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+        <div style="flex:1">
+          <div style="font-size:.92rem;font-weight:900;color:var(--t)">${w.ticker}${w.name ? ' '+w.name : ''}</div>
+          <div style="font-size:.7rem;color:var(--t3);margin-top:2px">${w.market === 'otc' ? '🏷️ 上櫃' : '🏷️ 上市'}</div>
+        </div>
+        <button onclick="removeWatch('${w.ticker}')"
+          style="padding:5px 11px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:50px;font-size:.72rem;cursor:pointer;font-family:inherit">移除</button>
       </div>
-      <button onclick="removeWatch('${w.ticker}')"
-        style="padding:6px 12px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:50px;font-size:.74rem;cursor:pointer;font-family:inherit">移除</button>
+      <div style="display:flex;gap:7px;margin-bottom:8px;font-size:.72rem;flex-wrap:wrap">
+        ${w.targetPrice ? `<span style="background:rgba(34,197,94,.1);color:var(--ok);padding:3px 9px;border-radius:50px;font-weight:700">🎯 目標 $${w.targetPrice}</span>` : ''}
+        ${w.stopRef    ? `<span style="background:rgba(244,63,94,.1);color:var(--danger);padding:3px 9px;border-radius:50px;font-weight:700">🛑 停損 $${w.stopRef}</span>` : ''}
+        ${!w.targetPrice && !w.stopRef ? `<span style="color:var(--t3)">尚未設定目標/停損 — 點編輯設定</span>` : ''}
+      </div>
+      <div style="display:flex;gap:7px">
+        <button onclick="openWatchKline('${w.ticker}','${w.name||''}','${w.market||'twse'}')"
+          style="flex:1;padding:8px;background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.3);border-radius:var(--rs);font-size:.76rem;font-weight:700;cursor:pointer;font-family:inherit">📈 K線</button>
+        <button onclick="editWatchItem('${w.ticker}')"
+          style="padding:8px 14px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.76rem;cursor:pointer;font-family:inherit">✏️ 編輯</button>
+      </div>
     </div>`).join('');
+}
+
+// ══ 關注清單 K 線圖功能 ══════════════════════════════
+
+// 14 個技術指標（同 invest.html）
+const WKL_INDICATORS = [
+  { id:'ma',   label:'均線(MA)',  tv:'MASimple@tv-basicstudies',  group:'趨勢' },
+  { id:'ema',  label:'EMA',       tv:'MAExp@tv-basicstudies',     group:'趨勢' },
+  { id:'bb',   label:'布林帶',    tv:'BB@tv-basicstudies',        group:'趨勢' },
+  { id:'vwap', label:'VWAP',      tv:'VWAP@tv-basicstudies',      group:'趨勢' },
+  { id:'sar',  label:'SAR',       tv:'SAR@tv-basicstudies',       group:'趨勢' },
+  { id:'rsi',  label:'RSI',       tv:'RSI@tv-basicstudies',       group:'動能' },
+  { id:'macd', label:'MACD',      tv:'MACD@tv-basicstudies',      group:'動能' },
+  { id:'kd',   label:'KD',        tv:'Stoch@tv-basicstudies',     group:'動能' },
+  { id:'cci',  label:'CCI',       tv:'CCI@tv-basicstudies',       group:'動能' },
+  { id:'wr',   label:'W%R',       tv:'WilliamsR@tv-basicstudies', group:'動能' },
+  { id:'adx',  label:'ADX/DMI',   tv:'DMI@tv-basicstudies',       group:'動能' },
+  { id:'vol',  label:'成交量',    tv:'Volume@tv-basicstudies',    group:'量能' },
+  { id:'obv',  label:'OBV',       tv:'OBV@tv-basicstudies',       group:'量能' },
+  { id:'atr',  label:'ATR',       tv:'ATR@tv-basicstudies',       group:'波動' },
+];
+
+let _wklSymbol   = '';
+let _wklInterval = 'D';
+let _wklStudies  = new Set();
+let _wklTimer    = null;
+
+// 建立 TV symbol（利用 market 欄位精確區分上市/上櫃）
+function buildWatchTVSymbol(ticker, market) {
+  const t = (ticker || '').toUpperCase().trim();
+  if (market === 'otc') return 'TPEX:' + t;
+  return 'TWSE:' + t;
+}
+
+// 開啟 K 線 Modal
+function openWatchKline(ticker, name, market) {
+  _wklSymbol   = buildWatchTVSymbol(ticker, market);
+  _wklInterval = 'D';
+  _wklStudies.clear();
+
+  const nameEl   = document.getElementById('wkl-name');
+  const symbolEl = document.getElementById('wkl-symbol');
+  if (nameEl)   nameEl.textContent   = ticker + (name ? ' ' + name : '');
+  if (symbolEl) symbolEl.textContent = 'TradingView · ' + _wklSymbol;
+
+  buildWklChips();
+  const countEl = document.getElementById('wkl-ind-count');
+  if (countEl) countEl.textContent = '';
+
+  // 重置週期 tab
+  ['5','60','D','W','M'].forEach(k => document.getElementById('wkl-tab-' + k)?.classList.remove('on'));
+  document.getElementById('wkl-tab-D')?.classList.add('on');
+
+  setWklInterval('D');
+  showModal('watch-kline-modal');
+}
+
+// 建立指標 chips
+function buildWklChips() {
+  const el = document.getElementById('wkl-ind-chips');
+  if (!el) return;
+  let lastGroup = '';
+  el.innerHTML = WKL_INDICATORS.map(ind => {
+    let sep = '';
+    if (ind.group !== lastGroup && lastGroup !== '') {
+      sep = '<div style="width:1px;height:26px;background:var(--border);flex-shrink:0;align-self:center"></div>';
+    }
+    lastGroup = ind.group;
+    return sep + `<button class="pill-sm wkl-ind-btn" id="wkl-ind-${ind.id}"
+      onclick="toggleWklInd('${ind.id}',this)"
+      style="padding:5px 10px;font-size:.72rem;white-space:nowrap;flex-shrink:0">${ind.label}</button>`;
+  }).join('');
+}
+
+// 切換指標
+function toggleWklInd(id, el) {
+  if (_wklStudies.has(id)) { _wklStudies.delete(id); el.classList.remove('on'); }
+  else                     { _wklStudies.add(id);    el.classList.add('on');  }
+  const cnt = document.getElementById('wkl-ind-count');
+  if (cnt) cnt.textContent = _wklStudies.size > 0 ? `(${_wklStudies.size} 個)` : '';
+  clearTimeout(_wklTimer);
+  _wklTimer = setTimeout(() => setWklInterval(_wklInterval), 700);
+}
+
+// 重置指標
+function resetWklIndicators() {
+  _wklStudies.clear();
+  document.querySelectorAll('.wkl-ind-btn').forEach(b => b.classList.remove('on'));
+  const cnt = document.getElementById('wkl-ind-count');
+  if (cnt) cnt.textContent = '';
+  setWklInterval(_wklInterval);
+}
+
+// 切換週期並更新圖表
+function setWklInterval(interval) {
+  _wklInterval = interval;
+  ['5','60','D','W','M'].forEach(k => document.getElementById('wkl-tab-' + k)?.classList.remove('on'));
+  document.getElementById('wkl-tab-' + interval)?.classList.add('on');
+
+  const iframe  = document.getElementById('wkl-iframe');
+  const loading = document.getElementById('wkl-loading');
+  if (!iframe || !_wklSymbol) return;
+
+  if (loading) loading.style.display = 'flex';
+  iframe.style.display = 'none';
+
+  const rangeMap = { '5':'1D', '60':'5D', 'D':'6M', 'W':'3Y', 'M':'all' };
+  const params   = new URLSearchParams({
+    frameElementId: 'wkl_tv',
+    symbol:         _wklSymbol,
+    interval:       interval,
+    hidesidetoolbar:'1',
+    saveimage:      '0',
+    theme:          'dark',
+    style:          '1',
+    timezone:       'Asia/Taipei',
+    locale:         'zh_TW',
+    withdateranges: '1',
+    range:          rangeMap[interval] || '6M',
+    hide_legend:    '0',
+  });
+
+  if (_wklStudies.size > 0) {
+    const arr = Array.from(_wklStudies)
+      .map(id => WKL_INDICATORS.find(i => i.id === id)?.tv)
+      .filter(Boolean);
+    if (arr.length) params.set('studies', JSON.stringify(arr));
+  }
+
+  iframe.src = 'https://s.tradingview.com/widgetembed/?' + params.toString();
+}
+
+// ══ 計算機功能 ════════════════════════════════════════
+let _calcDir = 'long';
+
+function setCalcDir(dir, el) {
+  _calcDir = dir;
+  ['calc-d-long','calc-d-short'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  calcPosition();
+}
+
+function calcPosition() {
+  const account = parseFloat(document.getElementById('calc-account').value) || 0;
+  const risk    = parseFloat(document.getElementById('calc-risk').value) || 2;
+  const entry   = parseFloat(document.getElementById('calc-entry').value) || 0;
+  const stop    = parseFloat(document.getElementById('calc-stop').value) || 0;
+  const target  = parseFloat(document.getElementById('calc-target').value) || 0;
+  const resultEl = document.getElementById('calc-result');
+
+  if (!account || !entry || !stop) { if (resultEl) resultEl.style.display = 'none'; return; }
+
+  const priceRisk = _calcDir === 'long' ? entry - stop : stop - entry;
+  if (priceRisk <= 0) { if (resultEl) resultEl.style.display = 'none'; return; }
+
+  const riskAmt    = account * risk / 100;
+  const rawShares  = Math.floor(riskAmt / priceRisk);
+  const lots       = Math.floor(rawShares / 1000);
+  const shares     = lots * 1000;
+  const posValue   = shares * entry;
+  const acctPct    = account ? (posValue / account * 100) : 0;
+  const actualRisk = shares * priceRisk;
+
+  const targetPnl = target ? ((_calcDir === 'long' ? target - entry : entry - target) * shares) : null;
+  const pnlRatio  = targetPnl && actualRisk ? (targetPnl / actualRisk) : null;
+  const riskColor = acctPct > 40 ? '#ef4444' : acctPct > 20 ? '#f59e0b' : '#22c55e';
+
+  const rules = getTradeRules();
+  const overLimit = rules.maxPositionSize > 0 && posValue > rules.maxPositionSize;
+
+  resultEl.style.display = 'block';
+  resultEl.className = 't-card';
+  resultEl.innerHTML = `
+    <div style="font-size:.85rem;font-weight:900;color:var(--t);margin-bottom:12px">✅ 計算結果</div>
+    ${overLimit ? `<div style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:8px;padding:10px;margin-bottom:10px;font-size:.78rem;color:var(--danger)">⚠️ 部位 $${fmt(Math.round(posValue))} 超過設定的單筆上限 $${fmt(rules.maxPositionSize)}</div>` : ''}
+    <div class="metric-row"><span style="font-size:.82rem;color:var(--t2)">可承擔虧損</span><span style="font-weight:900;color:#ef4444">$${fmt(Math.round(riskAmt))}</span></div>
+    <div class="metric-row"><span style="font-size:.82rem;color:var(--t2)">每股風險</span><span style="font-weight:700;color:var(--t)">$${priceRisk.toFixed(2)}</span></div>
+    <div class="metric-row"><span style="font-size:.82rem;color:var(--t2)">建議股數（張數）</span><span style="font-size:1rem;font-weight:900;color:var(--p)">${fmt(shares)} 股（${lots} 張）</span></div>
+    <div class="metric-row"><span style="font-size:.82rem;color:var(--t2)">部位金額</span><span style="font-weight:900;color:${riskColor}">$${fmt(Math.round(posValue))}（${acctPct.toFixed(1)}%）</span></div>
+    <div class="metric-row" style="border-bottom:none"><span style="font-size:.82rem;color:var(--t2)">實際最大虧損</span><span style="font-weight:700;color:#ef4444">-$${fmt(Math.round(actualRisk))}</span></div>
+    ${pnlRatio !== null ? `
+    <div style="background:var(--card2);border-radius:10px;padding:12px;margin-top:12px">
+      <div style="font-size:.78rem;font-weight:700;color:var(--t2);margin-bottom:8px">損益情境</div>
+      <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px"><span style="color:var(--t3)">達目標 $${target}</span><span style="font-weight:700;color:#22c55e">+$${fmt(Math.round(targetPnl))}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:.8rem;margin-bottom:5px"><span style="color:var(--t3)">觸停損 $${stop}</span><span style="font-weight:700;color:#ef4444">-$${fmt(Math.round(actualRisk))}</span></div>
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;border-top:1px solid var(--border);padding-top:8px;margin-top:4px">
+        <span style="font-weight:700;color:var(--t)">盈虧比</span>
+        <span style="font-weight:900;color:${pnlRatio>=2?'#22c55e':pnlRatio>=1.5?'var(--p)':pnlRatio>=1?'var(--warn)':'#ef4444'}">
+          1 : ${pnlRatio.toFixed(2)} ${pnlRatio>=2?'🎯 優秀':pnlRatio>=1.5?'✅ 良好':pnlRatio>=1?'⚠️ 尚可':'❌ 不建議'}
+        </span>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+// ══ 行為偏誤分析 ══════════════════════════════════════
+function renderBiasAnalysis(trades, wins, losses) {
+  if (trades.length < 5) return '<div class="t-card" style="color:var(--t3);font-size:.82rem">需至少 5 筆交易才能顯示行為偏誤分析</div>';
+
+  const sorted = [...trades].sort((a,b) => new Date(a.date+' '+(a.createdAt||0)) - new Date(b.date+' '+(b.createdAt||0)));
+  let afterLossCount = 0, afterLossWins = 0;
+  for (let i = 1; i < sorted.length; i++) {
+    if (calcTradeCost(sorted[i-1]).netPnl < 0) {
+      afterLossCount++;
+      if (calcTradeCost(sorted[i]).netPnl > 0) afterLossWins++;
+    }
+  }
+  const afterLossWR = afterLossCount > 0 ? (afterLossWins / afterLossCount * 100) : null;
+  const overallWR   = trades.length > 0 ? (wins / trades.length * 100) : 0;
+
+  const fomoTrades = trades.filter(t => t.emotion === 'fomo');
+  const fomoWR     = fomoTrades.length >= 2 ? (fomoTrades.filter(t => calcTradeCost(t).netPnl > 0).length / fomoTrades.length * 100) : null;
+
+  const vioTrades = trades.filter(t => t.disciplineViolation);
+  const noVioTrades = trades.filter(t => !t.disciplineViolation);
+  const vioWR   = vioTrades.length >= 2 ? (vioTrades.filter(t => calcTradeCost(t).netPnl > 0).length / vioTrades.length * 100) : null;
+  const noVioWR = noVioTrades.length >= 2 ? (noVioTrades.filter(t => calcTradeCost(t).netPnl > 0).length / noVioTrades.length * 100) : null;
+
+  const emoGroups = {};
+  trades.forEach(t => {
+    const e = t.emotion || 'calm';
+    if (!emoGroups[e]) emoGroups[e] = {count:0,wins:0};
+    emoGroups[e].count++;
+    if (calcTradeCost(t).netPnl > 0) emoGroups[e].wins++;
+  });
+  const bestEmo = Object.entries(emoGroups).filter(([,v])=>v.count>=3).sort((a,b)=>(b[1].wins/b[1].count)-(a[1].wins/a[1].count))[0];
+  const worstEmo= Object.entries(emoGroups).filter(([,v])=>v.count>=3).sort((a,b)=>(a[1].wins/a[1].count)-(b[1].wins/b[1].count))[0];
+
+  const rowStyle = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)';
+  const lastRow  = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0';
+
+  return `
+    <div class="t-card">
+      <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">🧠 行為偏誤分析</div>
+
+      ${afterLossWR !== null ? `<div style="${rowStyle}">
+        <span style="font-size:.8rem;color:var(--t2)">虧損後下一筆勝率</span>
+        <div style="text-align:right">
+          <span style="font-weight:900;color:${afterLossWR<overallWR?'#ef4444':'#22c55e'}">${afterLossWR.toFixed(0)}%</span>
+          <span style="font-size:.7rem;color:var(--t3);margin-left:4px">（整體${overallWR.toFixed(0)}%）</span>
+        </div>
+      </div>` : ''}
+
+      ${fomoWR !== null ? `<div style="${rowStyle}">
+        <span style="font-size:.8rem;color:var(--t2)">😵 追高（FOMO）勝率</span>
+        <span style="font-weight:900;color:${fomoWR<40?'#ef4444':'var(--warn)'}">${fomoWR.toFixed(0)}% <span style="font-size:.7rem;color:var(--t3)">(${fomoTrades.length}筆)</span></span>
+      </div>` : ''}
+
+      ${vioWR !== null && noVioWR !== null ? `<div style="${rowStyle}">
+        <span style="font-size:.8rem;color:var(--t2)">守紀律 vs 違紀勝率</span>
+        <span style="font-size:.8rem"><span style="color:#22c55e;font-weight:700">${noVioWR.toFixed(0)}%</span> <span style="color:var(--t3)">vs</span> <span style="color:#ef4444;font-weight:700">${vioWR.toFixed(0)}%</span></span>
+      </div>` : ''}
+
+      ${bestEmo && worstEmo && bestEmo[0] !== worstEmo[0] ? `<div style="${lastRow}">
+        <span style="font-size:.8rem;color:var(--t2)">最佳 / 最差情緒</span>
+        <span style="font-size:.8rem"><span style="color:#22c55e;font-weight:700">${EMO_LABEL[bestEmo[0]]}(${(bestEmo[1].wins/bestEmo[1].count*100).toFixed(0)}%)</span> <span style="color:var(--t3)">vs</span> <span style="color:#ef4444;font-weight:700">${EMO_LABEL[worstEmo[0]]}(${(worstEmo[1].wins/worstEmo[1].count*100).toFixed(0)}%)</span></span>
+      </div>` : ''}
+
+      ${afterLossWR !== null && afterLossWR < overallWR - 10 ? `
+        <div style="background:rgba(244,63,94,.08);border-radius:8px;padding:10px;margin-top:10px;font-size:.76rem;color:var(--danger);line-height:1.5">
+          ⚠️ 虧損後你的勝率明顯下降（${afterLossWR.toFixed(0)}% vs 整體${overallWR.toFixed(0)}%），可能存在報復性交易傾向。連虧後建議休息再看。
+        </div>` : ''}
+    </div>`;
+}
+
+// ══ 關注標的編輯（目標價/停損）══════════════════════
+let _editWatchTicker = '';
+
+function editWatchItem(ticker) {
+  _editWatchTicker = ticker;
+  const w = getWatchlist().find(x => x.ticker === ticker);
+  if (!w) return;
+  document.getElementById('wem-title').textContent = `✏️ ${ticker}${w.name?' '+w.name:''} 設定`;
+  document.getElementById('wem-target').value = w.targetPrice || '';
+  document.getElementById('wem-stop').value   = w.stopRef     || '';
+  showModal('watch-edit-modal');
+}
+
+function saveWatchEdit() {
+  const list = getWatchlist();
+  const idx  = list.findIndex(w => w.ticker === _editWatchTicker);
+  if (idx < 0) return;
+  const target = parseFloat(document.getElementById('wem-target').value) || null;
+  const stop   = parseFloat(document.getElementById('wem-stop').value)   || null;
+  list[idx].targetPrice = target;
+  list[idx].stopRef     = stop;
+  saveWatchlist(list);
+  fbSyncTrades();
+  closeModal('watch-edit-modal');
+  renderWatchlist();
+  toast(`✅ ${_editWatchTicker} 設定已儲存`);
 }
 
 // ══ 工具 ══════════════════════════════════════════════
