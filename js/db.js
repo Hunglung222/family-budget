@@ -938,3 +938,59 @@ async function discordAiLog(source, question, answer) {
     });
   } catch(e) { console.warn('[AI Log]', e); }
 }
+
+// ── 知識庫自訂卡片 ──────────────────────────────────────────
+function getCustomKbCards() { return DB.get('kb_custom') || []; }
+function saveCustomKbCards(cards) { DB.set('kb_custom', cards); }
+
+function addCustomKbCard(card) {
+  const cards = getCustomKbCards();
+  card.id      = 'custom_' + Date.now();
+  card.isCustom = true;
+  card.createdAt = Date.now();
+  card.updatedAt = Date.now();
+  cards.push(card);
+  saveCustomKbCards(cards);
+  return card;
+}
+
+function updateCustomKbCard(id, updates) {
+  const cards = getCustomKbCards();
+  const idx = cards.findIndex(c => c.id === id);
+  if (idx < 0) return null;
+  cards[idx] = { ...cards[idx], ...updates, updatedAt: Date.now() };
+  saveCustomKbCards(cards);
+  return cards[idx];
+}
+
+function deleteCustomKbCard(id) {
+  saveCustomKbCards(getCustomKbCards().filter(c => c.id !== id));
+}
+
+// ── 記帳待確認請求 ─────────────────────────────────────
+function getPendingRequests() { return DB.get('pending_requests') || []; }
+function savePendingRequests(list) { DB.set('pending_requests', list); }
+
+function addPendingRequest(req) {
+  const list = getPendingRequests();
+  req.id        = 'preq_' + Date.now();
+  req.status    = 'pending';
+  req.createdAt = Date.now();
+  list.unshift(req);
+  savePendingRequests(list);
+  return req;
+}
+
+function removePendingRequest(id) {
+  savePendingRequests(getPendingRequests().filter(r => r.id !== id));
+}
+
+function getMyPendingRequests() {
+  // 找指定給目前使用者的待確認請求
+  const me = localStorage.getItem('person_name') || '盈慧';
+  return getPendingRequests().filter(r => r.assignedTo === me && r.status === 'pending');
+}
+
+function currentPersonLabel() {
+  return localStorage.getItem('person_name') || '宏龍';
+}

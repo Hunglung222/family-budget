@@ -436,6 +436,7 @@ async function discordOnAdd(tx){
 }
 
 async function checkBudgetAlert(tx){
+  try {
   const cfg=getDiscord();
   const limit=getBudget(tx.cat);if(!limit)return null;
   const spent=txByPeriod().filter(t=>t.cat===tx.cat).reduce((s,t)=>s+t.amount,0);
@@ -446,6 +447,7 @@ async function checkBudgetAlert(tx){
     await discordSend(`${emoji} **預算警示** — ${catName(tx.cat)}\n已用 **$${fmt(spent)}** / $${fmt(limit)}（${Math.round(pct)}%）\n週期：${fmtPeriod()}`);
   }
   return {spent,limit,pct};
+  } catch(e){ console.warn('[checkBudgetAlert]',e); }
 }
 
 async function discordBillReminder(){
@@ -524,6 +526,27 @@ function fbListenInstallments(cb) {
 
 
 // ── 投資記錄 Firebase 同步（per-user 私密路徑）───────────
+// ── 知識庫自訂卡片 Firebase 同步（per-user 私密）─────────
+async function fbSyncCustomKb() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    await getDb().collection('private_tx').doc(u)
+      .set({ kb_custom: getCustomKbCards(), kbUpdatedAt: Date.now() }, { merge: true });
+  } catch(e) { console.warn('[FB]kbSync', e); }
+}
+
+async function fbPullCustomKb() {
+  try {
+    const u = localStorage.getItem('current_uid');
+    if (!u) return;
+    const d = await getDb().collection('private_tx').doc(u).get();
+    if (d.exists && d.data().kb_custom) {
+      saveCustomKbCards(d.data().kb_custom);
+    }
+  } catch(e) { console.warn('[FB]kbPull', e); }
+}
+
 async function fbSyncInvestments() {
   try {
     const u = localStorage.getItem('current_uid');
@@ -604,3 +627,34 @@ function fbListenTrades(cb) {
 
 
 getDb();
+
+// ── 待確認記帳請求 Firebase 同步 ────────────────────────
+async function fbSyncPendingRequests() {
+  try {
+    await getDb().collection('shared').doc('pending_requests')
+      .set({ list: getPendingRequests(), updatedAt: Date.now() });
+  } catch(e) { console.warn('[FB]pendingReq', e); }
+}
+
+async function fbPullPendingRequests() {
+  try {
+    const d = await getDb().collection('shared').doc('pending_requests').get();
+    if (d.exists && Array.isArray(d.data().list)) {
+      savePendingRequests(d.data().list);
+    }
+  } catch(e) {}
+}
+
+let _pendingUnsub = null;
+function fbListenPendingRequests(cb) {
+  if (_pendingUnsub) _pendingUnsub();
+  try {
+    _pendingUnsub = getDb().collection('shared').doc('pending_requests')
+      .onSnapshot(snap => {
+        if (snap.exists && Array.isArray(snap.data().list)) {
+          savePendingRequests(snap.data().list);
+          if (typeof cb === 'function') cb();
+        }
+      });
+  } catch(e) { console.warn('[FB]listenPending', e); }
+}
