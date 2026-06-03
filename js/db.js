@@ -986,11 +986,21 @@ function removePendingRequest(id) {
 }
 
 function getMyPendingRequests() {
-  // 找指定給目前使用者的待確認請求
-  const me = localStorage.getItem('person_name') || '盈慧';
+  // 找指定給目前使用者的待確認請求（用 current_user 識別，與 currentUser() 一致）
+  const me = currentUser();
   return getPendingRequests().filter(r => r.assignedTo === me && r.status === 'pending');
 }
 
 function currentPersonLabel() {
-  return localStorage.getItem('person_name') || '宏龍';
+  return currentUser();
+}
+
+// ── 通用 Modal 開關（所有頁面共用）─────────────────────
+function showModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('show');
+}
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('show');
 }
