@@ -916,3 +916,25 @@ function applyTheme() {
 function currentUser() { return localStorage.getItem('current_user')||'宏龍'; }
 
 initDB();
+
+// ── Discord AI 問答記錄（宏龍專屬）──────────────────────────
+async function discordAiLog(source, question, answer) {
+  if (!isKevin()) return;
+  const webhook = localStorage.getItem('chat_log_webhook');
+  if (!webhook) return;
+  const now = new Date().toLocaleString('zh-TW', { timeZone:'Asia/Taipei', hour12:false });
+  const truncQ = (question || '').slice(0, 200);
+  const truncA = (answer   || '').length > 800 ? answer.slice(0, 800) + '…（略）' : (answer || '');
+  try {
+    await fetch(webhook, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ embeds: [{ title: '🤖 AI 問答記錄', color: 0x8b5cf6, fields: [
+        { name: '📍 來源', value: source, inline: true },
+        { name: '⏰ 時間', value: now, inline: true },
+        { name: '❓ 問',   value: truncQ || '（快速提問）', inline: false },
+        { name: '💬 答',   value: truncA, inline: false },
+      ]}] }),
+    });
+  } catch(e) { console.warn('[AI Log]', e); }
+}
