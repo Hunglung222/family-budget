@@ -812,7 +812,7 @@ async function fbPullCups() {
   try {
     const d = await getDb().collection('shared').doc('deposit_cups').get();
     if (d.exists && d.data().list) { saveCups(d.data().list); }
-  } catch(e) {}
+  } catch(e){ console.warn("[shopping]",e); }
 }
 let _cupsUnsub = null;
 function fbListenCups() {
@@ -995,14 +995,14 @@ async function fbPullOrders(){
   try{
     const d=await getDb().collection('shared').doc('orders').get();
     if(d.exists&&d.data().list){DB.set('orders',d.data().list);}
-  }catch(e){}
+  }catch(e){ console.warn("[shopping]",e); }
 }
 
 // ── 平台雲端同步 ─────────────────────────────────────
 async function fbSyncPlatforms(){
   try{
     await getDb().collection('shared').doc('platforms').set({list:getPlatforms(),updatedAt:Date.now()});
-  }catch(e){}
+  }catch(e){ console.warn("[shopping]",e); }
 }
 async function fbPullPlatforms(){
   try{
@@ -1010,7 +1010,7 @@ async function fbPullPlatforms(){
     if(d.exists&&d.data().list&&d.data().list.length){
       DB.set('platforms',d.data().list);
     }
-  }catch(e){}
+  }catch(e){ console.warn("[shopping]",e); }
 }
 let _platformsUnsub=null;
 function fbListenPlatforms(){
@@ -1022,7 +1022,7 @@ function fbListenPlatforms(){
           DB.set('platforms',snap.data().list);
         }
       });
-  }catch(e){}
+  }catch(e){ console.warn("[shopping]",e); }
 }
 
 // 登入時把自己的 uid 寫到 shared/users，供合併使用
@@ -1035,7 +1035,7 @@ async function registerUserUid(){
     const map=(d.exists&&d.data().uids)||{};
     const user=firebase.auth().currentUser;
     if(user){ map[user.email]=myUid; await ref.set({uids:map,updatedAt:Date.now()}); }
-  }catch(e){}
+  }catch(e){ console.warn("[shopping]",e); }
 }
 let _ordersUnsub=null;
 function fbListenOrders(){
@@ -1224,7 +1224,7 @@ async function migrateOrdersToShared(){
     try{
       const sd=await db.collection('shared').doc('orders').get();
       if(sd.exists&&sd.data().list) sharedList=sd.data().list;
-    }catch(e){}
+    }catch(e){ console.warn("[shopping]",e); }
     // 三方合併去重（以 id 為主，沒有 id 的也保留）
     const seen=new Set(); const merged=[];
     [...sharedList,...myList,...otherList].forEach(o=>{

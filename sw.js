@@ -1,8 +1,11 @@
-const V = 'fb-v2026.05.31-0022';
+const V = 'fb-v2026.06.03-1710';
 const A = [
-  './login.html','./add.html','./index.html','./report.html',
-  './wallet.html','./settings.html','./shopping.html','./private.html','./memo.html',
-  './css/style.css','./js/auth.js','./js/db.js','./js/firebase.js','./js/assistant.js',
+  './login.html','./index.html','./add.html','./report.html',
+  './invest.html','./wallet.html','./shopping.html','./settings.html',
+  './trade.html','./knowledge.html','./invest-guide.html',
+  './private.html','./memo.html','./guide.html',
+  './css/style.css',
+  './js/auth.js','./js/db.js','./js/firebase.js','./js/assistant.js',
   './icons/icon-192.png','./icons/icon-512.png',
 ];
 self.addEventListener('install', e => {
@@ -18,14 +21,13 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  // 外部 API 請求完全不攔截，直接放行
   if (!url.startsWith(self.location.origin)) return;
-  // HTML 和 JS 走網路優先
+  // HTML、JS → 網路優先（確保更新即時生效）
   if (e.request.destination === 'document' ||
       url.endsWith('.js') || url.includes('/js/')) {
     e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
-  // CSS、圖片等靜態資源走快取優先
+  // CSS、圖片等靜態資源 → 快取優先
   e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
 });

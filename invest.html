@@ -237,7 +237,7 @@
   </div><!-- end panel-health -->
 
   <!-- ══ 老余 AI 投資顧問 ══ -->
-  <div id="panel-yu" style="display:none;flex-direction:column;height:calc(100dvh - 160px)">
+  <div id="panel-yu" style="display:none;flex-direction:column;height:calc(100dvh - var(--hdr,56px) - 120px)">
 
     <!-- 快速提問 chips（首次進入時顯示）-->
     <div id="yu-suggestions" style="margin-bottom:12px">
@@ -256,7 +256,7 @@
     <div id="yu-chat" style="flex:1;overflow-y:auto;margin-bottom:12px;min-height:0;padding-bottom:4px"></div>
 
     <!-- 輸入列 -->
-    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:env(safe-area-inset-bottom,0px)">
+    <div style="display:flex;gap:8px;align-items:flex-end;padding-bottom:max(env(safe-area-inset-bottom,0px),8px)">
       <textarea id="yu-input"
         placeholder="問老余任何投資或財務問題…"
         rows="1"

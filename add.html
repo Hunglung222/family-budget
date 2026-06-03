@@ -257,8 +257,71 @@
       <span class="flbl">🏷️ 消費標籤（可略，可複選）</span>
       <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
     </div>
+    <!-- ⏳ 金額待確認 -->
+    <div class="fg" id="pending-confirm-fg">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.88rem;font-weight:700;color:var(--t)">⏳ 金額待確認</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-top:2px">金額先不填，由對方登入後確認</div>
+        </div>
+        <label class="sw"><input type="checkbox" id="pending-toggle" onchange="togglePendingConfirm(this.checked)"><span class="sw-slider"></span></label>
+      </div>
+      <div id="pending-extra" style="display:none;margin-top:12px">
+        <input class="fc" id="pending-note" placeholder="備註給對方（可略），例：下午茶的費用">
+        <div style="font-size:.72rem;color:var(--t3);margin-top:5px">💡 對方登入時會收到確認提示，填入金額後正式記帳</div>
+      </div>
+    </div>
+
+    <!-- ⚖️ AA 分帳 -->
+    <div class="fg" id="aa-fg">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-size:.88rem;font-weight:700;color:var(--t)">⚖️ AA 分帳</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-top:2px">自動拆成兩筆，各自記帳</div>
+        </div>
+        <label class="sw"><input type="checkbox" id="aa-toggle" onchange="toggleAASplit(this.checked)"><span class="sw-slider"></span></label>
+      </div>
+      <div id="aa-body" style="display:none;margin-top:12px">
+        <!-- 分攤方式 -->
+        <div class="tg" style="gap:6px;margin-bottom:10px">
+          <button class="tb on" id="aa-even"   onclick="setAASplitType('even',this)"   style="flex:1;font-size:.8rem">平均分攤</button>
+          <button class="tb"    id="aa-custom" onclick="setAASplitType('custom',this)" style="flex:1;font-size:.8rem">自訂金額</button>
+        </div>
+        <!-- 預覽 -->
+        <div id="aa-preview" style="background:var(--card2);border-radius:10px;padding:12px">
+          <div style="font-size:.76rem;color:var(--t3);margin-bottom:8px">各自記帳金額</div>
+          <div style="display:flex;gap:10px">
+            <div style="flex:1;text-align:center">
+              <div style="font-size:.72rem;color:var(--t2);margin-bottom:4px">🙋 宏龍</div>
+              <div id="aa-hl-amt" style="font-size:1.1rem;font-weight:900;color:var(--p)">$0</div>
+            </div>
+            <div style="width:1px;background:var(--border)"></div>
+            <div style="flex:1;text-align:center">
+              <div style="font-size:.72rem;color:var(--t2);margin-bottom:4px">🙋‍♀️ 盈慧</div>
+              <div id="aa-yh-amt" style="font-size:1.1rem;font-weight:900;color:var(--p)">$0</div>
+            </div>
+          </div>
+        </div>
+        <!-- 自訂模式輸入 -->
+        <div id="aa-custom-row" style="display:none;margin-top:10px;display:none">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div>
+              <div style="font-size:.72rem;color:var(--t2);margin-bottom:5px">🙋 宏龍 金額</div>
+              <input class="fc" type="number" id="aa-hl-input" inputmode="numeric" placeholder="0"
+                oninput="onAACutsomInput('hl')">
+            </div>
+            <div>
+              <div style="font-size:.72rem;color:var(--t2);margin-bottom:5px">🙋‍♀️ 盈慧 金額</div>
+              <input class="fc" type="number" id="aa-yh-input" inputmode="numeric" placeholder="0"
+                oninput="onAACutsomInput('yh')">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div style="margin-top:18px;padding-bottom:calc(var(--nav) + 80px)">
-      <button class="btn btn-p" onclick="submit()">✅ 確定記帳</button>
+      <button class="btn btn-p" id="submit-btn" onclick="submit()">✅ 確定記帳</button>
     </div>
   </div>
 </div>
@@ -1304,8 +1367,118 @@ function showHints() { }  // 已關閉
 function hideHints() { document.getElementById('hint-list').style.display='none'; }
 function pickHint(v) { document.getElementById('tx-detail').value=v; hideHints(); }
 
+// ════════════════════════════════════════════════════
+// ⏳ 金額待確認機制
+// ════════════════════════════════════════════════════
+let _pendingOn = false;
+
+function togglePendingConfirm(on) {
+  _pendingOn = on;
+  document.getElementById('pending-extra').style.display = on ? 'block' : 'none';
+  // 待確認時關閉 AA 分帳（互斥）
+  if (on && _aaOn) {
+    document.getElementById('aa-toggle').checked = false;
+    toggleAASplit(false);
+  }
+  updateSubmitBtn();
+}
+
+// ════════════════════════════════════════════════════
+// ⚖️ AA 分帳機制
+// ════════════════════════════════════════════════════
+let _aaOn = false;
+let _aaSplitType = 'even';   // 'even' | 'custom'
+let _aaHlAmt = 0, _aaYhAmt = 0;
+
+function toggleAASplit(on) {
+  _aaOn = on;
+  document.getElementById('aa-body').style.display = on ? 'block' : 'none';
+  // AA 時關閉待確認（互斥）
+  if (on && _pendingOn) {
+    document.getElementById('pending-toggle').checked = false;
+    togglePendingConfirm(false);
+  }
+  if (on) calcAASplit();
+  updateSubmitBtn();
+}
+
+function setAASplitType(type, el) {
+  _aaSplitType = type;
+  ['aa-even','aa-custom'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  el.classList.add('on');
+  const customRow = document.getElementById('aa-custom-row');
+  if (customRow) customRow.style.display = type === 'custom' ? 'grid' : 'none';
+  calcAASplit();
+}
+
+function calcAASplit() {
+  const total = parseInt(astr) || 0;
+  if (_aaSplitType === 'even') {
+    _aaHlAmt = Math.ceil(total / 2);
+    _aaYhAmt = total - _aaHlAmt;
+  }
+  // custom 由 input 控制
+  document.getElementById('aa-hl-amt').textContent = '$' + fmt(_aaHlAmt);
+  document.getElementById('aa-yh-amt').textContent = '$' + fmt(_aaYhAmt);
+}
+
+function onAACutsomInput(who) {
+  const total = parseInt(astr) || 0;
+  if (who === 'hl') {
+    _aaHlAmt = parseInt(document.getElementById('aa-hl-input').value) || 0;
+    _aaYhAmt = Math.max(0, total - _aaHlAmt);
+    document.getElementById('aa-yh-input').value = _aaYhAmt || '';
+  } else {
+    _aaYhAmt = parseInt(document.getElementById('aa-yh-input').value) || 0;
+    _aaHlAmt = Math.max(0, total - _aaYhAmt);
+    document.getElementById('aa-hl-input').value = _aaHlAmt || '';
+  }
+  calcAASplit();
+}
+
+function updateSubmitBtn() {
+  const btn = document.getElementById('submit-btn');
+  if (!btn) return;
+  if (_pendingOn)      btn.textContent = '📤 送出待確認請求';
+  else if (_aaOn)      btn.textContent = '⚖️ 記帳（拆兩筆）';
+  else                 btn.textContent = '✅ 確定記帳';
+}
+
+// ════════════════════════════════════════════════════
+// 重置附加功能（goStep2 或 reset 時呼叫）
+// ════════════════════════════════════════════════════
+function resetAddons() {
+  _pendingOn = false; _aaOn = false; _aaSplitType = 'even';
+  const pt = document.getElementById('pending-toggle'); if (pt) pt.checked = false;
+  const at = document.getElementById('aa-toggle');      if (at) at.checked = false;
+  document.getElementById('pending-extra').style.display = 'none';
+  document.getElementById('aa-body').style.display       = 'none';
+  updateSubmitBtn();
+}
+
 // 提交
 function submit() {
+  // ── 金額待確認 ──
+  if (_pendingOn) {
+    if (!selCat) { toast('請選擇分類','warn'); return; }
+    const otherPerson = person === '宏龍' ? '盈慧' : '宏龍';
+    const req = addPendingRequest({
+      cat:    selCat,
+      subCat: document.getElementById('sub-sel').value,
+      detail: document.getElementById('tx-detail').value.trim(),
+      person,
+      pay, cardId: selCard, icardId: selIcard, acctId: selAcct,
+      requestedBy:   currentPersonLabel(),
+      assignedTo:    otherPerson,
+      note:   document.getElementById('pending-note').value.trim(),
+      date:   toLocalISO(new Date()).slice(0,10),
+    });
+    fbSyncPendingRequests();
+    toast(`📤 待確認請求已送出給${otherPerson}`);
+    resetAddons();
+    setTimeout(() => history.back(), 800);
+    return;
+  }
   const amt = parseInt(astr)||0;
   if (!amt)                      { toast('金額不可為 0','warn');             return; }
   if (!selCat)                   { toast('請選擇分類','warn');               return; }
@@ -1333,6 +1506,22 @@ function submit() {
       return new Date(yyyy, mm-1, dd, hh, min).toISOString();
     })() : new Date().toISOString(),
   };
+  // ── AA 分帳：拆兩筆 ──
+  if (_aaOn && (_aaHlAmt + _aaYhAmt) > 0) {
+    if ((_aaHlAmt + _aaYhAmt) !== amt) {
+      toast(`⚠️ 兩人金額合計 $${fmt(_aaHlAmt+_aaYhAmt)} 不等於總金額 $${fmt(amt)}，請修正`, 'warn');
+      return;
+    }
+    // 宏龍那筆
+    const txHL = { ...tx, person: '宏龍', amount: _aaHlAmt };
+    const txYH = { ...tx, person: '盈慧', amount: _aaYhAmt };
+    const r1 = addTx(txHL); fbAddTx(r1 || txHL);
+    const r2 = addTx(txYH); fbAddTx(r2 || txYH);
+    toast(`⚖️ AA 分帳完成：宏龍 $${fmt(_aaHlAmt)}、盈慧 $${fmt(_aaYhAmt)}`);
+    resetAddons();
+    resetForm();
+    return;
+  }
   const newTx = addTx(tx); fbAddTx(newTx || tx);
 
   // ── 若有分期設定，建立分期計劃 ──

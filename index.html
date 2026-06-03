@@ -67,6 +67,22 @@
   <div style="height:120px"></div>
 </div>
 
+<!-- ══ 待確認記帳 Modal ══ -->
+<div class="ov" id="pending-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:1.5rem">⏳</span>
+      <div>
+        <div class="st" style="margin:0">待確認記帳請求</div>
+        <div style="font-size:.72rem;color:var(--t3);margin-top:2px">請填入金額後確認記帳</div>
+      </div>
+    </div>
+    <div id="pending-list"></div>
+    <button class="btn btn-s" style="margin-top:4px" onclick="closeModal('pending-modal')">稍後再填</button>
+  </div>
+</div>
+
 <nav class="nav">
   <a class="ni on" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
@@ -695,10 +711,23 @@ fbPullAll().then(async ()=>{
     await fbPullInstallments();
   }
   setTimeout(checkInstallmentReminders, 1800);
+  // 拉取並顯示待確認請求
+  if (typeof fbPullPendingRequests === 'function') {
+    await fbPullPendingRequests();
+    const mine = getMyPendingRequests();
+    if (mine.length) setTimeout(showPendingModal, 1500);
+  }
 });
 fbListenTx(()=>render());
 fbListenWal(()=>render());
 if (typeof fbListenInstallments === 'function') fbListenInstallments();
+// 監聽待確認請求，有新請求時提示
+if (typeof fbListenPendingRequests === 'function') {
+  fbListenPendingRequests(() => {
+    const mine = getMyPendingRequests();
+    if (mine.length) showPendingModal();
+  });
+}
 scheduleDailyDiscord();
 if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 
@@ -742,6 +771,94 @@ function toggleEditTag(id) {
 
 // ── 分期付款提醒 ──────────────────────────────────────
 let _irPending = [];   // 目前待記帳的分期列表
+
+// ════════════════════════════════════════════════════
+// 待確認記帳功能
+// ════════════════════════════════════════════════════
+function showPendingModal() {
+  const list = getMyPendingRequests();
+  if (!list.length) return;
+  const listEl = document.getElementById('pending-list');
+  if (!listEl) return;
+
+  listEl.innerHTML = list.map(req => {
+    const catName = (typeof catFind === 'function' ? catFind(req.cat)?.name : null) || req.cat;
+    const dateStr = req.date || req.createdAt ? new Date(req.createdAt).toLocaleDateString('zh-TW') : '';
+    return `
+    <div id="preq-${req.id}" style="background:var(--card2);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+        <div>
+          <div style="font-size:.88rem;font-weight:900;color:var(--t)">${catName}${req.detail?' · '+req.detail:''}</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-top:3px">
+            ${req.requestedBy} 新增 · ${dateStr}
+            ${req.note ? `<br>備註：${req.note}` : ''}
+          </div>
+        </div>
+        <span style="font-size:.68rem;padding:3px 8px;background:rgba(251,191,36,.15);color:var(--warn);border-radius:50px;white-space:nowrap">⏳ 待確認</span>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="flex:1;position:relative">
+          <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.8rem">$</span>
+          <input class="fc" type="number" id="preq-amt-${req.id}" inputmode="numeric"
+            placeholder="填入金額" style="padding-left:22px">
+        </div>
+        <button onclick="confirmPendingReq('${req.id}')"
+          style="padding:10px 16px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
+          ✅ 確認
+        </button>
+        <button onclick="rejectPendingReq('${req.id}')"
+          style="padding:10px 12px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);font-size:.8rem;cursor:pointer;font-family:inherit">
+          ✕
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  showModal('pending-modal');
+}
+
+function confirmPendingReq(id) {
+  const amtEl = document.getElementById('preq-amt-' + id);
+  const amt = parseInt(amtEl?.value) || 0;
+  if (!amt) { toast('請填入金額', 'warn'); return; }
+
+  const req = getPendingRequests().find(r => r.id === id);
+  if (!req) return;
+
+  // 建立正式交易記錄
+  const tx = {
+    amount: amt,
+    cat:    req.cat,    subCat: req.subCat || '',
+    detail: req.detail, person: req.person,
+    pay:    req.pay,    cardId: req.cardId,
+    icardId: req.icardId, acctId: req.acctId,
+    tags:   [],
+    at:     new Date().toISOString(),
+  };
+  const newTx = addTx(tx);
+  fbAddTx(newTx || tx);
+
+  // 移除待確認請求
+  removePendingRequest(id);
+  fbSyncPendingRequests();
+
+  toast(`✅ 已確認記帳 $${fmt(amt)}`);
+
+  // 更新 modal
+  const card = document.getElementById('preq-' + id);
+  if (card) card.remove();
+  if (!getMyPendingRequests().length) closeModal('pending-modal');
+}
+
+function rejectPendingReq(id) {
+  if (!confirm('確定拒絕這筆待確認請求？')) return;
+  removePendingRequest(id);
+  fbSyncPendingRequests();
+  const card = document.getElementById('preq-' + id);
+  if (card) card.remove();
+  if (!getMyPendingRequests().length) closeModal('pending-modal');
+  toast('已拒絕待確認請求');
+}
 
 function checkInstallmentReminders() {
   if (typeof getPendingInstallments !== 'function') return;
