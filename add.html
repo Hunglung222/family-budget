@@ -1512,6 +1512,31 @@ function submit() {
     });
     fbSyncPendingRequests();
     toast(`📤 待確認請求已送出給${otherPerson}`);
+
+    // Discord 通知對方
+    (async () => {
+      try {
+        const webhook = localStorage.getItem('discord_webhook');
+        if (!webhook) return;
+        const catLabel = catName(selCat) || selCat;
+        const detail   = document.getElementById('tx-detail').value.trim();
+        const note     = document.getElementById('pending-note').value.trim();
+        const dateStr  = req.date;
+        let desc = `**${req.requestedBy}** 有一筆消費，請 **${otherPerson}** 填入金額後確認記帳。`;
+        const fields = [
+          { name: '📋 類別', value: catLabel + (detail ? `・${detail}` : ''), inline: true },
+          { name: '📅 日期', value: dateStr, inline: true },
+        ];
+        if (note) fields.push({ name: '📝 備註', value: note, inline: false });
+        fields.push({ name: '👉 操作', value: '請開啟記帳 App → 首頁會自動提示確認', inline: false });
+        await fetch(webhook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ embeds: [{ title: '⏳ 待確認記帳請求', description: desc, color: 0xfbbf24, fields }] }),
+        });
+      } catch(e) { console.warn('[Discord pending]', e); }
+    })();
+
     resetAddons();
     setTimeout(() => history.back(), 800);
     return;
