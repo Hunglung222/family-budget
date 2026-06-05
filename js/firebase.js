@@ -671,7 +671,18 @@ async function fbPullChatMessages() {
   try {
     const d = await getDb().collection('shared').doc('chat_messages').get();
     if (d.exists && Array.isArray(d.data().list)) {
-      saveChatMessages(d.data().list);
+      const incoming = d.data().list;
+      const local    = getChatMessages();
+      // 合併：聯集後依 createdAt 排序，readBy 取最長版本
+      const merged = Object.values(
+        [...local, ...incoming].reduce((acc, m) => {
+          if (!acc[m.id] || m.readBy.length > acc[m.id].readBy.length) {
+            acc[m.id] = m;
+          }
+          return acc;
+        }, {})
+      ).sort((a, b) => a.createdAt - b.createdAt);
+      saveChatMessages(merged);
     }
   } catch(e) { console.warn('[FB]chatMsg pull', e); }
 }
@@ -681,9 +692,23 @@ function fbListenChatMessages(cb) {
   if (_chatUnsub) _chatUnsub();
   try {
     _chatUnsub = getDb().collection('shared').doc('chat_messages')
-      .onSnapshot(snap => {
+      .onSnapshot({ includeMetadataChanges: false }, snap => {
+        // 只處理來自 server 的更新，跳過 local cache（fromCache=true）
+        // 避免頁面載入時 local cache 空資料覆蓋剛寫入的訊息
+        if (snap.metadata.fromCache) return;
         if (snap.exists && Array.isArray(snap.data().list)) {
-          saveChatMessages(snap.data().list);
+          const incoming = snap.data().list;
+          const local    = getChatMessages();
+          // 合併策略：以 createdAt 為鍵取聯集，相同 id 保留 readBy 最長的版本
+          const merged = Object.values(
+            [...local, ...incoming].reduce((acc, m) => {
+              if (!acc[m.id] || m.readBy.length > acc[m.id].readBy.length) {
+                acc[m.id] = m;
+              }
+              return acc;
+            }, {})
+          ).sort((a, b) => a.createdAt - b.createdAt);
+          saveChatMessages(merged);
           if (typeof cb === 'function') cb();
         }
       });
