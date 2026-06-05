@@ -660,6 +660,10 @@ function fbListenPendingRequests(cb) {
 }
 
 // ── 家庭簡訊 Firebase 同步 ────────────────────────────
+// 同步模型：Firestore server 為單一真相來源。
+// 寫入：set 整個 list（last-write-wins，雙人低頻場景足夠）。
+// 讀取：只接受 server 確認的快照（fromCache=false），直接覆蓋 local。
+// 不做合併 — 合併會讓刪除/清除失效（被刪的訊息會從對方 local 復活）。
 async function fbSyncChatMessages() {
   try {
     await getDb().collection('shared').doc('chat_messages')
@@ -671,18 +675,9 @@ async function fbPullChatMessages() {
   try {
     const d = await getDb().collection('shared').doc('chat_messages').get();
     if (d.exists && Array.isArray(d.data().list)) {
-      const incoming = d.data().list;
-      const local    = getChatMessages();
-      // 合併：聯集後依 createdAt 排序，readBy 取最長版本
-      const merged = Object.values(
-        [...local, ...incoming].reduce((acc, m) => {
-          if (!acc[m.id] || m.readBy.length > acc[m.id].readBy.length) {
-            acc[m.id] = m;
-          }
-          return acc;
-        }, {})
-      ).sort((a, b) => a.createdAt - b.createdAt);
-      saveChatMessages(merged);
+      saveChatMessages(d.data().list);
+    } else if (!d.exists) {
+      saveChatMessages([]);
     }
   } catch(e) { console.warn('[FB]chatMsg pull', e); }
 }
@@ -692,25 +687,18 @@ function fbListenChatMessages(cb) {
   if (_chatUnsub) _chatUnsub();
   try {
     _chatUnsub = getDb().collection('shared').doc('chat_messages')
-      .onSnapshot({ includeMetadataChanges: false }, snap => {
-        // 只處理來自 server 的更新，跳過 local cache（fromCache=true）
-        // 避免頁面載入時 local cache 空資料覆蓋剛寫入的訊息
+      .onSnapshot(snap => {
+        // 跳過尚未送達 server 的本地樂觀寫入（自己剛 set 的暫存狀態）
+        if (snap.metadata.hasPendingWrites) return;
+        // 跳過純 local cache 觸發，避免載入瞬間空資料蓋掉剛送出的訊息
         if (snap.metadata.fromCache) return;
+        // server 為真相：直接覆蓋 local
         if (snap.exists && Array.isArray(snap.data().list)) {
-          const incoming = snap.data().list;
-          const local    = getChatMessages();
-          // 合併策略：以 createdAt 為鍵取聯集，相同 id 保留 readBy 最長的版本
-          const merged = Object.values(
-            [...local, ...incoming].reduce((acc, m) => {
-              if (!acc[m.id] || m.readBy.length > acc[m.id].readBy.length) {
-                acc[m.id] = m;
-              }
-              return acc;
-            }, {})
-          ).sort((a, b) => a.createdAt - b.createdAt);
-          saveChatMessages(merged);
-          if (typeof cb === 'function') cb();
+          saveChatMessages(snap.data().list);
+        } else if (!snap.exists) {
+          saveChatMessages([]);
         }
+        if (typeof cb === 'function') cb();
       });
   } catch(e) { console.warn('[FB]listenChat', e); }
 }

@@ -816,21 +816,17 @@ if (typeof fbListenInstallments === 'function') fbListenInstallments();
 if (typeof fbListenPendingRequests === 'function') {
   fbListenPendingRequests(() => { updateInboxBadge(); });
 }
-// 監聽家庭簡訊，更新信封角標
+// 監聽家庭簡訊（server 為真相，onSnapshot 已覆蓋 local）
 if (typeof fbListenChatMessages === 'function') {
   fbListenChatMessages(() => {
-    // 若是自己剛 sync 觸發的 snapshot（2秒內），忽略避免 race condition
-    if (Date.now() - _chatLastSyncAt < 2000) return;
-    updateChatBadge();
-    // 若 chat-modal 正開著，即時刷新並標記已讀
-    if (document.getElementById('chat-modal')?.classList.contains('show')) {
+    const chatOpen = document.getElementById('chat-modal')?.classList.contains('show');
+    if (chatOpen) {
+      // 開著就先把對方訊息標記已讀，再重繪，確保已讀狀態同步
+      markChatReadAndSync();
       renderChatList();
-      markAllChatRead();
-      setTimeout(() => {
-        const el = document.getElementById('chat-list');
-        if (el) el.scrollTop = el.scrollHeight;
-      }, 30);
+      setTimeout(_chatScrollBottom, 30);
     }
+    updateChatBadge();
   });
 }
 // 拉取歷史訊息後更新角標
@@ -885,17 +881,6 @@ let _irPending = [];   // 目前待記帳的分期列表
 // 💬 家庭簡訊
 // ════════════════════════════════════════════════════
 
-// 防止 onSnapshot 觸發自己 sync 後的 race condition
-let _chatLastSyncAt = 0;
-
-function _chatMe() {
-  // 優先用 current_email 判斷，避免 auth 尚未就緒時的預設值問題
-  const email = localStorage.getItem('current_email') || '';
-  if (email === 'kevin67222@gmail.com') return '宏龍';
-  if (email === 'gogosuperbird@gmail.com') return '盈慧';
-  return localStorage.getItem('current_user') || '';
-}
-
 function updateChatBadge() {
   const count = getUnreadChatMessages().length;
   const badge = document.getElementById('chat-badge');
@@ -908,31 +893,24 @@ function updateChatBadge() {
   }
 }
 
+function _chatScrollBottom() {
+  const el = document.getElementById('chat-list');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
 function openChat() {
   renderChatList();
   showModal('chat-modal');
   setTimeout(() => {
-    const el = document.getElementById('chat-list');
-    if (el) el.scrollTop = el.scrollHeight;
+    _chatScrollBottom();
     document.getElementById('chat-input')?.focus();
   }, 80);
-  markAllChatRead();
+  markChatReadAndSync();
 }
 
-function markAllChatRead() {
-  const msgs = getChatMessages();
-  const me   = _chatMe();
-  if (!me) return; // auth 尚未就緒，跳過
-  let changed = false;
-  msgs.forEach(m => {
-    if (m.from !== me && !m.readBy.includes(me)) {
-      m.readBy.push(me);
-      changed = true;
-    }
-  });
-  if (changed) {
-    saveChatMessages(msgs);
-    _chatLastSyncAt = Date.now();
+// 標記對方訊息已讀 → 存 local → 同步 server → 更新角標
+function markChatReadAndSync() {
+  if (markAllChatMessagesRead()) {
     fbSyncChatMessages();
     updateChatBadge();
   }
@@ -948,7 +926,7 @@ function escHtml(str) {
 
 function renderChatList() {
   const msgs   = getChatMessages();
-  const me     = _chatMe();
+  const me     = chatMe();
   const listEl = document.getElementById('chat-list');
   if (!listEl) return;
 
@@ -962,12 +940,11 @@ function renderChatList() {
 
   let lastDate = '';
   listEl.innerHTML = msgs.map(m => {
-    // me 為空時（auth 還沒好）暫用 from 欄位無法判斷，先全顯示左邊待 auth 就緒後重繪
-    const isMine = me ? (m.from === me) : false;
+    const isMine  = me ? (m.from === me) : false;
     const dt      = new Date(m.createdAt);
     const dateStr = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
     const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    const isRead  = m.readBy.length >= 2;
+    const isRead  = Array.isArray(m.readBy) && m.readBy.length >= 2;
 
     let dateDivider = '';
     if (dateStr !== lastDate) {
@@ -977,19 +954,16 @@ function renderChatList() {
       </div>`;
     }
 
-    // 自己的訊息：點擊出現刪除選項
-    const deleteAttr = isMine
-      ? `onclick="chatBubbleTap('${m.id}')" style="cursor:pointer"`
-      : '';
+    const deleteAttr = isMine ? `onclick="chatBubbleTap('${m.id}')" style="cursor:pointer"` : '';
 
     const bubble = isMine
       ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
           <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
             <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px;text-align:right">
-              ${isRead ? '<span style="color:var(--p)">已讀</span>' : ''}<br>${timeStr}
+              ${isRead ? '<span style="color:#f59e0b;font-weight:700">已讀</span>' : ''}<br>${timeStr}
             </div>
             <div ${deleteAttr}
-              style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
+              style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0a00;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
               ${escHtml(m.text)}
             </div>
           </div>
@@ -1010,13 +984,11 @@ function renderChatList() {
 
 // 點自己的氣泡 → 展開刪除確認（inline，不用 confirm）
 function chatBubbleTap(msgId) {
-  // 若已有展開的刪除列就關掉
   const existing = document.getElementById('cm-del-' + msgId);
   if (existing) { existing.remove(); return; }
-  // 關掉其他已展開的
   document.querySelectorAll('[id^="cm-del-"]').forEach(el => el.remove());
 
-  const me  = _chatMe();
+  const me  = chatMe();
   const msg = getChatMessages().find(m => m.id === msgId);
   if (!msg || msg.from !== me) return;
 
@@ -1040,14 +1012,9 @@ function chatBubbleTap(msgId) {
 
 function doChatDelete(msgId) {
   deleteChatMessage(msgId);
-  _chatLastSyncAt = Date.now();
   fbSyncChatMessages();
   renderChatList();
   updateChatBadge();
-  setTimeout(() => {
-    const el = document.getElementById('chat-list');
-    if (el) el.scrollTop = el.scrollHeight;
-  }, 30);
 }
 
 async function sendChatMessage() {
@@ -1055,22 +1022,20 @@ async function sendChatMessage() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  const me = _chatMe();
-  if (!me) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
+  if (text.length > 500) { toast('訊息太長囉（上限 500 字）', 'warn'); return; }
+
+  const msg = addChatMessage(text);
+  if (!msg) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
 
   input.value = '';
   input.style.height = 'auto';
 
-  addChatMessage(text);
-  _chatLastSyncAt = Date.now();
-  await fbSyncChatMessages();
-
   renderChatList();
-  setTimeout(() => {
-    const el = document.getElementById('chat-list');
-    if (el) el.scrollTop = el.scrollHeight;
-  }, 30);
+  setTimeout(_chatScrollBottom, 30);
   updateChatBadge();
+
+  // 背景同步（不擋 UI）
+  fbSyncChatMessages();
 }
 
 function showChatClearMenu() {
@@ -1081,7 +1046,6 @@ function showChatClearMenu() {
 
 function doChatClearAll() {
   clearAllChatMessages();
-  _chatLastSyncAt = Date.now();
   fbSyncChatMessages();
   closeModal('chat-clear-modal');
   renderChatList();

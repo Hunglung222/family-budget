@@ -1079,15 +1079,6 @@ let astr='', selCat='', selCard='', selIcard='', selAcct='', pay='cash', person=
 // 💬 家庭簡訊
 // ════════════════════════════════════════════════════
 
-let _chatLastSyncAt = 0;
-
-function _chatMe() {
-  const email = localStorage.getItem('current_email') || '';
-  if (email === 'kevin67222@gmail.com') return '宏龍';
-  if (email === 'gogosuperbird@gmail.com') return '盈慧';
-  return localStorage.getItem('current_user') || '';
-}
-
 function updateChatBadge() {
   const count = getUnreadChatMessages().length;
   const badge = document.getElementById('chat-badge');
@@ -1100,31 +1091,23 @@ function updateChatBadge() {
   }
 }
 
+function _chatScrollBottom() {
+  const el = document.getElementById('chat-list');
+  if (el) el.scrollTop = el.scrollHeight;
+}
+
 function openChat() {
   renderChatList();
   showModal('chat-modal');
   setTimeout(() => {
-    const el = document.getElementById('chat-list');
-    if (el) el.scrollTop = el.scrollHeight;
+    _chatScrollBottom();
     document.getElementById('chat-input')?.focus();
   }, 80);
-  markAllChatRead();
+  markChatReadAndSync();
 }
 
-function markAllChatRead() {
-  const msgs = getChatMessages();
-  const me   = _chatMe();
-  if (!me) return;
-  let changed = false;
-  msgs.forEach(m => {
-    if (m.from !== me && !m.readBy.includes(me)) {
-      m.readBy.push(me);
-      changed = true;
-    }
-  });
-  if (changed) {
-    saveChatMessages(msgs);
-    _chatLastSyncAt = Date.now();
+function markChatReadAndSync() {
+  if (markAllChatMessagesRead()) {
     if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
     updateChatBadge();
   }
@@ -1140,7 +1123,7 @@ function escHtml(str) {
 
 function renderChatList() {
   const msgs   = getChatMessages();
-  const me     = _chatMe();
+  const me     = chatMe();
   const listEl = document.getElementById('chat-list');
   if (!listEl) return;
 
@@ -1154,11 +1137,11 @@ function renderChatList() {
 
   let lastDate = '';
   listEl.innerHTML = msgs.map(m => {
-    const isMine = me ? (m.from === me) : false;
-    const dt     = new Date(m.createdAt);
+    const isMine  = me ? (m.from === me) : false;
+    const dt      = new Date(m.createdAt);
     const dateStr = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
     const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    const isRead  = m.readBy.length >= 2;
+    const isRead  = Array.isArray(m.readBy) && m.readBy.length >= 2;
 
     let dateDivider = '';
     if (dateStr !== lastDate) {
@@ -1174,10 +1157,10 @@ function renderChatList() {
       ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
           <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
             <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px;text-align:right">
-              ${isRead ? '<span style="color:var(--p)">已讀</span>' : ''}<br>${timeStr}
+              ${isRead ? '<span style="color:#f59e0b;font-weight:700">已讀</span>' : ''}<br>${timeStr}
             </div>
             <div ${deleteAttr}
-              style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
+              style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0a00;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
               ${escHtml(m.text)}
             </div>
           </div>
@@ -1201,7 +1184,7 @@ function chatBubbleTap(msgId) {
   if (existing) { existing.remove(); return; }
   document.querySelectorAll('[id^="cm-del-"]').forEach(el => el.remove());
 
-  const me  = _chatMe();
+  const me  = chatMe();
   const msg = getChatMessages().find(m => m.id === msgId);
   if (!msg || msg.from !== me) return;
 
@@ -1225,7 +1208,6 @@ function chatBubbleTap(msgId) {
 
 function doChatDelete(msgId) {
   deleteChatMessage(msgId);
-  _chatLastSyncAt = Date.now();
   if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
   renderChatList();
   updateChatBadge();
@@ -1236,21 +1218,19 @@ async function sendChatMessage() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
-  const me = _chatMe();
-  if (!me) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
+  if (text.length > 500) { toast('訊息太長囉（上限 500 字）', 'warn'); return; }
+
+  const msg = addChatMessage(text);
+  if (!msg) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
 
   input.value = '';
   input.style.height = 'auto';
 
-  addChatMessage(text);
-  _chatLastSyncAt = Date.now();
-  if (typeof fbSyncChatMessages === 'function') await fbSyncChatMessages();
   renderChatList();
-  setTimeout(() => {
-    const el = document.getElementById('chat-list');
-    if (el) el.scrollTop = el.scrollHeight;
-  }, 30);
+  setTimeout(_chatScrollBottom, 30);
   updateChatBadge();
+
+  if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
 }
 
 function showChatClearMenu() {
@@ -1261,7 +1241,6 @@ function showChatClearMenu() {
 
 function doChatClearAll() {
   clearAllChatMessages();
-  _chatLastSyncAt = Date.now();
   if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
   closeModal('chat-clear-modal');
   renderChatList();
@@ -1442,20 +1421,16 @@ function init() {
   } else {
     updateChatBadge();
   }
-  // 監聽即時訊息
+  // 監聽即時訊息（server 為真相，onSnapshot 已覆蓋 local）
   if (typeof fbListenChatMessages === 'function') {
     fbListenChatMessages(() => {
-      // 防止自己 sync 觸發的 snapshot 引發 race condition
-      if (Date.now() - _chatLastSyncAt < 2000) return;
-      updateChatBadge();
-      if (document.getElementById('chat-modal')?.classList.contains('show')) {
+      const chatOpen = document.getElementById('chat-modal')?.classList.contains('show');
+      if (chatOpen) {
+        markChatReadAndSync();
         renderChatList();
-        markAllChatRead();
-        setTimeout(() => {
-          const el = document.getElementById('chat-list');
-          if (el) el.scrollTop = el.scrollHeight;
-        }, 30);
+        setTimeout(_chatScrollBottom, 30);
       }
+      updateChatBadge();
     });
   }
   if (typeof fbListenPendingRequests === 'function') {

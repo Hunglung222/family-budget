@@ -1268,27 +1268,40 @@ function clearInboxReceipt(id) {
 // 💬 家庭簡訊 (Chat Messages)
 // Firestore path: shared/chat_messages → { list: [...] }
 // localStorage key: chat_messages（全域共用，不加 uid prefix）
+// 同步模型：Firestore server 為單一真相來源（single source of truth）
 // ════════════════════════════════════════════════════
 
-function getChatMessages() {
-  try { return JSON.parse(localStorage.getItem('chat_messages') || '[]'); } catch { return []; }
-}
-function saveChatMessages(list) {
-  localStorage.setItem('chat_messages', JSON.stringify(list));
+const CHAT_MAX_LEN = 500;  // 單則訊息字數上限
+
+/** 統一的身份判斷：優先用 current_email，避免 auth 時序問題 */
+function chatMe() {
+  const email = localStorage.getItem('current_email') || '';
+  if (email === 'kevin67222@gmail.com')      return '宏龍';
+  if (email === 'gogosuperbird@gmail.com')   return '盈慧';
+  return localStorage.getItem('current_user') || '';
 }
 
-/** 新增一則訊息，回傳完整訊息物件 */
+function getChatMessages() {
+  try {
+    const list = JSON.parse(localStorage.getItem('chat_messages') || '[]');
+    return Array.isArray(list) ? list : [];
+  } catch { return []; }
+}
+function saveChatMessages(list) {
+  localStorage.setItem('chat_messages', JSON.stringify(Array.isArray(list) ? list : []));
+}
+
+/** 新增一則訊息，回傳完整訊息物件（失敗回 null） */
 function addChatMessage(text) {
-  // 優先用 current_email 判斷身份，確保與 renderChatList 的 _chatMe() 一致
-  const email = localStorage.getItem('current_email') || '';
-  const me = email === 'kevin67222@gmail.com' ? '宏龍'
-           : email === 'gogosuperbird@gmail.com' ? '盈慧'
-           : (localStorage.getItem('current_user') || '宏龍');
+  const me = chatMe();
+  if (!me) return null;  // 身份未就緒，不寫入
+  const clean = String(text || '').trim().slice(0, CHAT_MAX_LEN);
+  if (!clean) return null;
   const list = getChatMessages();
   const msg = {
     id:        'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
     from:      me,
-    text:      text.trim(),
+    text:      clean,
     createdAt: Date.now(),
     readBy:    [me],  // 自己寄出就算自己已讀
   };
@@ -1299,15 +1312,32 @@ function addChatMessage(text) {
 
 /** 標記某則訊息為已讀（自己） */
 function markChatMessageRead(msgId) {
-  const me   = currentUser();
+  const me   = chatMe();
+  if (!me) return false;
   const list = getChatMessages();
   const msg  = list.find(m => m.id === msgId);
   if (msg && !msg.readBy.includes(me)) {
     msg.readBy.push(me);
     saveChatMessages(list);
-    return true; // 有改變
+    return true;
   }
   return false;
+}
+
+/** 把所有「對方寄來、我還沒讀」的訊息標記為已讀，回傳是否有變動 */
+function markAllChatMessagesRead() {
+  const me = chatMe();
+  if (!me) return false;
+  const list = getChatMessages();
+  let changed = false;
+  list.forEach(m => {
+    if (m.from !== me && !m.readBy.includes(me)) {
+      m.readBy.push(me);
+      changed = true;
+    }
+  });
+  if (changed) saveChatMessages(list);
+  return changed;
 }
 
 /** 刪除單則訊息（by id） */
@@ -1322,10 +1352,7 @@ function clearAllChatMessages() {
 
 /** 取得「對我未讀」的訊息（別人寄的、我還沒讀的） */
 function getUnreadChatMessages() {
-  const email = localStorage.getItem('current_email') || '';
-  const me = email === 'kevin67222@gmail.com' ? '宏龍'
-           : email === 'gogosuperbird@gmail.com' ? '盈慧'
-           : (localStorage.getItem('current_user') || '');
+  const me = chatMe();
   if (!me) return [];
   return getChatMessages().filter(m => m.from !== me && !m.readBy.includes(me));
 }
