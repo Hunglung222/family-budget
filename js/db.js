@@ -1263,3 +1263,60 @@ function getMyInboxReceipts() {
 function clearInboxReceipt(id) {
   saveInboxReceipts(getInboxReceipts().map(r => r.id === id ? {...r, isRead: true} : r));
 }
+
+// ════════════════════════════════════════════════════
+// 💬 家庭簡訊 (Chat Messages)
+// Firestore path: shared/chat_messages → { list: [...] }
+// localStorage key: chat_messages（全域共用，不加 uid prefix）
+// ════════════════════════════════════════════════════
+
+function getChatMessages() {
+  try { return JSON.parse(localStorage.getItem('chat_messages') || '[]'); } catch { return []; }
+}
+function saveChatMessages(list) {
+  localStorage.setItem('chat_messages', JSON.stringify(list));
+}
+
+/** 新增一則訊息，回傳完整訊息物件 */
+function addChatMessage(text) {
+  const list = getChatMessages();
+  const msg = {
+    id:        'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
+    from:      currentUser(),       // '宏龍' 或 '盈慧'
+    text:      text.trim(),
+    createdAt: Date.now(),
+    readBy:    [currentUser()],     // 自己寄出就算自己已讀
+  };
+  list.push(msg);
+  saveChatMessages(list);
+  return msg;
+}
+
+/** 標記某則訊息為已讀（自己） */
+function markChatMessageRead(msgId) {
+  const me   = currentUser();
+  const list = getChatMessages();
+  const msg  = list.find(m => m.id === msgId);
+  if (msg && !msg.readBy.includes(me)) {
+    msg.readBy.push(me);
+    saveChatMessages(list);
+    return true; // 有改變
+  }
+  return false;
+}
+
+/** 刪除單則訊息（by id） */
+function deleteChatMessage(msgId) {
+  saveChatMessages(getChatMessages().filter(m => m.id !== msgId));
+}
+
+/** 清除全部訊息 */
+function clearAllChatMessages() {
+  saveChatMessages([]);
+}
+
+/** 取得「對我未讀」的訊息（別人寄的、我還沒讀的） */
+function getUnreadChatMessages() {
+  const me = currentUser();
+  return getChatMessages().filter(m => m.from !== me && !m.readBy.includes(me));
+}

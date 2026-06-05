@@ -16,6 +16,20 @@
   <h1>➕ 新增記帳</h1>
   <div style="display:flex;gap:8px;align-items:center">
     <a href="./index.html" class="hdr-btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2)">📋</a>
+    <!-- 💬 簡訊按鈕 -->
+    <button onclick="openChat()" id="chat-btn"
+      style="position:relative;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem">
+      💬
+      <span id="chat-badge"
+        style="display:none;position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;background:#3b82f6;color:#fff;font-size:.65rem;font-weight:900;border-radius:50px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span>
+    </button>
+    <!-- 🔔 通知鈴鐺 -->
+    <button onclick="openInbox()" id="inbox-btn"
+      style="position:relative;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem">
+      🔔
+      <span id="inbox-badge"
+        style="display:none;position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;background:#ef4444;color:#fff;font-size:.65rem;font-weight:900;border-radius:50px;padding:0 4px;display:flex;align-items:center;justify-content:center;line-height:1"></span>
+    </button>
   </div>
 </header>
 <div class="w">
@@ -342,6 +356,52 @@
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
   <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
 </nav>
+
+<!-- ══ 家庭簡訊 Chat Modal ══ -->
+<div class="ov" id="chat-modal">
+  <div class="sheet" style="max-height:92dvh;display:flex;flex-direction:column;padding-bottom:0">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0">
+      <div class="st" style="margin:0">💬 家庭簡訊</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="showChatClearMenu()"
+          style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">清除</button>
+        <button onclick="closeModal('chat-modal')"
+          style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">關閉</button>
+      </div>
+    </div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px;flex-shrink:0">與盈慧的對話記錄</div>
+    <div id="chat-list" style="flex:1;overflow-y:auto;padding:4px 0 8px;min-height:200px;max-height:calc(88dvh - 160px)"></div>
+    <div style="flex-shrink:0;padding:10px 0 env(safe-area-inset-bottom,18px);border-top:1px solid var(--border);margin-top:6px">
+      <div style="display:flex;gap:8px;align-items:flex-end">
+        <textarea id="chat-input" rows="1" placeholder="輸入訊息..."
+          style="flex:1;background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:10px 14px;font-size:.88rem;font-family:inherit;color:var(--t);resize:none;max-height:100px;line-height:1.5;outline:none"
+          oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+          onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
+        </textarea>
+        <button onclick="sendChatMessage()"
+          style="width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ➤
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 通知收件夾 Inbox Modal ══ -->
+<div class="ov" id="inbox-modal">
+  <div class="sheet" style="max-height:88dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="st" style="margin:0">🔔 通知收件夾</div>
+      <button onclick="clearAllInbox()"
+        style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">全部略過</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:14px">待確認記帳、固定繳費提醒、分期到期</div>
+    <div id="inbox-list"></div>
+    <button class="btn btn-s" style="margin-top:4px" onclick="closeModal('inbox-modal')">關閉</button>
+  </div>
+</div>
 
 <!-- 新增子分類確認 Modal（單筆 AI 記帳用） -->
 <div class="ov" id="newsubcat-modal" style="z-index:600">
@@ -993,6 +1053,232 @@ document.getElementById('ai-input').addEventListener('input', () => {
 // ── 主邏輯 ──────────────────────────────────────────
 let astr='', selCat='', selCard='', selIcard='', selAcct='', pay='cash', person='宏龍', selTags=[];
 
+// ════════════════════════════════════════════════════
+// 💬 家庭簡訊
+// ════════════════════════════════════════════════════
+
+function updateChatBadge() {
+  const count = getUnreadChatMessages().length;
+  const badge = document.getElementById('chat-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function openChat() {
+  renderChatList();
+  showModal('chat-modal');
+  setTimeout(() => {
+    const el = document.getElementById('chat-list');
+    if (el) el.scrollTop = el.scrollHeight;
+    document.getElementById('chat-input')?.focus();
+  }, 80);
+  markAllChatRead();
+}
+
+function markAllChatRead() {
+  const msgs = getChatMessages();
+  const me   = currentUser();
+  let changed = false;
+  msgs.forEach(m => {
+    if (m.from !== me && !m.readBy.includes(me)) {
+      m.readBy.push(me);
+      changed = true;
+    }
+  });
+  if (changed) {
+    saveChatMessages(msgs);
+    if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
+    updateChatBadge();
+  }
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
+function renderChatList() {
+  const msgs   = getChatMessages();
+  const me     = currentUser();
+  const listEl = document.getElementById('chat-list');
+  if (!listEl) return;
+
+  if (!msgs.length) {
+    listEl.innerHTML = `<div style="text-align:center;padding:40px 0;color:var(--t3)">
+      <div style="font-size:2.2rem;margin-bottom:8px">💬</div>
+      <div style="font-size:.83rem">還沒有訊息，傳第一則給對方吧！</div>
+    </div>`;
+    return;
+  }
+
+  let lastDate = '';
+  listEl.innerHTML = msgs.map(m => {
+    const isMine = m.from === me;
+    const dt     = new Date(m.createdAt);
+    const dateStr = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+    const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const isRead  = m.readBy.length >= 2;
+
+    let dateDivider = '';
+    if (dateStr !== lastDate) {
+      lastDate = dateStr;
+      dateDivider = `<div style="text-align:center;margin:12px 0 8px">
+        <span style="font-size:.68rem;color:var(--t3);background:var(--card2);padding:3px 10px;border-radius:20px">${dateStr}</span>
+      </div>`;
+    }
+
+    const bubble = isMine
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:6px">
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
+            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px">${isRead?'已讀':''}<br>${timeStr}</div>
+            <div style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">${escHtml(m.text)}</div>
+          </div>
+        </div>`
+      : `<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:6px">
+          <div style="font-size:.65rem;color:var(--t3);margin-bottom:3px;margin-left:4px">${escHtml(m.from)}</div>
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
+            <div style="background:var(--card2);border:1px solid var(--border);color:var(--t);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">${escHtml(m.text)}</div>
+            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px">${timeStr}</div>
+          </div>
+        </div>`;
+
+    return dateDivider + `<div id="cm-${m.id}">${bubble}</div>`;
+  }).join('');
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chat-input');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  input.style.height = 'auto';
+  addChatMessage(text);
+  if (typeof fbSyncChatMessages === 'function') await fbSyncChatMessages();
+  renderChatList();
+  setTimeout(() => {
+    const el = document.getElementById('chat-list');
+    if (el) el.scrollTop = el.scrollHeight;
+  }, 30);
+  updateChatBadge();
+}
+
+function showChatClearMenu() {
+  const msgs = getChatMessages();
+  if (!msgs.length) { toast('沒有訊息可以清除', 'info'); return; }
+  if (confirm('要清除全部對話記錄嗎？此動作無法復原。')) {
+    clearAllChatMessages();
+    if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
+    renderChatList();
+    updateChatBadge();
+    toast('對話記錄已清除', 'ok');
+  }
+}
+
+// ════════════════════════════════════════════════════
+// 🔔 通知收件夾（add.html 版）
+// ════════════════════════════════════════════════════
+
+function updateInboxBadge() {
+  const count = typeof getUnreadInboxCount === 'function' ? getUnreadInboxCount() : 0;
+  const badge = document.getElementById('inbox-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 9 ? '9+' : count;
+    badge.style.display = 'flex';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function openInbox() {
+  renderInboxList();
+  showModal('inbox-modal');
+}
+
+function renderInboxList() {
+  const items  = typeof getInboxItems === 'function' ? getInboxItems() : [];
+  const listEl = document.getElementById('inbox-list');
+  if (!listEl) return;
+  if (!items.length) {
+    listEl.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--t3)">
+      <div style="font-size:2rem;margin-bottom:8px">✅</div>
+      <div style="font-size:.85rem">目前沒有待處理的通知</div>
+    </div>`;
+    return;
+  }
+  const iconColor  = { pending_confirm:'rgba(251,191,36,.15)', recurring:'rgba(0,229,180,.1)', installment:'rgba(99,102,241,.1)' };
+  const iconBorder = { pending_confirm:'rgba(251,191,36,.3)',  recurring:'rgba(0,229,180,.3)', installment:'rgba(99,102,241,.3)' };
+  listEl.innerHTML = items.map(item => `
+  <div id="inbox-item-${item.id}" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <div style="width:40px;height:40px;border-radius:50%;background:${iconColor[item.type]||'var(--card)'};border:1px solid ${iconBorder[item.type]||'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${item.icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.88rem;font-weight:900;color:var(--t);margin-bottom:3px">${item.title}</div>
+        <div style="font-size:.76rem;color:var(--t2);margin-bottom:${item.note?'3px':'0'}">${item.subtitle}</div>
+        ${item.note ? `<div style="font-size:.72rem;color:var(--t3)">備註：${item.note}</div>` : ''}
+        <div style="font-size:.68rem;color:var(--t3);margin-top:3px">${item.date}</div>
+      </div>
+    </div>
+    <div id="inbox-action-${item.id}">
+      <div style="display:flex;gap:7px;margin-top:12px">
+        <button onclick="inboxActionAdd('${item.id}')"
+          style="flex:1;padding:9px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">
+          ${item.actionLabel}
+        </button>
+        <button onclick="inboxDismissAdd('${item.id}')"
+          style="padding:9px 14px;background:var(--card);color:var(--t3);border:1px solid var(--border);border-radius:var(--rs);font-size:.76rem;cursor:pointer;font-family:inherit">
+          略過
+        </button>
+      </div>
+    </div>
+  </div>`).join('');
+}
+
+function inboxActionAdd(id) {
+  // add.html 的通知動作：直接跳轉到對應頁
+  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
+  const item  = items.find(x => x.id === id);
+  if (!item) return;
+  if (item.type === 'bill_due') { closeModal('inbox-modal'); location.href = './wallet.html'; }
+  else if (item.type === 'budget_alert') { closeModal('inbox-modal'); location.href = './report.html'; }
+  else if (item.type === 'receipt') {
+    if (typeof clearInboxReceipt === 'function') clearInboxReceipt(id);
+    document.getElementById('inbox-item-' + id)?.remove();
+    updateInboxBadge();
+  } else {
+    closeModal('inbox-modal');
+  }
+}
+
+function inboxDismissAdd(id) {
+  if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+  document.getElementById('inbox-item-' + id)?.remove();
+  updateInboxBadge();
+  const remaining = document.querySelectorAll('[id^="inbox-item-"]');
+  if (!remaining.length) {
+    const listEl = document.getElementById('inbox-list');
+    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
+  }
+}
+
+function clearAllInbox() {
+  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
+  items.forEach(item => {
+    if (item.type !== 'pending_confirm' && typeof dismissInboxItem === 'function') dismissInboxItem(item.id);
+  });
+  renderInboxList();
+  updateInboxBadge();
+}
+
 function init() {
   applyTheme();
   // 設定時間（iOS Safari 相容寫法）
@@ -1061,6 +1347,31 @@ function init() {
       buildShortcutsBar();
       buildTagChips();
     }).catch(e => console.warn('[Init] fbPullAll 失敗:', e.message));
+  }
+
+  // 初始化 badge
+  updateInboxBadge();
+  if (typeof fbPullChatMessages === 'function') {
+    fbPullChatMessages().then(() => updateChatBadge());
+  } else {
+    updateChatBadge();
+  }
+  // 監聽即時訊息
+  if (typeof fbListenChatMessages === 'function') {
+    fbListenChatMessages(() => {
+      updateChatBadge();
+      if (document.getElementById('chat-modal')?.classList.contains('show')) {
+        markAllChatRead();
+        renderChatList();
+        setTimeout(() => {
+          const el = document.getElementById('chat-list');
+          if (el) el.scrollTop = el.scrollHeight;
+        }, 30);
+      }
+    });
+  }
+  if (typeof fbListenPendingRequests === 'function') {
+    fbListenPendingRequests(() => updateInboxBadge());
   }
 }
 

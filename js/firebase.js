@@ -658,3 +658,34 @@ function fbListenPendingRequests(cb) {
       });
   } catch(e) { console.warn('[FB]listenPending', e); }
 }
+
+// ── 家庭簡訊 Firebase 同步 ────────────────────────────
+async function fbSyncChatMessages() {
+  try {
+    await getDb().collection('shared').doc('chat_messages')
+      .set({ list: getChatMessages(), updatedAt: Date.now() });
+  } catch(e) { console.warn('[FB]chatMsg sync', e); }
+}
+
+async function fbPullChatMessages() {
+  try {
+    const d = await getDb().collection('shared').doc('chat_messages').get();
+    if (d.exists && Array.isArray(d.data().list)) {
+      saveChatMessages(d.data().list);
+    }
+  } catch(e) { console.warn('[FB]chatMsg pull', e); }
+}
+
+let _chatUnsub = null;
+function fbListenChatMessages(cb) {
+  if (_chatUnsub) _chatUnsub();
+  try {
+    _chatUnsub = getDb().collection('shared').doc('chat_messages')
+      .onSnapshot(snap => {
+        if (snap.exists && Array.isArray(snap.data().list)) {
+          saveChatMessages(snap.data().list);
+          if (typeof cb === 'function') cb();
+        }
+      });
+  } catch(e) { console.warn('[FB]listenChat', e); }
+}
