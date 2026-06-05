@@ -660,13 +660,21 @@ function getWeekPrediction() {
 
 // ── 資產總覽 ─────────────────────────────────────────
 function calcNetWorth() {
-  const wal = getWal().balance;
-  const icTotal = getIcards().reduce((s,c)=>s+c.balance,0);
-  const acTotal = getAccts(false).reduce((s,a)=>s+a.balance,0);
-  const shTotal = getAccts(true).reduce((s,a)=>s+a.balance,0);
-  const pendingBills = getPendingBills().reduce((s,b)=>s+b.total,0);
-  return { wal, icTotal, acTotal, shTotal, pendingBills,
-    total: wal + icTotal + acTotal + shTotal - pendingBills };
+  const wal         = getWal().balance;
+  const icTotal     = getIcards().reduce((s,c) => s + (c.balance||0), 0);
+  const acTotal     = getAccts(false).reduce((s,a) => s + (a.balance||0), 0);
+  const shTotal     = getAccts(true).reduce((s,a) => s + (a.balance||0), 0);
+  const pendingBills= getPendingBills().reduce((s,b) => s + (b.total||0), 0);
+  // 投資市值（currentAmt 由用戶手動更新）
+  const investTotal = getInvestments().reduce((s,i) => s + (i.currentAmt || i.costAmt || 0), 0);
+  // 分期未繳餘額
+  const instDebt    = getInstallments().filter(i => i.status !== 'completed').reduce((inst, i) => {
+    const paid = (i.paidMonths || []).length;
+    const months = i.months || i.totalMonths || 0;
+    return inst + Math.max(0, months - paid) * (i.monthlyAmt || 0);
+  }, 0);
+  const total = wal + icTotal + acTotal + shTotal + investTotal - pendingBills - instDebt;
+  return { wal, icTotal, acTotal, shTotal, pendingBills, investTotal, instDebt, total };
 }
 
 // ── 格式化 ────────────────────────────────────────────
@@ -1003,4 +1011,255 @@ function showModal(id) {
 function closeModal(id) {
   const el = document.getElementById(id);
   if (el) el.classList.remove('show');
+}
+
+// ── 固定繳費讀取（供 index.html 收件夾使用）─────────────
+function getRecurring() {
+  try { return JSON.parse(localStorage.getItem('recurring_items') || '[]'); } catch { return []; }
+}
+
+// ════════════════════════════════════════════════════
+// 通知收件夾 — aggregator
+// ════════════════════════════════════════════════════
+
+/** 已略過的通知 ID（每月自動清除） */
+function _dismissedInboxKey() {
+  const d = new Date();
+  return `inbox_dismissed_${d.getFullYear()}_${d.getMonth()+1}`;
+}
+function getDismissedInbox() {
+  try { return JSON.parse(localStorage.getItem(_dismissedInboxKey()) || '[]'); } catch { return []; }
+}
+function dismissInboxItem(id) {
+  const list = getDismissedInbox();
+  if (!list.includes(id)) { list.push(id); localStorage.setItem(_dismissedInboxKey(), JSON.stringify(list)); }
+}
+function isInboxItemDismissed(id) { return getDismissedInbox().includes(id); }
+
+/** 彙整所有通知項目 */
+function getInboxItems() {
+  const items = [];
+  const today = new Date();
+  const todayDay   = today.getDate();
+  const todayMonth = today.getMonth() + 1;
+  const todayYear  = today.getFullYear();
+  const todayStr   = toLocalISO(today).slice(0,10);
+
+  // ── 1. 待確認記帳請求 ──────────────────────────────
+  getMyPendingRequests().forEach(req => {
+    items.push({
+      id: req.id,
+      type: 'pending_confirm',
+      icon: '⏳',
+      title: `${req.requestedBy} 的記帳確認`,
+      subtitle: (catName(req.cat) || req.cat) + (req.detail ? ' · ' + req.detail : ''),
+      note: req.note || '',
+      date: req.date || todayStr,
+      isNew: true,
+      actionLabel: '確認金額',
+      raw: req,
+    });
+  });
+
+  // ── 2. 固定繳費到期提醒（今日起 3 天內到期）─────────
+  getRecurring().forEach(rec => {
+    // 檢查是否本月應提醒（按 interval 週期）
+    const startM  = rec.startMonth || 1;
+    const monthsFromStart = (todayYear - 2024) * 12 + todayMonth - startM;
+    const interval = rec.interval || 1;
+    if (monthsFromStart < 0 || monthsFromStart % interval !== 0) return;
+    // 到期日在今日起 3 天內（-1 ~ +3）
+    const diff = rec.day - todayDay;
+    if (diff < -1 || diff > 3) return;
+    const notifId = `rec_${rec.name}_${todayYear}_${todayMonth}`;
+    if (isInboxItemDismissed(notifId)) return;
+    const dueLabel = diff === 0 ? '今天到期' : diff < 0 ? `已過期 ${Math.abs(diff)} 天` : `${diff} 天後到期`;
+    items.push({
+      id: notifId,
+      type: 'recurring',
+      icon: '🔄',
+      title: rec.name,
+      subtitle: `$${fmt(rec.amt || 0)} · ${dueLabel}`,
+      note: '',
+      date: `${todayYear}/${String(todayMonth).padStart(2,'0')}/${String(rec.day).padStart(2,'0')}`,
+      isNew: true,
+      actionLabel: '立即記帳',
+      raw: rec,
+    });
+  });
+
+  // ── 3. 分期月繳提醒 ─────────────────────────────────
+  getInstallments().forEach(inst => {
+    if (!inst.active && inst.active !== undefined) return;
+    const startDate = new Date(inst.startDate || inst.createdAt);
+    const mDiff = (todayYear - startDate.getFullYear()) * 12 + todayMonth - (startDate.getMonth()+1);
+    if (mDiff < 0 || mDiff >= (inst.months || inst.totalMonths || 0)) return;
+    const period = mDiff + 1;
+    const notifId = `inst_${inst.id}_${todayYear}_${todayMonth}`;
+    if (isInboxItemDismissed(notifId)) return;
+    // 提醒日：每月 1 日起（或分期開始日當天）
+    const remindDay = startDate.getDate();
+    const diff2 = remindDay - todayDay;
+    if (diff2 < -1 || diff2 > 3) return;
+    items.push({
+      id: notifId,
+      type: 'installment',
+      icon: '📦',
+      title: inst.name,
+      subtitle: `第 ${period}/${inst.months || inst.totalMonths} 期 · $${fmt(inst.monthlyAmt || inst.amount || 0)}`,
+      note: '',
+      date: todayStr,
+      isNew: true,
+      actionLabel: '立即記帳',
+      raw: { ...inst, currentPeriod: period },
+    });
+  });
+
+  // ── 4. 信用卡帳單到期（5 天內）─────────────────────
+  getPendingBills().forEach(bill => {
+    const due  = new Date(bill.year, bill.month - 1, bill.dueDay || 15);
+    const diff = Math.ceil((due - today) / 864e5);
+    if (diff > 5 || diff < -1) return;
+    const notifId = `bill_${bill.id}`;
+    if (isInboxItemDismissed(notifId)) return;
+    const urgLabel = diff <= 0 ? '🔴 已逾期' : diff <= 2 ? '🟠 緊急' : '🟡 即將到期';
+    const card = typeof cardFind === 'function' ? cardFind(bill.cardId) : null;
+    items.push({
+      id: notifId,
+      type: 'bill_due',
+      icon: '💳',
+      title: `${card?.name || '信用卡'} ${bill.month}月帳單`,
+      subtitle: `$${fmt(bill.total)} · ${urgLabel}（${bill.year}/${bill.month}/${bill.dueDay || 15}）`,
+      note: '',
+      date: `${bill.year}/${String(bill.month).padStart(2,'0')}/${String(bill.dueDay||15).padStart(2,'0')}`,
+      isNew: true,
+      actionLabel: '立即繳費',
+      raw: bill,
+    });
+  });
+
+  // ── 5. 月度預算超支警示（目前週期月超過 budgetPct%）─
+  const { start: pStart, end: pEnd } = getBudgetPeriod();
+  const periodTx = getTx().filter(tx => {
+    const d = new Date(tx.at);
+    return d >= pStart && d <= pEnd;
+  });
+  const catSpend = {};
+  periodTx.forEach(tx => { catSpend[tx.cat] = (catSpend[tx.cat] || 0) + (tx.amount || 0); });
+  const warningPct = getDiscord().budgetPct || 80;
+  Object.keys(catSpend).forEach(catId => {
+    const limit = getBudget(catId);
+    if (!limit) return;
+    const spent = catSpend[catId];
+    const pct   = Math.round(spent / limit * 100);
+    if (pct < warningPct) return;
+    const notifId = `budget_${catId}_${todayYear}_${todayMonth}`;
+    if (isInboxItemDismissed(notifId)) return;
+    const icon = pct >= 100 ? '🚨' : '⚠️';
+    items.push({
+      id: notifId,
+      type: 'budget_alert',
+      icon,
+      title: `${catName(catId) || catId} 預算${pct >= 100 ? '超支' : '快到了'}`,
+      subtitle: `已用 $${fmt(spent)} / 預算 $${fmt(limit)}（${pct}%）`,
+      note: '',
+      date: todayStr,
+      isNew: true,
+      actionLabel: '查看報表',
+      raw: { catId, spent, limit, pct },
+    });
+  });
+
+  // ── 6. 儲蓄目標進度提醒（每月提醒未達成的目標）────────
+  getGoals().forEach(goal => {
+    const pct = goal.target ? Math.round((goal.current || 0) / goal.target * 100) : 0;
+    if (pct >= 100) return;
+    const notifId = `goal_${goal.id}_${todayYear}_${todayMonth}`;
+    if (isInboxItemDismissed(notifId)) return;
+    // 只在每月 1 日提醒（或第一次看到時）
+    if (todayDay !== 1 && !getDismissedInbox().includes(notifId) && todayDay > 3) return;
+    items.push({
+      id: notifId,
+      type: 'goal_reminder',
+      icon: goal.icon || '🎯',
+      title: `儲蓄目標：${goal.name}`,
+      subtitle: `已存 $${fmt(goal.current || 0)} / 目標 $${fmt(goal.target)}（${pct}%）`,
+      note: '',
+      date: todayStr,
+      isNew: true,
+      actionLabel: '更新進度',
+      raw: goal,
+    });
+  });
+
+  // ── 7. 待確認請求回執（對方已確認你的請求）─────────────
+  getMyInboxReceipts().forEach(rcpt => {
+    items.push({
+      id: rcpt.id,
+      type: 'receipt',
+      icon: '✅',
+      title: `${rcpt.confirmedBy} 已確認記帳`,
+      subtitle: `${catName(rcpt.cat) || rcpt.cat}${rcpt.detail ? ' · ' + rcpt.detail : ''} $${fmt(rcpt.amount)}`,
+      note: '',
+      date: rcpt.date || todayStr,
+      isNew: true,
+      actionLabel: '知道了',
+      raw: rcpt,
+    });
+  });
+
+  // 依建立時間排序（新 → 舊）
+  items.sort((a,b) => {
+    const ta = a.raw?.createdAt || 0;
+    const tb = b.raw?.createdAt || 0;
+    return tb - ta;
+  });
+  return items;
+}
+
+function getUnreadInboxCount() {
+  return getInboxItems().length;
+}
+
+// ── 儲蓄目標追蹤 ─────────────────────────────────────
+function getGoals()        { return DB.get('savings_goals') || []; }
+function saveGoals(list)   { DB.set('savings_goals', list); }
+
+function addGoal(goal) {
+  const list = getGoals();
+  goal.id        = 'goal_' + Date.now();
+  goal.createdAt = Date.now();
+  list.push(goal);
+  saveGoals(list);
+  return goal;
+}
+function updateGoal(id, patch) {
+  const list = getGoals();
+  const i = list.findIndex(g => g.id === id);
+  if (i >= 0) { list[i] = { ...list[i], ...patch }; saveGoals(list); }
+}
+function deleteGoal(id) { saveGoals(getGoals().filter(g => g.id !== id)); }
+
+// ── 待確認回執（對方完成後通知你）──────────────────────
+function getInboxReceipts() {
+  try { return JSON.parse(localStorage.getItem('inbox_receipts') || '[]'); } catch { return []; }
+}
+function saveInboxReceipts(list) { localStorage.setItem('inbox_receipts', JSON.stringify(list)); }
+
+function addInboxReceipt(receipt) {
+  const list = getInboxReceipts();
+  receipt.id = 'rcpt_' + Date.now();
+  receipt.createdAt = Date.now();
+  receipt.isRead = false;
+  list.unshift(receipt);
+  saveInboxReceipts(list);
+}
+
+function getMyInboxReceipts() {
+  const me = currentUser();
+  return getInboxReceipts().filter(r => r.assignedTo === me && !r.isRead);
+}
+
+function clearInboxReceipt(id) {
+  saveInboxReceipts(getInboxReceipts().map(r => r.id === id ? {...r, isRead: true} : r));
 }

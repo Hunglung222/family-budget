@@ -187,7 +187,7 @@
       </div>
     </div>
     <div class="fg">
-      <span class="flbl">👤 記帳人</span>
+      <span class="flbl">👤 付款人</span>
       <div class="tg">
         <button class="tb" id="p-hl" onclick="setP('宏龍',this)">🙋 宏龍</button>
         <button class="tb" id="p-yh" onclick="setP('盈慧',this)">🙋‍♀️ 盈慧</button>
@@ -1003,7 +1003,7 @@ function init() {
   const hh   = String(now.getHours()).padStart(2,'0');
   const min  = String(now.getMinutes()).padStart(2,'0');
   setTxDt(yyyy, mo, dd, hh, min);
-  // 依登入者預設記帳人
+  // 依登入者預設付款人
   person = currentUser();
   const pBtn = document.getElementById(person==='宏龍'?'p-hl':'p-yh');
   if (pBtn) pBtn.classList.add('on');
@@ -1032,7 +1032,7 @@ function init() {
     if (prefillRaw) {
       sessionStorage.removeItem('ast_prefill');
       const r = JSON.parse(prefillRaw);
-      // 記帳人
+      // 付款人
       if (r.person) {
         person = r.person;
         document.querySelectorAll('#p-hl,#p-yh').forEach(b => b.classList.remove('on'));
@@ -1337,7 +1337,7 @@ function goStep2() {
 // 金額待確認：跳過金額直接進第二步，並自動勾選待確認
 function goStep2Pending() {
   astr = ''; calcExpr = ''; calcDisp = '';
-  if (calcMode) toggleCalcMode();        // 關閉計算機模式（如果開著）
+  if (calcMode) toggleCalcMode();
   // 金額卡顯示「待確認」
   const avalEl = document.getElementById('aval');
   if (avalEl) avalEl.textContent = '待確認';
@@ -1348,6 +1348,9 @@ function goStep2Pending() {
   document.getElementById('edit-hint').style.display = 'inline';
   document.getElementById('amt-card').style.cursor = 'pointer';
   setStep(1);
+  // 自動切換付款人到對方（不知道金額 = 對方付的）
+  const other = currentUser() === '宏龍' ? '盈慧' : '宏龍';
+  setP(other, document.getElementById(other === '宏龍' ? 'p-hl' : 'p-yh'));
   // 自動勾選金額待確認
   const toggle = document.getElementById('pending-toggle');
   if (toggle) { toggle.checked = true; togglePendingConfirm(true); }
@@ -1498,7 +1501,8 @@ function submit() {
   // ── 金額待確認 ──
   if (_pendingOn) {
     if (!selCat) { toast('請選擇分類','warn'); return; }
-    const otherPerson = person === '宏龍' ? '盈慧' : '宏龍';
+    // 待確認永遠傳給另一半（不管付款人選誰，Kevin 登入→給盈慧，反之亦然）
+    const otherPerson = currentUser() === '宏龍' ? '盈慧' : '宏龍';
     const req = addPendingRequest({
       cat:    selCat,
       subCat: document.getElementById('sub-sel').value,

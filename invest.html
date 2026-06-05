@@ -426,6 +426,33 @@
       title="投資交易知識庫"></iframe>
   </div>
 
+<!-- ══ 配息記錄 Modal ══ -->
+<div class="ov" id="dividend-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st" id="div-modal-title">🍀 記錄配息</div>
+    <div class="fg">
+      <span class="flbl">配息日期</span>
+      <input class="fc" id="div-date" type="date">
+    </div>
+    <div class="fg">
+      <span class="flbl">配息金額（元）</span>
+      <input class="fc" id="div-amount" type="number" inputmode="numeric" placeholder="例：3000">
+    </div>
+    <div class="fg">
+      <span class="flbl">備註（可略）</span>
+      <input class="fc" id="div-note" placeholder="例：2025Q4 現金股利">
+    </div>
+    <input type="hidden" id="div-inv-id">
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('dividend-modal')">取消</button>
+      <button class="btn btn-p" onclick="saveDividend()">儲存</button>
+    </div>
+    <!-- 歷史配息 -->
+    <div id="div-history" style="margin-top:14px"></div>
+  </div>
+</div>
+
 <nav class="nav">
   <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
   <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
@@ -625,21 +652,29 @@ function invCardHTML(inv) {
       <span style="font-size:.68rem;font-weight:700;padding:3px 9px;border-radius:50px;background:${t.color}22;color:${t.color};white-space:nowrap;flex-shrink:0">${t.label}</span>
     </div>
 
-    <!-- 三欄金額 -->
-    <div class="tri-grid">
-      <div>
-        <div class="tri-l">買入成本</div>
-        <div class="tri-v" style="color:var(--t2)">$${fmt(cost)}</div>
+    <!-- 三欄金額（含配息計算）-->
+    ${(() => {
+      const divTotal = (inv.dividends||[]).reduce((s,d) => s+(d.amount||0), 0);
+      const totalReturn = cost ? ((pnl + divTotal) / cost * 100) : 0;
+      const trSign = totalReturn > 0 ? '+' : '';
+      const divStr = divTotal > 0 ? `<div class="tri-l" style="margin-top:2px;font-size:.68rem">含息 ${trSign}${totalReturn.toFixed(2)}%</div>` : '';
+      return `<div class="tri-grid">
+        <div>
+          <div class="tri-l">買入成本</div>
+          <div class="tri-v" style="color:var(--t2)">$${fmt(cost)}</div>
+        </div>
+        <div>
+          <div class="tri-l">目前市值</div>
+          <div class="tri-v" style="color:var(--p)">$${fmt(cur)}</div>
+        </div>
+        <div>
+          <div class="tri-l">損益</div>
+          <div class="tri-v" style="color:${pc}">${sign}$${fmt(Math.abs(pnl))}</div>
+          ${divStr}
+        </div>
       </div>
-      <div>
-        <div class="tri-l">目前市值</div>
-        <div class="tri-v" style="color:var(--p)">$${fmt(cur)}</div>
-      </div>
-      <div>
-        <div class="tri-l">損益</div>
-        <div class="tri-v" style="color:${pc}">${sign}$${fmt(Math.abs(pnl))}</div>
-      </div>
-    </div>
+      ${divTotal > 0 ? `<div style="font-size:.72rem;color:var(--warn);margin-bottom:8px">🍀 累計配息 +$${fmt(divTotal)}</div>` : ''}`;
+    })()}
 
     <!-- 報酬率 bar -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
@@ -659,6 +694,8 @@ function invCardHTML(inv) {
 
     <!-- 操作 -->
     <div style="display:flex;gap:7px">
+      <button onclick="addDividend('${inv.id}')"
+        style="flex:1;padding:9px;background:rgba(251,191,36,.1);color:var(--warn);border:1px solid rgba(251,191,36,.3);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">🍀 配息</button>
       <button onclick="openKlineModal('${inv.id}')"
         style="flex:1;padding:9px;background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.3);border-radius:var(--rs);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">📈 K線</button>
       <button onclick="showPriceUpdate('${inv.id}')"
@@ -669,6 +706,49 @@ function invCardHTML(inv) {
         style="padding:9px 12px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">🗑️</button>
     </div>
   </div>`;
+}
+
+// ── 配息記錄 ─────────────────────────────────────────
+function addDividend(invId) {
+  document.getElementById('div-inv-id').value  = invId;
+  document.getElementById('div-date').value    = toLocalISO(new Date()).slice(0,10);
+  document.getElementById('div-amount').value  = '';
+  document.getElementById('div-note').value    = '';
+  // 顯示歷史配息
+  const inv  = getInvestments().find(x => x.id === invId);
+  const hist = document.getElementById('div-history');
+  if (inv && hist) {
+    const divs = (inv.dividends || []).slice().reverse();
+    if (divs.length) {
+      hist.innerHTML = `<div style="font-size:.8rem;font-weight:700;color:var(--t2);margin-bottom:8px">歷史配息記錄</div>` +
+        divs.map(d => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:.8rem">
+          <span style="color:var(--t2)">${d.date}${d.note?' · '+d.note:''}</span>
+          <span style="color:var(--warn);font-weight:700">+$${fmt(d.amount)}</span>
+        </div>`).join('');
+    } else {
+      hist.innerHTML = '';
+    }
+    document.getElementById('div-modal-title').textContent = `🍀 ${inv.name} 配息`;
+  }
+  showModal('dividend-modal');
+}
+
+function saveDividend() {
+  const invId  = document.getElementById('div-inv-id').value;
+  const date   = document.getElementById('div-date').value;
+  const amount = parseInt(document.getElementById('div-amount').value) || 0;
+  const note   = document.getElementById('div-note').value.trim();
+  if (!amount) { toast('請填入配息金額', 'warn'); return; }
+  const list = getInvestments();
+  const inv  = list.find(x => x.id === invId);
+  if (!inv) return;
+  if (!inv.dividends) inv.dividends = [];
+  inv.dividends.push({ id: 'div_' + Date.now(), date, amount, note });
+  saveInvestments(list);
+  if (typeof fbSyncInvestments === 'function') fbSyncInvestments();
+  toast(`✅ 配息 $${fmt(amount)} 已記錄`);
+  closeModal('dividend-modal');
+  renderPortfolio();
 }
 
 // ── 新增 / 編輯 ───────────────────────────────────────

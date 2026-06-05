@@ -100,10 +100,22 @@
         <div class="nw-item"><div class="v" id="nw-wal">$0</div><div class="l">👛 現金</div></div>
         <div class="nw-item"><div class="v" id="nw-acct">$0</div><div class="l">🏦 帳戶</div></div>
         <div class="nw-item"><div class="v" id="nw-ic">$0</div><div class="l">🎫 悠遊卡</div></div>
+        <div class="nw-item"><div class="v" id="nw-invest">$0</div><div class="l">📈 投資市值</div></div>
         <div class="nw-item"><div class="v" id="nw-bills" style="color:#ff6b82">$0</div><div class="l">💳 待繳帳單</div></div>
+        <div class="nw-item"><div class="v" id="nw-inst" style="color:#ff6b82">$0</div><div class="l">📦 分期餘額</div></div>
       </div>
     </div>
-    <div class="sec-t">💳 待繳信用卡帳單</div>
+    <!-- 儲蓄目標 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
+      <div class="sec-t" style="margin:0">🎯 儲蓄目標</div>
+      <button onclick="showAddGoal()"
+        style="font-size:.76rem;padding:5px 12px;background:var(--pdim);color:var(--p);border:none;border-radius:50px;cursor:pointer;font-weight:700;font-family:inherit">
+        ＋ 新增目標
+      </button>
+    </div>
+    <div id="goals-list"></div>
+
+    <div class="sec-t" style="margin-top:16px">💳 待繳信用卡帳單</div>
     <div id="pending-bills"></div>
     <div style="height:120px"></div>
   </div>
@@ -497,6 +509,41 @@
   <a class="ni on" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
   <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
+<!-- ══ 儲蓄目標 Modal ══ -->
+<div class="ov" id="goal-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st" id="goal-modal-title">🎯 新增儲蓄目標</div>
+    <div class="fg">
+      <span class="flbl">目標名稱（必填）</span>
+      <input class="fc" id="g-name" placeholder="例：出國旅遊、換手機、緊急備用金">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="fg">
+        <span class="flbl">圖示</span>
+        <input class="fc" id="g-icon" placeholder="✈️" maxlength="2" style="font-size:1.2rem;text-align:center">
+      </div>
+      <div class="fg">
+        <span class="flbl">目標金額</span>
+        <input class="fc" id="g-target" type="number" inputmode="numeric" placeholder="0">
+      </div>
+    </div>
+    <div class="fg">
+      <span class="flbl">目前已存（可留 0）</span>
+      <input class="fc" id="g-current" type="number" inputmode="numeric" placeholder="0">
+    </div>
+    <div class="fg">
+      <span class="flbl">目標日期（可略）</span>
+      <input class="fc" id="g-deadline" type="month">
+    </div>
+    <input type="hidden" id="g-edit-id">
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('goal-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitGoal()">儲存目標</button>
+    </div>
+  </div>
+</div>
+
 </nav>
 <div class="toast" id="toast"></div>
 
@@ -542,14 +589,133 @@ function render() {
 // ── 總覽 ─────────────────────────────────────────────
 function renderOverview() {
   const nw = calcNetWorth();
-  document.getElementById('nw-total').textContent = fmt(nw.total);
-  document.getElementById('nw-wal').textContent   = '$'+fmt(nw.wal);
-  document.getElementById('nw-acct').textContent  = '$'+fmt(nw.acTotal);
-  document.getElementById('nw-ic').textContent    = '$'+fmt(nw.icTotal);
-  document.getElementById('nw-bills').textContent = '$'+fmt(nw.pendingBills);
+  document.getElementById('nw-total').textContent  = fmt(nw.total);
+  document.getElementById('nw-wal').textContent    = '$'+fmt(nw.wal);
+  document.getElementById('nw-acct').textContent   = '$'+fmt(nw.acTotal);
+  document.getElementById('nw-ic').textContent     = '$'+fmt(nw.icTotal);
+  document.getElementById('nw-invest').textContent = '$'+fmt(nw.investTotal||0);
+  document.getElementById('nw-bills').textContent  = '$'+fmt(nw.pendingBills);
+  document.getElementById('nw-inst').textContent   = '$'+fmt(nw.instDebt||0);
+// ── 儲蓄目標 ─────────────────────────────────────────
+function renderGoals() {
+  const list   = getGoals();
+  const el     = document.getElementById('goals-list');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div style="color:var(--t3);font-size:.82rem;text-align:center;padding:14px;background:var(--card2);border-radius:var(--rs)">
+      還沒有儲蓄目標，點「＋ 新增目標」開始設定
+    </div>`;
+    return;
+  }
+  // 計算每月儲蓄額（用最近3個月平均）
+  const monthlySavings = calcMonthlySavings();
+
+  el.innerHTML = list.map(g => {
+    const target  = g.target  || 0;
+    const current = g.current || 0;
+    const pct     = target ? Math.min(100, Math.round(current / target * 100)) : 0;
+    const remain  = Math.max(0, target - current);
+    // 預估完成
+    let estStr = '';
+    if (remain > 0 && monthlySavings > 0) {
+      const months = Math.ceil(remain / monthlySavings);
+      const d = new Date();
+      d.setMonth(d.getMonth() + months);
+      estStr = `預計 ${d.getFullYear()}/${d.getMonth()+1} 達成`;
+    } else if (remain <= 0) {
+      estStr = '🎉 已達成！';
+    }
+    const barColor = pct >= 80 ? '#4ade80' : pct >= 40 ? 'var(--warn)' : 'var(--p)';
+
+    return `<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:1.5rem">${g.icon || '🎯'}</span>
+          <div>
+            <div style="font-size:.9rem;font-weight:900;color:var(--t)">${g.name}</div>
+            ${g.deadline ? `<div style="font-size:.7rem;color:var(--t3)">目標 ${g.deadline}</div>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="editGoal('${g.id}')" style="background:var(--card2);border:1px solid var(--border);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:.75rem;color:var(--t2);font-family:inherit">✏️</button>
+          <button onclick="delGoalConfirm('${g.id}')" style="background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);padding:5px 9px;cursor:pointer;font-size:.75rem;color:var(--danger);font-family:inherit">🗑️</button>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px">
+        <span style="font-size:.8rem;color:var(--t2)">$${fmt(current)} / $${fmt(target)}</span>
+        <span style="font-size:.8rem;font-weight:700;color:${barColor}">${pct}%</span>
+      </div>
+      <div style="height:8px;background:rgba(255,255,255,.1);border-radius:4px;overflow:hidden;margin-bottom:7px">
+        <div style="height:100%;width:${pct}%;background:${barColor};border-radius:4px;transition:.4s"></div>
+      </div>
+      ${estStr ? `<div style="font-size:.72rem;color:var(--t3)">${estStr}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function calcMonthlySavings() {
+  // 最近 3 個月平均每月儲蓄額 = 平均收入 - 平均支出
+  const now   = new Date();
+  let totalSave = 0, monthCount = 0;
+  for (let i = 0; i < 3; i++) {
+    const y = now.getFullYear() + (now.getMonth() - i < 0 ? -1 : 0);
+    const m = ((now.getMonth() - i) + 12) % 12 + 1;
+    const key = `${y}-${String(m).padStart(2,'0')}`;
+    const inc = getIncomes().filter(inc => inc.date?.startsWith(key)).reduce((s,x) => s+(x.amount||0), 0);
+    const exp = getTx().filter(tx => tx.at?.startsWith(key)).reduce((s,x) => s+(x.amount||0), 0);
+    if (inc > 0) { totalSave += (inc - exp); monthCount++; }
+  }
+  return monthCount ? Math.round(totalSave / monthCount) : 0;
+}
+
+function showAddGoal() {
+  document.getElementById('goal-modal-title').textContent = '🎯 新增儲蓄目標';
+  document.getElementById('g-name').value     = '';
+  document.getElementById('g-icon').value     = '';
+  document.getElementById('g-target').value   = '';
+  document.getElementById('g-current').value  = '';
+  document.getElementById('g-deadline').value = '';
+  document.getElementById('g-edit-id').value  = '';
+  showModal('goal-modal');
+}
+function editGoal(id) {
+  const g = getGoals().find(x => x.id === id);
+  if (!g) return;
+  document.getElementById('goal-modal-title').textContent = '✏️ 編輯儲蓄目標';
+  document.getElementById('g-name').value     = g.name    || '';
+  document.getElementById('g-icon').value     = g.icon    || '';
+  document.getElementById('g-target').value   = g.target  || '';
+  document.getElementById('g-current').value  = g.current || '';
+  document.getElementById('g-deadline').value = g.deadline|| '';
+  document.getElementById('g-edit-id').value  = id;
+  showModal('goal-modal');
+}
+function submitGoal() {
+  const name     = document.getElementById('g-name').value.trim();
+  const target   = parseInt(document.getElementById('g-target').value)   || 0;
+  const current  = parseInt(document.getElementById('g-current').value)  || 0;
+  const deadline = document.getElementById('g-deadline').value;
+  const icon     = document.getElementById('g-icon').value.trim() || '🎯';
+  const editId   = document.getElementById('g-edit-id').value;
+  if (!name)   { toast('請填入目標名稱', 'warn'); return; }
+  if (!target) { toast('請填入目標金額', 'warn'); return; }
+  if (editId) { updateGoal(editId, { name, target, current, deadline, icon }); toast('✅ 目標已更新'); }
+  else        { addGoal({ name, target, current, deadline, icon }); toast('✅ 目標已新增'); }
+  closeModal('goal-modal');
+  renderGoals();
+}
+function delGoalConfirm(id) {
+  const g = getGoals().find(x => x.id === id);
+  if (!confirm(`確定刪除目標「${g?.name}」？`)) return;
+  deleteGoal(id);
+  renderGoals();
+  toast('已刪除');
+}
+
   // 待繳帳單
   const bills = getPendingBills();
   const el = document.getElementById('pending-bills');
+  renderGoals();
   if (!bills.length) { el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">✅ 無待繳帳單</div>'; return; }
   el.innerHTML = bills.map(b=>{
     const card = cardFind(b.cardId);
