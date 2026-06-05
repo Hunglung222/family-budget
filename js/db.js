@@ -904,12 +904,20 @@ function clearAll() {
 
 // ── 主題系統 ─────────────────────────────────────────
 const ACCENTS={
-  teal:{p:'#00e5b4',p2:'#00b48e',pdim:'rgba(0,229,180,.13)'},
-  blue:{p:'#4f8ef7',p2:'#2563eb',pdim:'rgba(79,142,247,.13)'},
-  pink:{p:'#f472b6',p2:'#db2777',pdim:'rgba(244,114,182,.13)'},
+  // ── 原有 6 色 ──
+  teal:  {p:'#00e5b4',p2:'#00b48e',pdim:'rgba(0,229,180,.13)'},
+  blue:  {p:'#4f8ef7',p2:'#2563eb',pdim:'rgba(79,142,247,.13)'},
+  pink:  {p:'#f472b6',p2:'#db2777',pdim:'rgba(244,114,182,.13)'},
   purple:{p:'#a78bfa',p2:'#7c3aed',pdim:'rgba(167,139,250,.13)'},
   yellow:{p:'#fbbf24',p2:'#d97706',pdim:'rgba(251,191,36,.13)'},
-  green:{p:'#4ade80',p2:'#16a34a',pdim:'rgba(74,222,128,.13)'},
+  green: {p:'#4ade80',p2:'#16a34a',pdim:'rgba(74,222,128,.13)'},
+  // ── 新增 6 色 ──
+  orange:{p:'#fb923c',p2:'#ea580c',pdim:'rgba(251,146,60,.13)'},
+  red:   {p:'#f87171',p2:'#dc2626',pdim:'rgba(248,113,113,.13)'},
+  rose:  {p:'#fb7185',p2:'#e11d48',pdim:'rgba(251,113,133,.13)'},
+  cyan:  {p:'#22d3ee',p2:'#0891b2',pdim:'rgba(34,211,238,.13)'},
+  indigo:{p:'#818cf8',p2:'#4338ca',pdim:'rgba(129,140,248,.13)'},
+  lime:  {p:'#a3e635',p2:'#65a30d',pdim:'rgba(163,230,53,.13)'},
 };
 const THEMES={
   dark:{bg:'#0a0f1e',bg2:'#111827',card:'#1a2235',card2:'#202d42',border:'#2a3550',t:'#e8edf8',t2:'#8896b3',t3:'#4a5670'},
