@@ -1279,13 +1279,18 @@ function saveChatMessages(list) {
 
 /** 新增一則訊息，回傳完整訊息物件 */
 function addChatMessage(text) {
+  // 優先用 current_email 判斷身份，確保與 renderChatList 的 _chatMe() 一致
+  const email = localStorage.getItem('current_email') || '';
+  const me = email === 'kevin67222@gmail.com' ? '宏龍'
+           : email === 'gogosuperbird@gmail.com' ? '盈慧'
+           : (localStorage.getItem('current_user') || '宏龍');
   const list = getChatMessages();
   const msg = {
     id:        'msg_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
-    from:      currentUser(),       // '宏龍' 或 '盈慧'
+    from:      me,
     text:      text.trim(),
     createdAt: Date.now(),
-    readBy:    [currentUser()],     // 自己寄出就算自己已讀
+    readBy:    [me],  // 自己寄出就算自己已讀
   };
   list.push(msg);
   saveChatMessages(list);
@@ -1317,6 +1322,10 @@ function clearAllChatMessages() {
 
 /** 取得「對我未讀」的訊息（別人寄的、我還沒讀的） */
 function getUnreadChatMessages() {
-  const me = currentUser();
+  const email = localStorage.getItem('current_email') || '';
+  const me = email === 'kevin67222@gmail.com' ? '宏龍'
+           : email === 'gogosuperbird@gmail.com' ? '盈慧'
+           : (localStorage.getItem('current_user') || '');
+  if (!me) return [];
   return getChatMessages().filter(m => m.from !== me && !m.readBy.includes(me));
 }

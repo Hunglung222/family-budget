@@ -370,8 +370,8 @@
           style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">關閉</button>
       </div>
     </div>
-    <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px;flex-shrink:0">與盈慧的對話記錄</div>
-    <div id="chat-list" style="flex:1;overflow-y:auto;padding:4px 0 8px;min-height:200px;max-height:calc(88dvh - 160px)"></div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px;flex-shrink:0">點自己的訊息可刪除單筆</div>
+    <div id="chat-list" style="flex:1;overflow-y:auto;padding:4px 2px 8px;min-height:200px;max-height:calc(88dvh - 160px)"></div>
     <div style="flex-shrink:0;padding:10px 0 env(safe-area-inset-bottom,18px);border-top:1px solid var(--border);margin-top:6px">
       <div style="display:flex;gap:8px;align-items:flex-end">
         <textarea id="chat-input" rows="1" placeholder="輸入訊息..."
@@ -384,6 +384,28 @@
           ➤
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 清除對話確認 Modal ══ -->
+<div class="ov" id="chat-clear-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">🗑️ 清除對話記錄</div>
+    <div style="font-size:.84rem;color:var(--t2);margin-bottom:20px;line-height:1.6">
+      確定要清除全部對話記錄嗎？<br>
+      <span style="font-size:.76rem;color:var(--t3)">此動作無法復原，雙方的記錄都會被清除。</span>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal('chat-clear-modal')"
+        style="flex:1;padding:13px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.88rem;cursor:pointer;font-family:inherit">
+        取消
+      </button>
+      <button onclick="doChatClearAll()"
+        style="flex:1;padding:13px;background:#ef4444;color:#fff;border:none;border-radius:var(--rs);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit">
+        全部清除
+      </button>
     </div>
   </div>
 </div>
@@ -1057,6 +1079,15 @@ let astr='', selCat='', selCard='', selIcard='', selAcct='', pay='cash', person=
 // 💬 家庭簡訊
 // ════════════════════════════════════════════════════
 
+let _chatLastSyncAt = 0;
+
+function _chatMe() {
+  const email = localStorage.getItem('current_email') || '';
+  if (email === 'kevin67222@gmail.com') return '宏龍';
+  if (email === 'gogosuperbird@gmail.com') return '盈慧';
+  return localStorage.getItem('current_user') || '';
+}
+
 function updateChatBadge() {
   const count = getUnreadChatMessages().length;
   const badge = document.getElementById('chat-badge');
@@ -1082,7 +1113,8 @@ function openChat() {
 
 function markAllChatRead() {
   const msgs = getChatMessages();
-  const me   = currentUser();
+  const me   = _chatMe();
+  if (!me) return;
   let changed = false;
   msgs.forEach(m => {
     if (m.from !== me && !m.readBy.includes(me)) {
@@ -1092,6 +1124,7 @@ function markAllChatRead() {
   });
   if (changed) {
     saveChatMessages(msgs);
+    _chatLastSyncAt = Date.now();
     if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
     updateChatBadge();
   }
@@ -1107,7 +1140,7 @@ function escHtml(str) {
 
 function renderChatList() {
   const msgs   = getChatMessages();
-  const me     = currentUser();
+  const me     = _chatMe();
   const listEl = document.getElementById('chat-list');
   if (!listEl) return;
 
@@ -1121,7 +1154,7 @@ function renderChatList() {
 
   let lastDate = '';
   listEl.innerHTML = msgs.map(m => {
-    const isMine = m.from === me;
+    const isMine = me ? (m.from === me) : false;
     const dt     = new Date(m.createdAt);
     const dateStr = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
     const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
@@ -1135,17 +1168,26 @@ function renderChatList() {
       </div>`;
     }
 
+    const deleteAttr = isMine ? `onclick="chatBubbleTap('${m.id}')" style="cursor:pointer"` : '';
+
     const bubble = isMine
-      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:6px">
-          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
-            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px">${isRead?'已讀':''}<br>${timeStr}</div>
-            <div style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">${escHtml(m.text)}</div>
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
+            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px;text-align:right">
+              ${isRead ? '<span style="color:var(--p)">已讀</span>' : ''}<br>${timeStr}
+            </div>
+            <div ${deleteAttr}
+              style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
+              ${escHtml(m.text)}
+            </div>
           </div>
         </div>`
-      : `<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:6px">
-          <div style="font-size:.65rem;color:var(--t3);margin-bottom:3px;margin-left:4px">${escHtml(m.from)}</div>
-          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
-            <div style="background:var(--card2);border:1px solid var(--border);color:var(--t);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">${escHtml(m.text)}</div>
+      : `<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:8px">
+          <div style="font-size:.65rem;color:var(--t3);margin-bottom:3px;margin-left:14px">${escHtml(m.from)}</div>
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
+            <div style="background:var(--card2);border:1px solid var(--border);color:var(--t);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">
+              ${escHtml(m.text)}
+            </div>
             <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px">${timeStr}</div>
           </div>
         </div>`;
@@ -1154,14 +1196,54 @@ function renderChatList() {
   }).join('');
 }
 
+function chatBubbleTap(msgId) {
+  const existing = document.getElementById('cm-del-' + msgId);
+  if (existing) { existing.remove(); return; }
+  document.querySelectorAll('[id^="cm-del-"]').forEach(el => el.remove());
+
+  const me  = _chatMe();
+  const msg = getChatMessages().find(m => m.id === msgId);
+  if (!msg || msg.from !== me) return;
+
+  const container = document.getElementById('cm-' + msgId);
+  if (!container) return;
+
+  const delRow = document.createElement('div');
+  delRow.id = 'cm-del-' + msgId;
+  delRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin:-4px 0 6px;padding-right:2px';
+  delRow.innerHTML = `
+    <button onclick="doChatDelete('${msgId}')"
+      style="font-size:.72rem;padding:5px 12px;background:#ef4444;color:#fff;border:none;border-radius:20px;cursor:pointer;font-family:inherit">
+      🗑️ 刪除這則
+    </button>
+    <button onclick="document.getElementById('cm-del-${msgId}')?.remove()"
+      style="font-size:.72rem;padding:5px 12px;background:var(--card2);color:var(--t3);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:inherit">
+      取消
+    </button>`;
+  container.appendChild(delRow);
+}
+
+function doChatDelete(msgId) {
+  deleteChatMessage(msgId);
+  _chatLastSyncAt = Date.now();
+  if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
+  renderChatList();
+  updateChatBadge();
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chat-input');
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
+  const me = _chatMe();
+  if (!me) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
+
   input.value = '';
   input.style.height = 'auto';
+
   addChatMessage(text);
+  _chatLastSyncAt = Date.now();
   if (typeof fbSyncChatMessages === 'function') await fbSyncChatMessages();
   renderChatList();
   setTimeout(() => {
@@ -1174,13 +1256,17 @@ async function sendChatMessage() {
 function showChatClearMenu() {
   const msgs = getChatMessages();
   if (!msgs.length) { toast('沒有訊息可以清除', 'info'); return; }
-  if (confirm('要清除全部對話記錄嗎？此動作無法復原。')) {
-    clearAllChatMessages();
-    if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
-    renderChatList();
-    updateChatBadge();
-    toast('對話記錄已清除', 'ok');
-  }
+  showModal('chat-clear-modal');
+}
+
+function doChatClearAll() {
+  clearAllChatMessages();
+  _chatLastSyncAt = Date.now();
+  if (typeof fbSyncChatMessages === 'function') fbSyncChatMessages();
+  closeModal('chat-clear-modal');
+  renderChatList();
+  updateChatBadge();
+  toast('對話記錄已全部清除', 'ok');
 }
 
 // ════════════════════════════════════════════════════
@@ -1359,10 +1445,12 @@ function init() {
   // 監聽即時訊息
   if (typeof fbListenChatMessages === 'function') {
     fbListenChatMessages(() => {
+      // 防止自己 sync 觸發的 snapshot 引發 race condition
+      if (Date.now() - _chatLastSyncAt < 2000) return;
       updateChatBadge();
       if (document.getElementById('chat-modal')?.classList.contains('show')) {
-        markAllChatRead();
         renderChatList();
+        markAllChatRead();
         setTimeout(() => {
           const el = document.getElementById('chat-list');
           if (el) el.scrollTop = el.scrollHeight;

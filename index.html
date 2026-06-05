@@ -115,10 +115,10 @@
         </button>
       </div>
     </div>
-    <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px;flex-shrink:0">與盈慧的對話記錄</div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px;flex-shrink:0">點自己的訊息可刪除單筆</div>
     <!-- 對話區（可捲動） -->
     <div id="chat-list"
-      style="flex:1;overflow-y:auto;padding:4px 0 8px;min-height:200px;max-height:calc(88dvh - 160px)">
+      style="flex:1;overflow-y:auto;padding:4px 2px 8px;min-height:200px;max-height:calc(88dvh - 160px)">
     </div>
     <!-- 輸入區 -->
     <div style="flex-shrink:0;padding:10px 0 env(safe-area-inset-bottom,18px);border-top:1px solid var(--border);margin-top:6px">
@@ -133,6 +133,28 @@
           ➤
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 清除對話確認 Modal ══ -->
+<div class="ov" id="chat-clear-modal">
+  <div class="sheet">
+    <div class="sh"></div>
+    <div class="st">🗑️ 清除對話記錄</div>
+    <div style="font-size:.84rem;color:var(--t2);margin-bottom:20px;line-height:1.6">
+      確定要清除全部對話記錄嗎？<br>
+      <span style="font-size:.76rem;color:var(--t3)">此動作無法復原，雙方的記錄都會被清除。</span>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button onclick="closeModal('chat-clear-modal')"
+        style="flex:1;padding:13px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.88rem;cursor:pointer;font-family:inherit">
+        取消
+      </button>
+      <button onclick="doChatClearAll()"
+        style="flex:1;padding:13px;background:#ef4444;color:#fff;border:none;border-radius:var(--rs);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit">
+        全部清除
+      </button>
     </div>
   </div>
 </div>
@@ -797,11 +819,13 @@ if (typeof fbListenPendingRequests === 'function') {
 // 監聽家庭簡訊，更新信封角標
 if (typeof fbListenChatMessages === 'function') {
   fbListenChatMessages(() => {
+    // 若是自己剛 sync 觸發的 snapshot（2秒內），忽略避免 race condition
+    if (Date.now() - _chatLastSyncAt < 2000) return;
     updateChatBadge();
-    // 若 chat-modal 正開著，即時刷新訊息
+    // 若 chat-modal 正開著，即時刷新並標記已讀
     if (document.getElementById('chat-modal')?.classList.contains('show')) {
-      markAllChatRead();
       renderChatList();
+      markAllChatRead();
       setTimeout(() => {
         const el = document.getElementById('chat-list');
         if (el) el.scrollTop = el.scrollHeight;
@@ -861,6 +885,17 @@ let _irPending = [];   // 目前待記帳的分期列表
 // 💬 家庭簡訊
 // ════════════════════════════════════════════════════
 
+// 防止 onSnapshot 觸發自己 sync 後的 race condition
+let _chatLastSyncAt = 0;
+
+function _chatMe() {
+  // 優先用 current_email 判斷，避免 auth 尚未就緒時的預設值問題
+  const email = localStorage.getItem('current_email') || '';
+  if (email === 'kevin67222@gmail.com') return '宏龍';
+  if (email === 'gogosuperbird@gmail.com') return '盈慧';
+  return localStorage.getItem('current_user') || '';
+}
+
 function updateChatBadge() {
   const count = getUnreadChatMessages().length;
   const badge = document.getElementById('chat-badge');
@@ -876,19 +911,18 @@ function updateChatBadge() {
 function openChat() {
   renderChatList();
   showModal('chat-modal');
-  // 滾到底部
   setTimeout(() => {
     const el = document.getElementById('chat-list');
     if (el) el.scrollTop = el.scrollHeight;
     document.getElementById('chat-input')?.focus();
   }, 80);
-  // 標記所有對方訊息已讀
   markAllChatRead();
 }
 
 function markAllChatRead() {
   const msgs = getChatMessages();
-  const me   = currentUser();
+  const me   = _chatMe();
+  if (!me) return; // auth 尚未就緒，跳過
   let changed = false;
   msgs.forEach(m => {
     if (m.from !== me && !m.readBy.includes(me)) {
@@ -898,14 +932,23 @@ function markAllChatRead() {
   });
   if (changed) {
     saveChatMessages(msgs);
+    _chatLastSyncAt = Date.now();
     fbSyncChatMessages();
     updateChatBadge();
   }
 }
 
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/\n/g,'<br>');
+}
+
 function renderChatList() {
-  const msgs  = getChatMessages();
-  const me    = currentUser();
+  const msgs   = getChatMessages();
+  const me     = _chatMe();
   const listEl = document.getElementById('chat-list');
   if (!listEl) return;
 
@@ -917,14 +960,14 @@ function renderChatList() {
     return;
   }
 
-  // 按日期分組
   let lastDate = '';
   listEl.innerHTML = msgs.map(m => {
-    const isMine = m.from === me;
-    const dt     = new Date(m.createdAt);
+    // me 為空時（auth 還沒好）暫用 from 欄位無法判斷，先全顯示左邊待 auth 就緒後重繪
+    const isMine = me ? (m.from === me) : false;
+    const dt      = new Date(m.createdAt);
     const dateStr = `${dt.getFullYear()}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
     const timeStr = `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
-    const isRead  = m.readBy.length >= 2; // 兩人都讀了
+    const isRead  = m.readBy.length >= 2;
 
     let dateDivider = '';
     if (dateStr !== lastDate) {
@@ -934,20 +977,26 @@ function renderChatList() {
       </div>`;
     }
 
+    // 自己的訊息：點擊出現刪除選項
+    const deleteAttr = isMine
+      ? `onclick="chatBubbleTap('${m.id}')" style="cursor:pointer"`
+      : '';
+
     const bubble = isMine
-      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:6px">
-          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
-            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px">
-              ${isRead ? '已讀' : ''}<br>${timeStr}
+      ? `<div style="display:flex;flex-direction:column;align-items:flex-end;margin-bottom:8px">
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
+            <div style="font-size:.6rem;color:var(--t3);flex-shrink:0;padding-bottom:2px;text-align:right">
+              ${isRead ? '<span style="color:var(--p)">已讀</span>' : ''}<br>${timeStr}
             </div>
-            <div style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;position:relative">
+            <div ${deleteAttr}
+              style="background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border-radius:18px 18px 4px 18px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word;-webkit-tap-highlight-color:rgba(0,0,0,.1)">
               ${escHtml(m.text)}
             </div>
           </div>
         </div>`
-      : `<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:6px">
-          <div style="font-size:.65rem;color:var(--t3);margin-bottom:3px;margin-left:4px">${escHtml(m.from)}</div>
-          <div style="display:flex;align-items:flex-end;gap:6px;max-width:78%">
+      : `<div style="display:flex;flex-direction:column;align-items:flex-start;margin-bottom:8px">
+          <div style="font-size:.65rem;color:var(--t3);margin-bottom:3px;margin-left:14px">${escHtml(m.from)}</div>
+          <div style="display:flex;align-items:flex-end;gap:6px;max-width:82%">
             <div style="background:var(--card2);border:1px solid var(--border);color:var(--t);border-radius:18px 18px 18px 4px;padding:10px 14px;font-size:.88rem;line-height:1.55;word-break:break-word">
               ${escHtml(m.text)}
             </div>
@@ -955,16 +1004,50 @@ function renderChatList() {
           </div>
         </div>`;
 
-    return dateDivider + `<div id="cm-${m.id}" onlongpress="deleteChatPrompt('${m.id}')">${bubble}</div>`;
+    return dateDivider + `<div id="cm-${m.id}">${bubble}</div>`;
   }).join('');
 }
 
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;')
-    .replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;')
-    .replace(/\n/g,'<br>');
+// 點自己的氣泡 → 展開刪除確認（inline，不用 confirm）
+function chatBubbleTap(msgId) {
+  // 若已有展開的刪除列就關掉
+  const existing = document.getElementById('cm-del-' + msgId);
+  if (existing) { existing.remove(); return; }
+  // 關掉其他已展開的
+  document.querySelectorAll('[id^="cm-del-"]').forEach(el => el.remove());
+
+  const me  = _chatMe();
+  const msg = getChatMessages().find(m => m.id === msgId);
+  if (!msg || msg.from !== me) return;
+
+  const container = document.getElementById('cm-' + msgId);
+  if (!container) return;
+
+  const delRow = document.createElement('div');
+  delRow.id = 'cm-del-' + msgId;
+  delRow.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;margin:-4px 0 6px;padding-right:2px';
+  delRow.innerHTML = `
+    <button onclick="doChatDelete('${msgId}')"
+      style="font-size:.72rem;padding:5px 12px;background:#ef4444;color:#fff;border:none;border-radius:20px;cursor:pointer;font-family:inherit">
+      🗑️ 刪除這則
+    </button>
+    <button onclick="document.getElementById('cm-del-${msgId}')?.remove()"
+      style="font-size:.72rem;padding:5px 12px;background:var(--card2);color:var(--t3);border:1px solid var(--border);border-radius:20px;cursor:pointer;font-family:inherit">
+      取消
+    </button>`;
+  container.appendChild(delRow);
+}
+
+function doChatDelete(msgId) {
+  deleteChatMessage(msgId);
+  _chatLastSyncAt = Date.now();
+  fbSyncChatMessages();
+  renderChatList();
+  updateChatBadge();
+  setTimeout(() => {
+    const el = document.getElementById('chat-list');
+    if (el) el.scrollTop = el.scrollHeight;
+  }, 30);
 }
 
 async function sendChatMessage() {
@@ -972,11 +1055,14 @@ async function sendChatMessage() {
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
+  const me = _chatMe();
+  if (!me) { toast('登入資訊尚未就緒，請稍後再試', 'warn'); return; }
 
   input.value = '';
   input.style.height = 'auto';
 
-  const msg = addChatMessage(text);
+  addChatMessage(text);
+  _chatLastSyncAt = Date.now();
   await fbSyncChatMessages();
 
   renderChatList();
@@ -990,28 +1076,17 @@ async function sendChatMessage() {
 function showChatClearMenu() {
   const msgs = getChatMessages();
   if (!msgs.length) { toast('沒有訊息可以清除', 'info'); return; }
-  // 用 confirm 簡單詢問
-  if (confirm('要清除全部對話記錄嗎？此動作無法復原。')) {
-    clearAllChatMessages();
-    fbSyncChatMessages();
-    renderChatList();
-    updateChatBadge();
-    toast('對話記錄已清除', 'ok');
-  }
+  showModal('chat-clear-modal');
 }
 
-function deleteChatPrompt(msgId) {
-  const me   = currentUser();
-  const msgs = getChatMessages();
-  const msg  = msgs.find(m => m.id === msgId);
-  if (!msg) return;
-  if (msg.from !== me) { toast('只能刪除自己的訊息', 'info'); return; }
-  if (confirm('刪除這則訊息？')) {
-    deleteChatMessage(msgId);
-    fbSyncChatMessages();
-    renderChatList();
-    updateChatBadge();
-  }
+function doChatClearAll() {
+  clearAllChatMessages();
+  _chatLastSyncAt = Date.now();
+  fbSyncChatMessages();
+  closeModal('chat-clear-modal');
+  renderChatList();
+  updateChatBadge();
+  toast('對話記錄已全部清除', 'ok');
 }
 
 // ════════════════════════════════════════════════════
