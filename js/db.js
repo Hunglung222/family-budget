@@ -849,8 +849,9 @@ function calcTradeCost(t) {
   // 手續費：買賣各一次，取 max(金額×費率, 最低費)
   const buyFee   = entry && shares ? Math.max(Math.round(buyAmt * feeRate), minFee) : 0;
   const sellFee  = exit  && shares ? Math.max(Math.round(sellAmt * feeRate), minFee) : 0;
-  // 證交稅：賣出時課（放空為買回時，金額用成交額計，這裡以 sellAmt 計）
-  const tax      = exit && shares ? Math.round(sellAmt * taxRate) : 0;
+  // 證交稅：只課賣出端（做多賣在 exit，做空賣在 entry）；未平倉(exit=0)不課
+  const taxBase  = (t.direction === 'short' ? entry : exit) * shares;
+  const tax      = exit && entry && shares ? Math.round(taxBase * taxRate) : 0;
 
   const fees     = buyFee + sellFee;
   // 損益方向：做多 = (賣-買)；做空 = (買-賣)
