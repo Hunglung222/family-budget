@@ -284,6 +284,15 @@
     <!-- 紀律即時提示 -->
     <div id="tm-guard-tip" style="display:none;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.8rem;color:var(--danger);line-height:1.5"></div>
 
+    <!-- 記錄模式切換 -->
+    <div class="fg">
+      <div class="tg" style="gap:6px">
+        <button class="tb on" id="tm-mode-quick" onclick="setTradeMode('quick',this)" style="flex:1;padding:10px 0;font-size:.82rem;font-weight:700">⚡ 快速記錄</button>
+        <button class="tb"    id="tm-mode-full"  onclick="setTradeMode('full',this)"  style="flex:1;padding:10px 0;font-size:.82rem;font-weight:700">📋 完整記錄</button>
+      </div>
+      <div id="tm-mode-hint" style="font-size:.68rem;color:var(--t3);margin-top:6px">快速模式：只記必要資訊（剛進場用）。平倉或盤後覆盤可切完整。</div>
+    </div>
+
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div class="fg" style="margin-bottom:0">
         <span class="flbl">股票代號 *</span>
@@ -296,7 +305,7 @@
     </div>
     <div style="height:12px"></div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-type">
       <span class="flbl">交易類型</span>
       <div class="tg" style="gap:6px">
         <button class="tb on" id="tm-t-intraday" onclick="setTradeType('intraday',this)" style="flex:1;padding:9px 0;font-size:.8rem">當沖</button>
@@ -313,12 +322,12 @@
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px" id="tm-price-grid">
       <div class="fg" style="margin-bottom:0">
         <span class="flbl">進場價 *</span>
         <input type="number" class="fc" id="tm-entry" inputmode="decimal" step="any" oninput="calcLivePnl()">
       </div>
-      <div class="fg" style="margin-bottom:0">
+      <div class="fg" style="margin-bottom:0" id="tm-fg-exit">
         <span class="flbl">出場價</span>
         <input type="number" class="fc" id="tm-exit" inputmode="decimal" step="any" oninput="calcLivePnl()">
       </div>
@@ -332,7 +341,7 @@
     <!-- 即時損益試算 -->
     <div id="tm-pnl-preview" style="display:none;background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:.82rem;line-height:1.8"></div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-status">
       <span class="flbl">狀態</span>
       <div class="tg" style="gap:6px">
         <button class="tb on" id="tm-s-closed" onclick="setStatus('closed',this)" style="flex:1;padding:9px 0;font-size:.8rem">已平倉</button>
@@ -340,27 +349,27 @@
       </div>
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-date">
       <span class="flbl">📅 交易日期</span>
       <input type="date" class="fc" id="tm-date" style="color-scheme:dark">
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-pattern">
       <span class="flbl">型態標籤</span>
       <div style="display:flex;flex-wrap:wrap;gap:6px" id="tm-pattern-chips"></div>
     </div>
 
     <div class="fg">
       <span class="flbl">🛑 停損點（可略）</span>
-      <input type="number" class="fc" id="tm-stop" inputmode="decimal" step="any" placeholder="設定的停損價位">
+      <input type="number" class="fc" id="tm-stop" inputmode="decimal" step="any" placeholder="設定的停損價位" oninput="renderPreOrderCheck()">
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-reason">
       <span class="flbl">進場理由</span>
       <textarea class="fc" id="tm-reason" rows="2" placeholder="例：突破前波高點，成交量放大" style="resize:none"></textarea>
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-emo">
       <span class="flbl">下單當下情緒</span>
       <div style="display:flex;gap:5px" id="tm-emo-chips">
         <button class="emo-btn on" data-emo="calm"    onclick="setEmo('calm',this)">😌<br>冷靜</button>
@@ -371,7 +380,7 @@
       </div>
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-violation">
       <span class="flbl">違反紀律？</span>
       <div class="tg" style="gap:6px">
         <button class="tb on" id="tm-v-no"  onclick="setViolation(false,this)" style="flex:1;padding:9px 0;font-size:.8rem">✅ 守紀律</button>
@@ -383,7 +392,7 @@
       <input type="text" class="fc" id="tm-violation-note" placeholder="例：沒停損、凹單、追高" maxlength="40">
     </div>
 
-    <div class="fg">
+    <div class="fg" id="tm-fg-note">
       <span class="flbl">覆盤筆記（可略）</span>
       <textarea class="fc" id="tm-note" rows="2" placeholder="這筆交易的檢討與學到的事" style="resize:none"></textarea>
     </div>
@@ -403,6 +412,55 @@
     <div class="btn-row">
       <button class="btn btn-s" onclick="closeModal('trade-del-modal')">取消</button>
       <button class="btn btn-d" id="tdm-ok">確認刪除</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 平倉快捷 Modal ══ -->
+<div class="ov" id="close-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st">💰 平倉結算</div>
+    <div id="cm2-info" style="background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--t2);line-height:1.7"></div>
+
+    <div class="fg">
+      <span class="flbl">出場價 *</span>
+      <input type="number" class="fc" id="cm2-exit" inputmode="decimal" step="any" placeholder="實際成交出場價" oninput="calcClosePnl()">
+    </div>
+
+    <!-- 即時損益 -->
+    <div id="cm2-pnl" style="display:none;background:var(--card2);border-radius:10px;padding:12px;margin-bottom:14px;font-size:.82rem;line-height:1.8"></div>
+
+    <div class="fg">
+      <span class="flbl">出場原因</span>
+      <div style="display:flex;flex-wrap:wrap;gap:6px" id="cm2-reason-chips">
+        <button class="pill-sm on" data-r="達標" onclick="setCloseReason('達標',this)">🎯 達標停利</button>
+        <button class="pill-sm" data-r="停損" onclick="setCloseReason('停損',this)">🛑 觸發停損</button>
+        <button class="pill-sm" data-r="移動停利" onclick="setCloseReason('移動停利',this)">📈 移動停利</button>
+        <button class="pill-sm" data-r="盤勢轉弱" onclick="setCloseReason('盤勢轉弱',this)">📉 盤勢轉弱</button>
+        <button class="pill-sm" data-r="提早出場" onclick="setCloseReason('提早出場',this)">⏰ 提早出場</button>
+        <button class="pill-sm" data-r="其他" onclick="setCloseReason('其他',this)">其他</button>
+      </div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">出場當下情緒</span>
+      <div style="display:flex;gap:5px" id="cm2-emo-chips">
+        <button class="emo-btn on" data-emo="calm"    onclick="setCloseEmo('calm',this)">😌<br>冷靜</button>
+        <button class="emo-btn"    data-emo="excited" onclick="setCloseEmo('excited',this)">🤩<br>興奮</button>
+        <button class="emo-btn"    data-emo="fearful" onclick="setCloseEmo('fearful',this)">😰<br>恐慌</button>
+        <button class="emo-btn"    data-emo="greedy"  onclick="setCloseEmo('greedy',this)">🤑<br>貪婪</button>
+        <button class="emo-btn"    data-emo="fomo"    onclick="setCloseEmo('fomo',this)">😵<br>追高</button>
+      </div>
+    </div>
+
+    <div class="fg">
+      <span class="flbl">覆盤筆記（可略）</span>
+      <textarea class="fc" id="cm2-note" rows="2" placeholder="這筆學到什麼？" style="resize:none"></textarea>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeModal('close-modal')">取消</button>
+      <button class="btn btn-p" onclick="submitClose()">確認平倉</button>
     </div>
   </div>
 </div>
@@ -672,6 +730,7 @@ function tradeCardHTML(t) {
     ${t.note ? `<div style="font-size:.74rem;color:var(--t3);background:var(--card2);border-radius:8px;padding:8px 10px;margin-bottom:10px;line-height:1.5">📋 ${t.note}</div>` : ''}
 
     <div style="display:flex;gap:7px">
+      ${isOpen ? `<button onclick="quickClose('${t.id}')" style="flex:1;padding:8px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.78rem;font-weight:900;cursor:pointer;font-family:inherit">💰 平倉</button>` : ''}
       <button onclick="editTrade('${t.id}')" style="flex:1;padding:8px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">✏️ 編輯</button>
       <button onclick="confirmDelTrade('${t.id}')" style="padding:8px 14px;background:rgba(244,63,94,.1);color:var(--danger);border:1px solid rgba(244,63,94,.3);border-radius:var(--rs);font-size:.78rem;cursor:pointer;font-family:inherit">🗑️</button>
     </div>
@@ -727,8 +786,8 @@ function calcLivePnl() {
   const exit   = parseFloat(document.getElementById('tm-exit').value) || 0;
   const shares = parseInt(document.getElementById('tm-shares').value) || 0;
   const box = document.getElementById('tm-pnl-preview');
-  if (_selStatus === 'open' || !entry || !shares) { box.style.display = 'none'; return; }
-  if (!exit) { box.style.display = 'none'; return; }
+  if (_selStatus === 'open' || !entry || !shares) { box.style.display = 'none'; renderPreOrderCheck(); return; }
+  if (!exit) { box.style.display = 'none'; renderPreOrderCheck(); return; }
 
   const fake = { entryPrice:entry, exitPrice:exit, shares, type:_selType, direction:_selDir };
   const c = calcTradeCost(fake);
@@ -739,6 +798,7 @@ function calcLivePnl() {
     <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">手續費（買+賣）</span><span style="color:var(--t2)">-$${fmt(c.fees)}</span></div>
     <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">證交稅${_selType==='intraday'?'（當沖減半）':''}</span><span style="color:var(--t2)">-$${fmt(c.tax)}</span></div>
     <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:4px;padding-top:6px"><span style="font-weight:700;color:var(--t)">淨損益</span><span style="font-weight:900;color:${pc}">${c.netPnl>=0?'+':''}$${fmt(c.netPnl)}</span></div>`;
+  renderPreOrderCheck();
 }
 
 // 簡易股名自動帶入（常見標的）
@@ -757,7 +817,7 @@ function autofillName() {
 
 function showAddTrade() {
   _editTradeId = null;
-  _selType = 'intraday'; _selDir = 'long'; _selStatus = 'closed';
+  _selType = 'intraday'; _selDir = 'long'; _selStatus = 'open';
   _selPattern = 'breakout'; _selEmo = 'calm'; _selViolation = false;
   document.getElementById('tm-title').textContent = '📝 記一筆交易';
   document.getElementById('tm-ok').textContent = '儲存交易';
@@ -770,32 +830,123 @@ function showAddTrade() {
   // 重置按鈕狀態
   setTradeType('intraday', document.getElementById('tm-t-intraday'));
   setDir('long', document.getElementById('tm-d-long'));
-  setStatus('closed', document.getElementById('tm-s-closed'));
+  setStatus('open', document.getElementById('tm-s-open'));
   setEmo('calm', document.querySelector('#tm-emo-chips .emo-btn'));
   setViolation(false, document.getElementById('tm-v-no'));
   buildPatternChips();
+  // 預設快速模式
+  setTradeMode('quick', document.getElementById('tm-mode-quick'));
   // 顯示今日紀律提示
   showGuardTip();
   showModal('trade-modal');
 }
 
+// 記錄模式：quick（只顯示必要）/ full（全部展開）
+let _tradeMode = 'quick';
+const TM_ADVANCED_IDS = ['tm-fg-type','tm-fg-status','tm-fg-date','tm-fg-pattern','tm-fg-reason','tm-fg-emo','tm-fg-violation','tm-fg-note'];
+function setTradeMode(mode, el) {
+  _tradeMode = mode;
+  ['tm-mode-quick','tm-mode-full'].forEach(id => document.getElementById(id)?.classList.remove('on'));
+  if (el) el.classList.add('on');
+
+  const isQuick = mode === 'quick';
+  // 進階欄位顯示/隱藏
+  TM_ADVANCED_IDS.forEach(id => {
+    const fg = document.getElementById(id);
+    if (fg) fg.style.display = isQuick ? 'none' : '';
+  });
+  // 違紀備註附屬欄位：快速模式一律隱藏
+  if (isQuick) document.getElementById('tm-violation-note-fg').style.display = 'none';
+  else if (_selViolation) document.getElementById('tm-violation-note-fg').style.display = 'block';
+
+  // 出場價：快速模式隱藏（持倉中不需要），價格列改 2 欄
+  const exitFg = document.getElementById('tm-fg-exit');
+  const grid   = document.getElementById('tm-price-grid');
+  if (exitFg && grid) {
+    exitFg.style.display = isQuick ? 'none' : '';
+    grid.style.gridTemplateColumns = isQuick ? '1fr 1fr' : '1fr 1fr 1fr';
+  }
+  // 模式提示
+  const hint = document.getElementById('tm-mode-hint');
+  if (hint) hint.textContent = isQuick
+    ? '快速模式：只記必要資訊（剛進場用）。平倉或盤後覆盤可切完整。'
+    : '完整模式：可補出場價、型態、情緒、違紀與覆盤筆記。';
+}
+
 function showGuardTip() {
+  renderPreOrderCheck();
+}
+
+// 下單前檢查清單：依即時表單值 + 今日紀律狀態評估，回傳綠/黃/紅燈
+function renderPreOrderCheck() {
   const tip = document.getElementById('tm-guard-tip');
+  if (!tip) return;
+  // 編輯模式不顯示檢查清單
+  if (_editTradeId) { tip.style.display = 'none'; return; }
+
   const rules = getTradeRules();
   const stats = getTodayTradeStats();
-  const msgs = [];
-  if (stats.netSum <= -Math.abs(rules.maxDailyLoss) && rules.maxDailyLoss > 0)
-    msgs.push(`今日已虧 $${fmt(Math.abs(Math.round(stats.netSum)))}，達單日上限`);
-  if (stats.currentConsecutiveLoss >= rules.maxConsecutiveLoss && rules.maxConsecutiveLoss > 0)
-    msgs.push(`已連虧 ${stats.currentConsecutiveLoss} 筆`);
-  if (stats.count >= rules.maxTradesPerDay && rules.maxTradesPerDay > 0)
-    msgs.push(`今日已 ${stats.count} 筆，過度交易`);
-  if (msgs.length) {
-    tip.style.display = 'block';
-    tip.innerHTML = `🚨 <b>下單前想清楚：</b><br>${msgs.join('<br>')}<br>現在還要進場嗎？`;
-  } else {
-    tip.style.display = 'none';
+  const entry = parseFloat(document.getElementById('tm-entry')?.value) || 0;
+  const stop  = parseFloat(document.getElementById('tm-stop')?.value) || 0;
+  const shares= parseInt(document.getElementById('tm-shares')?.value) || 0;
+  const posSize = entry * shares;
+
+  const items = [];  // {level:'ok'|'warn'|'danger', text}
+
+  // 1. 停損
+  if (stop > 0) items.push({level:'ok', text:'已設定停損價'});
+  else items.push({level:'warn', text:'尚未設定停損 — 進場前先想好出場'});
+
+  // 2. 今日虧損上限
+  if (rules.maxDailyLoss > 0 && stats.netSum <= -Math.abs(rules.maxDailyLoss))
+    items.push({level:'danger', text:`今日已虧 $${fmt(Math.abs(Math.round(stats.netSum)))}，達單日上限`});
+
+  // 3. 連虧
+  if (rules.maxConsecutiveLoss > 0 && stats.currentConsecutiveLoss >= rules.maxConsecutiveLoss)
+    items.push({level:'danger', text:`已連虧 ${stats.currentConsecutiveLoss} 筆，建議停手`});
+
+  // 4. 交易次數
+  if (rules.maxTradesPerDay > 0 && stats.count >= rules.maxTradesPerDay)
+    items.push({level:'warn', text:`今日已 ${stats.count} 筆，注意過度交易`});
+
+  // 5. 部位上限
+  if (rules.maxPositionSize > 0 && posSize > 0 && posSize > rules.maxPositionSize)
+    items.push({level:'warn', text:`部位 $${fmt(Math.round(posSize))} 超過單筆上限 $${fmt(rules.maxPositionSize)}`});
+
+  // 6. 風險佔比（若有停損，估算單筆風險）
+  if (stop > 0 && entry > 0 && shares > 0) {
+    const priceRisk = _selDir === 'long' ? entry - stop : stop - entry;
+    if (priceRisk > 0) {
+      const riskAmt = priceRisk * shares;
+      items.push({level:'ok', text:`本筆最大風險約 $${fmt(Math.round(riskAmt))}`});
+    } else {
+      items.push({level:'warn', text:'停損方向不對（多單停損應低於進場）'});
+    }
   }
+
+  // 綜合燈號
+  const hasDanger = items.some(i => i.level === 'danger');
+  const hasWarn   = items.some(i => i.level === 'warn');
+  const light = hasDanger ? 'danger' : hasWarn ? 'warn' : 'ok';
+  const lightCfg = {
+    ok:     {bg:'rgba(34,197,94,.08)', border:'rgba(34,197,94,.3)',  color:'#22c55e', icon:'🟢', title:'可以執行'},
+    warn:   {bg:'rgba(251,191,36,.08)',border:'rgba(251,191,36,.3)', color:'var(--warn)', icon:'🟡', title:'需要確認'},
+    danger: {bg:'rgba(244,63,94,.1)',  border:'rgba(244,63,94,.35)', color:'var(--danger)', icon:'🔴', title:'不建議交易'},
+  }[light];
+
+  const iconOf = {ok:'✅', warn:'⚠️', danger:'⛔'};
+  tip.style.display = 'block';
+  tip.style.background = lightCfg.bg;
+  tip.style.borderColor = lightCfg.border;
+  tip.style.color = 'var(--t2)';
+  tip.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:1.1rem">${lightCfg.icon}</span>
+      <span style="font-weight:900;color:${lightCfg.color};font-size:.86rem">下單前檢查：${lightCfg.title}</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      ${items.map(i => `<div style="font-size:.76rem;color:${i.level==='danger'?'var(--danger)':i.level==='warn'?'var(--warn)':'var(--t2)'};line-height:1.4">${iconOf[i.level]} ${i.text}</div>`).join('')}
+    </div>`;
 }
 
 function editTrade(id) {
@@ -823,6 +974,8 @@ function editTrade(id) {
   setViolation(_selViolation, document.getElementById(_selViolation?'tm-v-yes':'tm-v-no'));
   buildPatternChips();
   document.getElementById('tm-guard-tip').style.display = 'none';
+  // 編輯一律用完整模式，才看得到所有欄位
+  setTradeMode('full', document.getElementById('tm-mode-full'));
   calcLivePnl();
   showModal('trade-modal');
 }
@@ -885,6 +1038,84 @@ function confirmDelTrade(id) {
     renderJournal(); renderGuardBanner();
     toast('已刪除', 'err');
   };
+}
+
+// ══ 平倉快捷 ══════════════════════════════════════════
+let _closeTradeId = null;
+let _closeReason  = '達標';
+let _closeEmo     = 'calm';
+
+function quickClose(id) {
+  const t = getTrades().find(x => x.id === id);
+  if (!t) return;
+  _closeTradeId = id;
+  _closeReason  = '達標';
+  _closeEmo     = 'calm';
+  const dirTxt = t.direction === 'short' ? '做空' : '做多';
+  document.getElementById('cm2-info').innerHTML =
+    `<div style="font-weight:900;color:var(--t);font-size:.95rem;margin-bottom:4px">${t.ticker}${t.name?' '+t.name:''}</div>
+     進場 $${t.entryPrice} · ${t.shares} 股 · ${dirTxt}${t.stopLoss?` · 🛑 $${t.stopLoss}`:''}`;
+  document.getElementById('cm2-exit').value = '';
+  document.getElementById('cm2-note').value = '';
+  document.getElementById('cm2-pnl').style.display = 'none';
+  // 重置選項
+  document.querySelectorAll('#cm2-reason-chips .pill-sm').forEach((b,i)=>b.classList.toggle('on', i===0));
+  document.querySelectorAll('#cm2-emo-chips .emo-btn').forEach((b)=>b.classList.toggle('on', b.dataset.emo==='calm'));
+  showModal('close-modal');
+  setTimeout(() => document.getElementById('cm2-exit')?.focus(), 80);
+}
+
+function setCloseReason(r, el) {
+  _closeReason = r;
+  document.querySelectorAll('#cm2-reason-chips .pill-sm').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+function setCloseEmo(e, el) {
+  _closeEmo = e;
+  document.querySelectorAll('#cm2-emo-chips .emo-btn').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function calcClosePnl() {
+  const t = getTrades().find(x => x.id === _closeTradeId);
+  const exit = parseFloat(document.getElementById('cm2-exit').value) || 0;
+  const box = document.getElementById('cm2-pnl');
+  if (!t || !exit) { box.style.display = 'none'; return; }
+  const fake = { entryPrice:t.entryPrice, exitPrice:exit, shares:t.shares, type:t.type, direction:t.direction };
+  const c = calcTradeCost(fake);
+  const pc = c.netPnl > 0 ? '#22c55e' : c.netPnl < 0 ? '#ef4444' : 'var(--t3)';
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">毛損益</span><span style="color:${c.grossPnl>=0?'#22c55e':'#ef4444'};font-weight:700">${c.grossPnl>=0?'+':''}$${fmt(c.grossPnl)}</span></div>
+    <div style="display:flex;justify-content:space-between"><span style="color:var(--t3)">手續費＋稅</span><span style="color:var(--t2)">-$${fmt(c.fees + c.tax)}</span></div>
+    <div style="display:flex;justify-content:space-between;border-top:1px solid var(--border);margin-top:4px;padding-top:6px"><span style="font-weight:700;color:var(--t)">淨損益</span><span style="font-weight:900;color:${pc}">${c.netPnl>=0?'+':''}$${fmt(c.netPnl)}</span></div>`;
+}
+
+function submitClose() {
+  const t = getTrades().find(x => x.id === _closeTradeId);
+  if (!t) { closeModal('close-modal'); return; }
+  const exit = parseFloat(document.getElementById('cm2-exit').value) || 0;
+  if (!exit) { toast('請輸入出場價', 'warn'); return; }
+  const note = document.getElementById('cm2-note').value.trim();
+  // 組合出場原因到筆記（保留原筆記）
+  const reasonTag = `出場原因：${_closeReason}`;
+  const newNote = [t.note, reasonTag, note].filter(Boolean).join('｜');
+
+  const updated = {
+    ...t,
+    exitPrice: exit,
+    status:    'closed',
+    emotion:   _closeEmo,
+    note:      newNote,
+    updatedAt: Date.now(),
+  };
+  updateTrade(_closeTradeId, updated);
+  fbSyncTrades();
+  closeModal('close-modal');
+  renderJournal();
+  renderGuardBanner();
+  const c = calcTradeCost(updated);
+  toast(`已平倉，淨損益 ${c.netPnl>=0?'+':''}$${fmt(c.netPnl)} ${c.netPnl>=0?'✅':'💧'}`);
 }
 
 // ══ 覆盤分析 ══════════════════════════════════════════
@@ -1452,6 +1683,44 @@ function setWklInterval(interval) {
 
 // ══ 計算機功能 ════════════════════════════════════════
 let _calcDir = 'long';
+let _lastCalc = null;
+
+// 把計算機結果帶入新增交易表單
+function calcToTrade() {
+  if (!_lastCalc || !_lastCalc.shares) { toast('請先完成試算', 'warn'); return; }
+  const c = _lastCalc;
+  // 切到日誌分頁並開啟新增交易
+  showAddTrade();
+  // 帶入欄位（showAddTrade 已重置表單，這裡覆寫）
+  document.getElementById('tm-entry').value  = c.entry || '';
+  document.getElementById('tm-shares').value = c.shares || '';
+  document.getElementById('tm-stop').value   = c.stop || '';
+  // 方向
+  setDir(c.dir, document.getElementById('tm-d-' + c.dir));
+  // 進場理由帶入試算摘要
+  const rr = c.pnlRatio ? `，盈虧比 1:${c.pnlRatio.toFixed(2)}` : '';
+  document.getElementById('tm-reason').value = `部位試算：風險 $${fmt(Math.round(c.actualRisk))}${rr}`;
+  // 預設為持倉中（剛進場）
+  setStatus('open', document.getElementById('tm-s-open'));
+  calcLivePnl();
+  toast('已帶入試算結果，補上代號即可記錄 📝', 'ok');
+}
+
+// 複製下單資訊到剪貼簿
+function copyCalcInfo() {
+  if (!_lastCalc || !_lastCalc.shares) { toast('請先完成試算', 'warn'); return; }
+  const c = _lastCalc;
+  const lots = Math.floor(c.shares / 1000);
+  const txt = `【部位試算】\n方向：${c.dir==='long'?'做多':'做空'}\n進場：$${c.entry}\n停損：$${c.stop}\n股數：${fmt(c.shares)} 股（${lots} 張）\n部位：$${fmt(Math.round(c.posValue))}\n最大風險：$${fmt(Math.round(c.actualRisk))}`;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(txt).then(
+      () => toast('已複製下單資訊 📋', 'ok'),
+      () => toast('複製失敗', 'warn')
+    );
+  } else {
+    toast('此裝置不支援複製', 'warn');
+  }
+}
 
 function setCalcDir(dir, el) {
   _calcDir = dir;
@@ -1488,6 +1757,9 @@ function calcPosition() {
   const rules = getTradeRules();
   const overLimit = rules.maxPositionSize > 0 && posValue > rules.maxPositionSize;
 
+  // 暫存最後一次計算結果，供「帶入交易」使用
+  _lastCalc = { dir: _calcDir, entry, stop, target, shares, posValue, actualRisk, pnlRatio };
+
   resultEl.style.display = 'block';
   resultEl.className = 't-card';
   resultEl.innerHTML = `
@@ -1510,6 +1782,10 @@ function calcPosition() {
         </span>
       </div>
     </div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <button onclick="calcToTrade()" style="flex:1;padding:11px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.82rem;font-weight:900;cursor:pointer;font-family:inherit">📝 帶入新增交易</button>
+      <button onclick="copyCalcInfo()" style="padding:11px 14px;background:var(--card2);color:var(--t2);border:1px solid var(--border);border-radius:var(--rs);font-size:.8rem;cursor:pointer;font-family:inherit">📋 複製</button>
+    </div>
   `;
 }
 

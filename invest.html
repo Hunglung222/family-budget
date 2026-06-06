@@ -99,6 +99,18 @@
     </div>
   </div>
 
+  <!-- 含息總報酬（含已領配息）-->
+  <div id="sv-total-return-row" style="display:none;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:12px;padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <span style="font-size:.72rem;color:var(--t3)">🍀 含息總報酬（已領配息計入）</span>
+      <span style="font-size:.66rem;color:var(--t3)" id="sv-div-detail"></span>
+    </div>
+    <div style="text-align:right">
+      <div id="sv-total-return" style="font-size:1.05rem;font-weight:900">$0</div>
+      <div id="sv-total-pct" style="font-size:.72rem;font-weight:700">0.00%</div>
+    </div>
+  </div>
+
   <!-- 資產配置圓餅圖 -->
   <div id="chart-sec" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:16px">
     <div style="font-size:.82rem;font-weight:700;color:var(--t2);margin-bottom:12px">📊 資產配置</div>
@@ -531,6 +543,7 @@ function render() {
 function renderSummary(list) {
   const cost = list.reduce((s, i) => s + (i.costAmt || 0), 0);
   const cur  = list.reduce((s, i) => s + (i.currentAmt ?? i.costAmt ?? 0), 0);
+  const div  = list.reduce((s, i) => s + (i.dividends || []).reduce((d, x) => d + (x.amount || 0), 0), 0);
   const pnl  = cur - cost;
   const pct  = cost ? (pnl / cost * 100) : 0;
   const pnlColor = pnl > 0 ? '#22c55e' : pnl < 0 ? '#ef4444' : 'var(--t3)';
@@ -545,6 +558,28 @@ function renderSummary(list) {
   const pctEl = document.getElementById('sv-pct');
   pctEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
   pctEl.style.color = pnlColor;
+
+  // 含息總報酬 = 未實現損益 + 已領配息
+  const totalReturn = pnl + div;
+  const totalPct    = cost ? (totalReturn / cost * 100) : 0;
+  const trColor     = totalReturn > 0 ? '#22c55e' : totalReturn < 0 ? '#ef4444' : 'var(--t3)';
+  const row = document.getElementById('sv-total-return-row');
+  if (row) {
+    // 只有在有配息時才特別顯示（否則含息=未實現，無額外資訊）
+    if (div > 0) {
+      row.style.display = 'flex';
+      const trEl  = document.getElementById('sv-total-return');
+      const tpEl  = document.getElementById('sv-total-pct');
+      const dtEl  = document.getElementById('sv-div-detail');
+      trEl.textContent = (totalReturn >= 0 ? '+$' : '-$') + fmt(Math.abs(Math.round(totalReturn)));
+      trEl.style.color = trColor;
+      tpEl.textContent = (totalPct >= 0 ? '+' : '') + totalPct.toFixed(2) + '%';
+      tpEl.style.color = trColor;
+      dtEl.textContent = `未實現 ${pnl>=0?'+':'-'}$${fmt(Math.abs(Math.round(pnl)))} + 配息 +$${fmt(Math.round(div))}`;
+    } else {
+      row.style.display = 'none';
+    }
+  }
 }
 
 // ── 圓餅圖 ────────────────────────────────────────────
@@ -748,7 +783,7 @@ function saveDividend() {
   if (typeof fbSyncInvestments === 'function') fbSyncInvestments();
   toast(`✅ 配息 $${fmt(amount)} 已記錄`);
   closeModal('dividend-modal');
-  renderPortfolio();
+  render();
 }
 
 // ── 新增 / 編輯 ───────────────────────────────────────
@@ -1469,7 +1504,7 @@ async function askYu(text) {
     const data  = await res.json();
     const reply = (data.content?.[0]?.text || '老余暫時說不出話…').trim();
     // Discord AI 對話記錄（宏龍專屬）
-    if (typeof discordAiLog === 'function') discordAiLog('老余 AI 投資顧問', input, reply);
+    if (typeof discordAiLog === 'function') discordAiLog('老余 AI 投資顧問', text, reply);
     appendYuBubble('yu', reply);
     _yuHistory.push({ role: 'assistant', content: reply });
 
