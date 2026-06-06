@@ -389,6 +389,8 @@
       <button onclick="closeModal('kline-modal')"
         style="width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:.9rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
+    <!-- TradingView 專屬控制（美股/加密才顯示）-->
+    <div id="kl-tv-controls">
     <!-- K 線週期選擇 -->
     <div style="display:flex;gap:6px;margin-bottom:12px">
       <button class="pill-sm" id="kl-tab-5"  onclick="setKlineInterval('5')" >分K（5分）</button>
@@ -408,6 +410,7 @@
         <div id="kl-ind-chips" style="display:flex;gap:5px;width:max-content"></div>
       </div>
     </div>
+    </div>
     <!-- 圖表區 -->
     <div style="flex:1;position:relative;min-height:0;border-radius:10px;overflow:hidden;background:var(--card)">
       <div id="kl-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);font-size:.82rem;z-index:1">
@@ -419,6 +422,20 @@
         <div style="font-size:.85rem;font-weight:700;color:var(--t2)">此投資類型無 K 線圖</div>
         <div style="font-size:.76rem;line-height:1.6">定存、基金、不動產等非交易所標的<br>無法透過 TradingView 顯示 K 線</div>
       </div>
+      <!-- 台股：玩股網深連結卡片 -->
+      <div id="kl-wantgoo" style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:24px">
+        <div style="font-size:2.4rem">📈</div>
+        <div style="font-size:.92rem;font-weight:900;color:var(--t)" id="kl-wg-name"></div>
+        <div style="font-size:.78rem;color:var(--t2);line-height:1.7;max-width:300px">
+          台股完整 K 線（含 MA／KD／MACD／籌碼／法人）<br>請在玩股網查看 — 資料正確、免費好用
+        </div>
+        <button onclick="openWantGoo()" style="margin-top:4px;padding:13px 26px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:50px;font-size:.92rem;font-weight:900;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:8px">
+          📊 在玩股網開啟 K 線圖
+        </button>
+        <div style="font-size:.68rem;color:var(--t3);line-height:1.6;max-width:280px">
+          台股資料授權限制，無法直接內嵌於 App，<br>點按上方按鈕在玩股網開啟正確圖表
+        </div>
+      </div>
       <iframe id="kline-iframe"
         style="width:100%;height:100%;border:none;display:none"
         allow="fullscreen"
@@ -427,7 +444,7 @@
     </div>
     <!-- 說明 -->
     <div style="font-size:.68rem;color:var(--t3);text-align:center;padding:8px 0 2px;line-height:1.5">
-      圖表資料來源：TradingView　·　台股格式 <code style="background:var(--card2);padding:1px 5px;border-radius:3px;font-size:.68rem">TWSE:2330</code>　上櫃 <code style="background:var(--card2);padding:1px 5px;border-radius:3px;font-size:.68rem">TPEX:代號</code>
+      台股 K 線開玩股網（資料正確、免費）　·　美股／加密貨幣使用 TradingView 內嵌
     </div>
   </div>
 </div>
@@ -979,6 +996,19 @@ function buildTVSymbol(inv) {
   return 'TWSE:' + rawTicker;  // 台股/ETF 預設上市
 }
 
+// 台股代號擷取（給玩股網用，只要數字股號）
+let _wgCode = '';
+function isTWStock(type) { return type === 'stock' || type === 'etf'; }
+function extractTWCode(inv) {
+  const raw = (inv.ticker || inv.name || '').trim();
+  const m = raw.match(/(\d{4,6}[A-Za-z]?)/);  // 4-6 位數字，可含字母如 00878B
+  return m ? m[1] : '';
+}
+function openWantGoo() {
+  if (!_wgCode) { toast('找不到股號，請確認名稱含代號（例：2330）', 'warn'); return; }
+  window.open('https://www.wantgoo.com/stock/' + _wgCode + '/technical-chart', '_blank');
+}
+
 // 開啟 K 線 Modal
 function openKlineModal(invId) {
   const inv = getInvestments().find(i => i.id === invId);
@@ -989,20 +1019,39 @@ function openKlineModal(invId) {
   const unsup    = document.getElementById('kl-unsupported');
   const iframe   = document.getElementById('kline-iframe');
   const loading  = document.getElementById('kl-loading');
+  const wantgoo  = document.getElementById('kl-wantgoo');
+  const tvCtrl   = document.getElementById('kl-tv-controls');
 
   if (nameEl)   nameEl.textContent   = inv.name + (inv.fullName ? '（' + inv.fullName + '）' : '');
 
-  // 判斷是否支援 K 線
+  // 先全部隱藏，依類型開啟對應面板
+  if (unsup)   unsup.style.display   = 'none';
+  if (wantgoo) wantgoo.style.display = 'none';
+  if (iframe)  iframe.style.display  = 'none';
+  if (loading) loading.style.display = 'none';
+  if (tvCtrl)  tvCtrl.style.display  = 'none';
+
+  // ① 不支援 K 線的類型（定存/基金/不動產/其他）
   if (!KL_CHART_TYPES.has(inv.type || 'stock')) {
-    if (symbolEl)  symbolEl.textContent = '';
-    if (unsup)     unsup.style.display  = 'flex';
-    if (iframe)    iframe.style.display = 'none';
-    if (loading)   loading.style.display= 'none';
+    if (symbolEl) symbolEl.textContent = '';
+    if (unsup)    unsup.style.display  = 'flex';
     showModal('kline-modal');
     return;
   }
 
-  if (unsup) unsup.style.display = 'none';
+  // ② 台股（上市/上櫃股票、ETF）→ 玩股網深連結
+  if (isTWStock(inv.type)) {
+    _wgCode = extractTWCode(inv);
+    if (symbolEl) symbolEl.textContent = _wgCode ? '玩股網 · ' + _wgCode : '玩股網';
+    document.getElementById('kl-wg-name').textContent =
+      inv.name + (inv.fullName ? '（' + inv.fullName + '）' : '');
+    if (wantgoo) wantgoo.style.display = 'flex';
+    showModal('kline-modal');
+    return;
+  }
+
+  // ③ 美股 / 加密貨幣 → TradingView 內嵌
+  if (tvCtrl) tvCtrl.style.display = 'block';
 
   _klSymbol   = buildTVSymbol(inv);
   _klInterval = 'D';

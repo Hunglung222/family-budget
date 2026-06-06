@@ -512,34 +512,22 @@
       <button onclick="closeModal('watch-kline-modal')"
         style="width:30px;height:30px;border-radius:50%;background:var(--card2);border:1px solid var(--border);color:var(--t2);font-size:.9rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <!-- 週期 -->
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="pill-sm" id="wkl-tab-5"  onclick="setWklInterval('5')" >分K（5分）</button>
-      <button class="pill-sm" id="wkl-tab-60" onclick="setWklInterval('60')">時K</button>
-      <button class="pill-sm on" id="wkl-tab-D" onclick="setWklInterval('D')" >日K</button>
-      <button class="pill-sm" id="wkl-tab-W"  onclick="setWklInterval('W')" >週K</button>
-      <button class="pill-sm" id="wkl-tab-M"  onclick="setWklInterval('M')" >月K</button>
-    </div>
-    <!-- 技術指標 -->
-    <div style="margin-bottom:8px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:.72rem;color:var(--t3);font-weight:700">📊 技術指標 <span id="wkl-ind-count" style="color:var(--p)"></span></span>
-        <button onclick="resetWklIndicators()" style="padding:3px 10px;background:var(--card2);color:var(--t3);border:1px solid var(--border);border-radius:50px;font-size:.7rem;cursor:pointer;font-family:inherit">重置</button>
+    <!-- 玩股網深連結卡片（台股）-->
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px">
+      <div style="font-size:2.4rem">📈</div>
+      <div style="font-size:.92rem;font-weight:900;color:var(--t)" id="wkl-wg-name"></div>
+      <div style="font-size:.78rem;color:var(--t2);line-height:1.7;max-width:300px">
+        台股完整 K 線（含 MA／KD／MACD／籌碼／法人）<br>請在玩股網查看 — 資料正確、免費好用
       </div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:3px">
-        <div id="wkl-ind-chips" style="display:flex;gap:5px;width:max-content"></div>
+      <button onclick="openWatchWantGoo()" style="margin-top:4px;padding:13px 26px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:50px;font-size:.92rem;font-weight:900;cursor:pointer;font-family:inherit">
+        📊 在玩股網開啟 K 線圖
+      </button>
+      <div style="font-size:.68rem;color:var(--t3);line-height:1.6;max-width:280px">
+        台股資料授權限制，無法直接內嵌於 App，<br>點按上方按鈕在玩股網開啟正確圖表
       </div>
-    </div>
-    <!-- 圖表 -->
-    <div style="flex:1;position:relative;min-height:0;border-radius:10px;overflow:hidden;background:var(--card)">
-      <div id="wkl-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--t3);font-size:.82rem;z-index:1">
-        <div style="font-size:1.5rem">📊</div><div>圖表載入中…</div>
-      </div>
-      <iframe id="wkl-iframe" style="width:100%;height:100%;border:none;display:none" allow="fullscreen"
-        onload="document.getElementById('wkl-loading').style.display='none';this.style.display='block'"></iframe>
     </div>
     <div style="font-size:.68rem;color:var(--t3);text-align:center;padding:8px 0 2px">
-      圖表資料來源：TradingView
+      台股 K 線開玩股網 · 資料正確、免費好用
     </div>
   </div>
 </div>
@@ -1583,27 +1571,23 @@ function buildWatchTVSymbol(ticker, market) {
   return 'TWSE:' + t;
 }
 
-// 開啟 K 線 Modal
+// 開啟 K 線 Modal（關注清單皆為台股 → 玩股網）
+let _wklCode = '';
 function openWatchKline(ticker, name, market) {
-  _wklSymbol   = buildWatchTVSymbol(ticker, market);
-  _wklInterval = 'D';
-  _wklStudies.clear();
-
+  _wklCode = ((ticker || '').match(/(\d{4,6}[A-Za-z]?)/) || [])[1] || (ticker || '').trim();
+  const title = ticker + (name ? ' ' + name : '');
   const nameEl   = document.getElementById('wkl-name');
   const symbolEl = document.getElementById('wkl-symbol');
-  if (nameEl)   nameEl.textContent   = ticker + (name ? ' ' + name : '');
-  if (symbolEl) symbolEl.textContent = 'TradingView · ' + _wklSymbol;
-
-  buildWklChips();
-  const countEl = document.getElementById('wkl-ind-count');
-  if (countEl) countEl.textContent = '';
-
-  // 重置週期 tab
-  ['5','60','D','W','M'].forEach(k => document.getElementById('wkl-tab-' + k)?.classList.remove('on'));
-  document.getElementById('wkl-tab-D')?.classList.add('on');
-
-  setWklInterval('D');
+  const wgNameEl = document.getElementById('wkl-wg-name');
+  if (nameEl)   nameEl.textContent   = title;
+  if (symbolEl) symbolEl.textContent = _wklCode ? '玩股網 · ' + _wklCode : '玩股網';
+  if (wgNameEl) wgNameEl.textContent = title;
   showModal('watch-kline-modal');
+}
+
+function openWatchWantGoo() {
+  if (!_wklCode) { toast('找不到股號', 'warn'); return; }
+  window.open('https://www.wantgoo.com/stock/' + _wklCode + '/technical-chart', '_blank');
 }
 
 // 建立指標 chips
