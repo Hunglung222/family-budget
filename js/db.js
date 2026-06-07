@@ -244,7 +244,11 @@ function cardPayBill(billId, fromType, fromId) {
   const bills = getCardBills();
   const bill  = bills.find(b => b.id === billId); if (!bill) return;
   if (fromType === 'wallet') walOut(bill.total, `信用卡繳費 ${bill.month}月帳單`);
-  if (fromType === 'acct')   acctOut(fromId, bill.total, `信用卡繳費 ${bill.month}月帳單`, false);
+  if (fromType === 'acct') {
+    const isShared = fromId.startsWith('shared_');
+    acctOut(isShared ? fromId.replace('shared_','') : fromId,
+            bill.total, `信用卡繳費 ${bill.month}月帳單`, isShared);
+  }
   bill.paid = true; bill.paidAt = new Date().toISOString();
   DB.set(pKey('bills'), bills);
 }
@@ -668,7 +672,7 @@ function calcNetWorth() {
   // 投資市值（currentAmt 由用戶手動更新）
   const investTotal = getInvestments().reduce((s,i) => s + (i.currentAmt || i.costAmt || 0), 0);
   // 分期未繳餘額
-  const instDebt    = getInstallments().filter(i => i.status !== 'completed').reduce((inst, i) => {
+  const instDebt    = getInstallments().filter(i => i.status !== 'completed' && i.status !== 'cancelled').reduce((inst, i) => {
     const paid = (i.paidMonths || []).length;
     const months = i.months || i.totalMonths || 0;
     return inst + Math.max(0, months - paid) * (i.monthlyAmt || 0);
