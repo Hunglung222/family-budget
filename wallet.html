@@ -163,7 +163,14 @@
         <button class="acct-btn out" onclick="showModal('walout-modal')">➕ 手動調整</button>
       </div>
     </div>
-    <div class="sec-t">📋 現金記錄</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
+      <div class="sec-t" style="margin:0">📋 現金記錄</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="walPrevMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;font-size:.9rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">‹</button>
+        <div id="wal-ym-nav" style="font-size:.82rem;font-weight:700;color:var(--t);min-width:80px;text-align:center"></div>
+        <button onclick="walNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;font-size:.9rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
+      </div>
+    </div>
     <div class="data-card" style="padding:14px 16px" id="wal-hist"></div>
     <div style="height:120px"></div>
   </div>
@@ -196,7 +203,14 @@
       <button class="acct-btn xfer" onclick="showModal('add-card-modal')">＋ 新增</button>
     </div>
     <div id="card-list-full"></div>
-    <div class="sec-t">📋 帳單記錄</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:14px 0 8px">
+      <div class="sec-t" style="margin:0">📋 帳單記錄</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button onclick="billsPrevMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;font-size:.9rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">‹</button>
+        <div id="bills-ym-nav" style="font-size:.82rem;font-weight:700;color:var(--t);min-width:80px;text-align:center"></div>
+        <button onclick="billsNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:28px;height:28px;font-size:.9rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
+      </div>
+    </div>
     <div id="all-bills"></div>
     <!-- 分期付款總覽 -->
     <div id="installment-section" style="display:none">
@@ -571,7 +585,9 @@ function fmtDT(ts) {
 let pickedColor='#1d4ed8', pickedEditColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
 let payFromType='wallet', payBillId='';
-let acctYM = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
+let acctYM  = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
+let walYM   = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
+let billsYM = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
 let walAdjType='in';
 
 function init() {
@@ -747,10 +763,22 @@ function delGoalConfirm(id) {
 function renderWallet() {
   const w = getWal();
   document.getElementById('wal-bal').textContent = fmt(w.balance);
-  if (w.history.length) document.getElementById('wal-upd').textContent = '更新：'+fmtDT(w.history[0].time);
+  renderWalNav();
   const h = document.getElementById('wal-hist');
-  if (!w.history.length) { h.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無記錄</div>'; return; }
-  h.innerHTML = w.history.slice(0,20).map(e=>`
+  const mHist = (w.history||[]).filter(e=>(e.time||'').startsWith(walYM));
+  if (!mHist.length) {
+    h.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">本月無記錄</div>';
+    return;
+  }
+  const mIn  = mHist.filter(e=>e.type==='in' ).reduce((s,e)=>s+e.amount,0);
+  const mOut = mHist.filter(e=>e.type==='out').reduce((s,e)=>s+e.amount,0);
+  h.innerHTML =
+    `<div style="display:flex;gap:10px;margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:.78rem">
+      <span style="color:var(--p)">↑ $${fmt(mIn)}</span>
+      <span style="color:#ff6b82">↓ $${fmt(mOut)}</span>
+      <span style="flex:1;text-align:right;color:var(--t3)">${mHist.length} 筆</span>
+    </div>` +
+    mHist.map(e=>`
     <div class="hist-item">
       <div class="hist-ico ${e.type}">${e.type==='in'?'⬆️':'⬇️'}</div>
       <div class="hist-info"><div class="hist-note">${e.note||'現金'}</div><div class="hist-time">${fmtDT(e.time)}</div></div>
@@ -818,6 +846,29 @@ function acctNextMonth() {
   acctYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
   renderAccounts();
 }
+function _shiftYM(ym, delta) {
+  const [y,m] = ym.split('-').map(Number);
+  const d = new Date(y, m-1+delta, 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+}
+function _ymLabel(ym) {
+  const [y,m] = ym.split('-').map(Number);
+  return y+' 年 '+m+' 月';
+}
+// 現金記錄月份導航
+function renderWalNav() {
+  const el=document.getElementById('wal-ym-nav');
+  if(el) el.textContent=_ymLabel(walYM);
+}
+function walPrevMonth()  { walYM=_shiftYM(walYM,-1); renderWallet(); }
+function walNextMonth()  { walYM=_shiftYM(walYM, 1); renderWallet(); }
+// 帳單記錄月份導航
+function renderBillsNav() {
+  const el=document.getElementById('bills-ym-nav');
+  if(el) el.textContent=_ymLabel(billsYM);
+}
+function billsPrevMonth() { billsYM=_shiftYM(billsYM,-1); renderCards(); }
+function billsNextMonth() { billsYM=_shiftYM(billsYM, 1); renderCards(); }
 function toggleAcctHist(btn) {
   const detail = btn.nextElementSibling;
   const isOpen = detail.style.display !== 'none';
@@ -993,28 +1044,36 @@ function renderCards() {
   }
 
   // 帳單列表
-  const bills=getCardBills();
+  renderBillsNav();
+  const allBills=getCardBills();
   const allBillEl=document.getElementById('all-bills');
-  if(!bills.length){allBillEl.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無帳單記錄</div>';return;}
-  const now=new Date();
-  allBillEl.innerHTML=bills.map(b=>{
-    const card=cardFind(b.cardId);
-    const due=new Date(b.year,b.month-1,b.dueDay||15);
-    const diff=Math.ceil((due-now)/864e5);
-    return `<div class="bill-card">
-      <div class="bill-hdr">
-        <div>
-          <div class="bill-title">${card?.name||'?'} ${b.year}/${b.month}月</div>
-          <div class="bill-meta">${b.paid?`✅ 已於 ${new Date(b.paidAt).toLocaleDateString('zh-TW')} 繳清`:`截止：${b.year}/${b.month}/${b.dueDay||15}（${diff>=0?'還有'+diff+'天':'已逾期'}）`}</div>
+  const [billY, billM] = billsYM.split('-').map(Number);
+  const bills = allBills.filter(b => b.year===billY && b.month===billM);
+  if(!allBills.length){
+    allBillEl.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚無帳單記錄</div>';
+  } else if(!bills.length){
+    allBillEl.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">本月無帳單</div>';
+  } else {
+    const now=new Date();
+    allBillEl.innerHTML=bills.map(b=>{
+      const card=cardFind(b.cardId);
+      const due=new Date(b.year,b.month-1,b.dueDay||15);
+      const diff=Math.ceil((due-now)/864e5);
+      return `<div class="bill-card">
+        <div class="bill-hdr">
+          <div>
+            <div class="bill-title">${card?.name||'?'} ${b.year}/${b.month}月</div>
+            <div class="bill-meta">${b.paid?`✅ 已於 ${new Date(b.paidAt).toLocaleDateString('zh-TW')} 繳清`:`截止：${b.year}/${b.month}/${b.dueDay||15}（${diff>=0?'還有'+diff+'天':'已逾期'}）`}</div>
+          </div>
+          <div>
+            <div class="bill-amt">$${fmt(b.total)}</div>
+            ${b.paid?`<div class="bill-paid">已繳清</div>`:`<div class="bill-due">待繳費</div>`}
+          </div>
         </div>
-        <div>
-          <div class="bill-amt">$${fmt(b.total)}</div>
-          ${b.paid?`<div class="bill-paid">已繳清</div>`:`<div class="bill-due">待繳費</div>`}
-        </div>
-      </div>
-      ${!b.paid?`<button onclick="showPayBill('${b.id}')" style="width:100%;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;margin-top:6px">💳 繳費</button>`:''}
-    </div>`;
-  }).join('');
+        ${!b.paid?`<button onclick="showPayBill('${b.id}')" style="width:100%;padding:9px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.85rem;margin-top:6px">💳 繳費</button>`:''}
+      </div>`;
+    }).join('');
+  }
   // 分期付款總覽
   renderInstallments();
 }
