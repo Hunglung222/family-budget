@@ -170,6 +170,12 @@
 
   <!-- 帳戶 -->
   <div class="panel" id="p-accounts">
+    <!-- 月份導航 -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:14px">
+      <button onclick="acctPrevMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">‹</button>
+      <div id="acct-ym-nav" style="font-size:.88rem;font-weight:900;color:var(--t);min-width:120px;text-align:center"></div>
+      <button onclick="acctNextMonth()" style="background:var(--card2);border:1px solid var(--border);border-radius:50%;width:34px;height:34px;font-size:1rem;cursor:pointer;color:var(--t);display:flex;align-items:center;justify-content:center;font-family:inherit">›</button>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div class="sec-t" style="margin:0">🏦 個人帳戶</div>
       <button class="acct-btn xfer" onclick="showAddAcct(false)">＋ 新增</button>
@@ -565,6 +571,7 @@ function fmtDT(ts) {
 let pickedColor='#1d4ed8', pickedEditColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
 let payFromType='wallet', payBillId='';
+let acctYM = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
 let walAdjType='in';
 
 function init() {
@@ -789,16 +796,66 @@ function submitWalAdj() {
 
 // ── 帳戶 ─────────────────────────────────────────────
 function renderAccounts() {
+  renderAcctNav();
   renderAcctList(getAccts(false), document.getElementById('personal-accts'), false);
   renderAcctList(getAccts(true),  document.getElementById('shared-accts'),   true);
 }
+function renderAcctNav() {
+  const el = document.getElementById('acct-ym-nav');
+  if (!el) return;
+  const [y,m] = acctYM.split('-').map(Number);
+  el.textContent = y + ' 年 ' + m + ' 月';
+}
+function acctPrevMonth() {
+  const [y,m] = acctYM.split('-').map(Number);
+  const d = new Date(y, m-2, 1);
+  acctYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  renderAccounts();
+}
+function acctNextMonth() {
+  const [y,m] = acctYM.split('-').map(Number);
+  const d = new Date(y, m, 1);
+  acctYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  renderAccounts();
+}
+function toggleAcctHist(btn) {
+  const detail = btn.nextElementSibling;
+  const isOpen = detail.style.display !== 'none';
+  detail.style.display = isOpen ? 'none' : 'block';
+  const cnt = btn.dataset.cnt;
+  btn.textContent = isOpen ? ('▶ 查看 ' + cnt + ' 筆明細') : ('▼ 收起明細');
+  btn.style.color = isOpen ? 'var(--t2)' : 'var(--p)';
+}
 function renderAcctList(list, el, shared) {
   if (!list.length) { el.innerHTML=`<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">尚未新增${shared?'家用':'個人'}帳戶</div>`; return; }
-  el.innerHTML = list.map(a=>`
+  el.innerHTML = list.map(a=>{
+    const mHist = (a.history||[]).filter(h=>(h.time||'').startsWith(acctYM));
+    const mIn   = mHist.filter(h=>h.type==='in' ).reduce((s,h)=>s+h.amount,0);
+    const mOut  = mHist.filter(h=>h.type==='out').reduce((s,h)=>s+h.amount,0);
+    const typeLabel = a.type==='salary'?'薪轉':a.type==='saving'?'定存':'活儲';
+    const histRows = mHist.map(h=>`
+      <div class="hist-item">
+        <div class="hist-ico ${h.type}">${h.type==='in'?'⬆️':'⬇️'}</div>
+        <div class="hist-info"><div class="hist-note">${h.note||''}</div><div class="hist-time">${fmtDT(h.time)}</div></div>
+        <div class="hist-amt ${h.type}">${h.type==='in'?'+':'-'}$${fmt(h.amount)}</div>
+      </div>`).join('');
+    const summary = mHist.length ? `
+      <div style="display:flex;gap:10px;margin-top:10px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:.78rem">
+        <span style="color:var(--p)">↑ $${fmt(mIn)}</span>
+        <span style="color:#ff6b82">↓ $${fmt(mOut)}</span>
+        <span style="flex:1;text-align:right;color:var(--t3)">${mHist.length} 筆</span>
+      </div>
+      <button data-cnt="${mHist.length}" onclick="toggleAcctHist(this)"
+        style="width:100%;margin-top:6px;padding:6px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--t2);font-size:.78rem;cursor:pointer;font-family:inherit">
+        ▶ 查看 ${mHist.length} 筆明細
+      </button>
+      <div style="display:none;margin-top:4px">${histRows}</div>` :
+      `<div style="color:var(--t3);font-size:.78rem;text-align:center;padding:8px 0;margin-top:8px">本月無明細</div>`;
+    return `
     <div class="acct-card ${shared?'shared':'personal'}">
       <div class="acct-hdr">
-        <div><div class="acct-name">${a.name}</div><div class="acct-sub">${a.type==='salary'?'薪轉':a.type==='saving'?'定存':'活儲'} ${shared?'・家用':''}</div></div>
-        <div class="acct-bal"><span class="u">$</span>${fmt(a.balance)}</div>
+        <div><div class="acct-name">${a.name}</div><div class="acct-sub">${typeLabel}${shared?' · 家用':''}</div></div>
+        <div class="acct-bal"><span class="u">$</span>${fmt(a.balance||0)}</div>
       </div>
       <div class="acct-actions">
         <button class="acct-btn in"  onclick="showAcctTx('${a.id}',${shared},'in')">＋ 入帳</button>
@@ -806,15 +863,9 @@ function renderAcctList(list, el, shared) {
         <button class="acct-btn xfer" onclick="showWithdrawFrom('${a.id}',${shared})">→ 提領至錢包</button>
         <button class="acct-btn del" onclick="confirmDelAcct('${a.id}',${shared})">刪除</button>
       </div>
-      <div style="margin-top:10px;max-height:150px;overflow-y:auto">
-        ${(a.history||[]).slice(0,5).map(h=>`
-          <div class="hist-item">
-            <div class="hist-ico ${h.type}">${h.type==='in'?'⬆️':'⬇️'}</div>
-            <div class="hist-info"><div class="hist-note">${h.note||''}</div><div class="hist-time">${fmtDT(h.time)}</div></div>
-            <div class="hist-amt ${h.type}">${h.type==='in'?'+':'-'}$${fmt(h.amount)}</div>
-          </div>`).join('')}
-      </div>
-    </div>`).join('');
+      ${summary}
+    </div>`;
+  }).join('');
 }
 function showAddAcct(shared) {
   addAcctShared=shared;
@@ -1104,7 +1155,7 @@ function showPayBill(billId) {
   document.getElementById('pbm-info').innerHTML=`${card?.name||'?'} ${b.month}月帳單：<b style="color:#ff6b82">$${fmt(b.total)}</b>`;
   // 填帳戶選項
   const sel=document.getElementById('pay-acct-sel');
-  sel.innerHTML=[...getAccts(false),...getAccts(true)].map(a=>`<option value="${a.id}_${a.id.startsWith('shared')?1:0}">${a.name} ($${fmt(a.balance)})</option>`).join('');
+  sel.innerHTML=[...getAccts(false),...getAccts(true)].map(a=>`<option value="${a.id}">${a.name} ($${fmt(a.balance||0)})</option>`).join('');
   document.getElementById('pay-from-wal').classList.add('on');
   document.getElementById('pay-from-acct').classList.remove('on');
   document.getElementById('pay-acct-fg').style.display='none';
@@ -1120,9 +1171,7 @@ function setPayFrom(type,el){
 function submitPayBill(){
   let fromId='wallet';
   if(payFromType==='acct'){
-    const val=document.getElementById('pay-acct-sel').value;
-    const [id,shared]=val.split('_');
-    fromId=shared==='1'?'shared_'+id:id;
+    fromId=document.getElementById('pay-acct-sel').value;
   }
   cardPayBill(payBillId, payFromType, fromId);
   fbSyncPersonal();closeModal('pay-bill-modal');renderCards();renderOverview();renderWallet();
