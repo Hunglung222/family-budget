@@ -1,11 +1,11 @@
-const V = 'fb-v2026.06.07-0035';
+const V = 'fb-v2026.06.07-1724';
 const A = [
   './login.html','./index.html','./add.html','./report.html',
   './invest.html','./wallet.html','./shopping.html','./settings.html',
   './trade.html','./knowledge.html','./invest-guide.html',
   './private.html','./memo.html','./guide.html',
   './css/style.css',
-  './js/auth.js','./js/db.js','./js/firebase.js','./js/assistant.js',
+  './js/auth.js','./js/db.js','./js/firebase.js','./js/assistant.js','./js/tw_stocks.js',
   './icons/icon-192.png','./icons/icon-512.png',
 ];
 self.addEventListener('install', e => {

@@ -1260,9 +1260,23 @@ function clearAllInbox() {
 // ════════════════════════════════════════════════════
 // 待確認記帳功能
 // ════════════════════════════════════════════════════
+// 各待確認請求被對方選定的付款方式（id → 'cash'|'card'|'icard'|'acct'）
+let _preqPay = {};
+function setPreqPay(id, m, el) {
+  _preqPay[id] = m;
+  const row = el.parentElement;
+  row.querySelectorAll('.preq-pay-btn').forEach(b => {
+    const on = b === el;
+    b.style.border     = '1px solid ' + (on ? 'var(--p)' : 'var(--border)');
+    b.style.background = on ? 'rgba(132,204,22,.12)' : 'var(--card)';
+    b.style.color      = on ? 'var(--p)' : 'var(--t2)';
+  });
+}
 function showPendingModal() {
   const list = getMyPendingRequests();
   if (!list.length) return;
+  // 初始化每筆的付款方式為對方建議值
+  list.forEach(req => { if (!(req.id in _preqPay)) _preqPay[req.id] = req.pay || 'cash'; });
   const listEl = document.getElementById('pending-list');
   if (!listEl) return;
 
@@ -1281,11 +1295,21 @@ function showPendingModal() {
         </div>
         <span style="font-size:.68rem;padding:3px 8px;background:rgba(251,191,36,.15);color:var(--warn);border-radius:50px;white-space:nowrap">⏳ 待確認</span>
       </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-bottom:5px">付款方式（可調整）</div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        ${['cash','card','icard','acct'].map(m => {
+          const labels = { cash:'💵 現金', card:'💳 信用卡', icard:'🚇 悠遊卡', acct:'🏦 帳戶' };
+          const on = (req.pay || 'cash') === m;
+          return `<button onclick="setPreqPay('${req.id}','${m}',this)"
+            class="preq-pay-btn" data-m="${m}"
+            style="flex:1;padding:7px 0;font-size:.72rem;border-radius:8px;cursor:pointer;font-family:inherit;white-space:nowrap;border:1px solid ${on?'var(--p)':'var(--border)'};background:${on?'rgba(132,204,22,.12)':'var(--card)'};color:${on?'var(--p)':'var(--t2)'}">${labels[m]}</button>`;
+        }).join('')}
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
         <div style="flex:1;position:relative">
           <span style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--t3);font-size:.8rem">$</span>
           <input class="fc" type="number" id="preq-amt-${req.id}" inputmode="numeric"
-            placeholder="填入金額" style="padding-left:22px">
+            placeholder="填入金額" value="${req.amount || ''}" style="padding-left:22px">
         </div>
         <button onclick="confirmPendingReq('${req.id}')"
           style="padding:10px 16px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">
@@ -1310,13 +1334,26 @@ function confirmPendingReq(id) {
   const req = getPendingRequests().find(r => r.id === id);
   if (!req) return;
 
+  // 解析付款方式（對方可調整：現金/信用卡/悠遊卡/帳戶）
+  const pay = _preqPay[id] || req.pay || 'cash';
+  let cardId = null, icardId = null, acctId = null;
+  if (pay === 'card') {
+    cardId = (req.pay === 'card' && req.cardId) ? req.cardId : (getCards()[0]?.id || null);
+    if (!cardId) { toast('沒有可用的信用卡，請改選其他付款方式', 'warn'); return; }
+  } else if (pay === 'icard') {
+    icardId = (req.pay === 'icard' && req.icardId) ? req.icardId : (getIcards()[0]?.id || null);
+    if (!icardId) { toast('沒有可用的悠遊卡，請改選其他付款方式', 'warn'); return; }
+  } else if (pay === 'acct') {
+    acctId = (req.pay === 'acct' && req.acctId) ? req.acctId : (getAccts()[0]?.id || null);
+    if (!acctId) { toast('沒有可用的帳戶，請改選其他付款方式', 'warn'); return; }
+  }
+
   // 建立正式交易記錄
   const tx = {
     amount: amt,
     cat:    req.cat,    subCat: req.subCat || '',
     detail: req.detail, person: req.person,
-    pay:    req.pay,    cardId: req.cardId,
-    icardId: req.icardId, acctId: req.acctId,
+    pay,    cardId,     icardId, acctId,
     tags:   [],
     at:     new Date().toISOString(),
   };

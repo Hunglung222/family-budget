@@ -153,10 +153,10 @@
       </button>
     </div>
 
-    <!-- ⏳ 金額待確認快速入口（兩種模式共用）-->
+    <!-- 📝 記帳待確認快速入口（兩種模式共用）-->
     <button onclick="goStep2Pending()"
       style="width:100%;margin-top:12px;padding:13px 0;border-radius:var(--rs);border:1.5px dashed var(--warn);background:rgba(251,191,36,.08);color:var(--warn);font-size:.88rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px">
-      ⏳ 不知道金額？先記帳，由對方確認
+      📝 不確定金額或付款方式？先送出，由對方確認
     </button>
   </div>
 
@@ -277,18 +277,18 @@
       <span class="flbl">🏷️ 消費標籤（可略，可複選）</span>
       <div id="tag-chips" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
     </div>
-    <!-- ⏳ 金額待確認 -->
+    <!-- 📝 記帳待確認 -->
     <div class="fg" id="pending-confirm-fg">
       <div style="display:flex;align-items:center;justify-content:space-between">
         <div>
-          <div style="font-size:.88rem;font-weight:700;color:var(--t)">⏳ 金額待確認</div>
-          <div style="font-size:.72rem;color:var(--t3);margin-top:2px">金額先不填，由對方登入後確認</div>
+          <div style="font-size:.88rem;font-weight:700;color:var(--t)">📝 記帳待確認</div>
+          <div style="font-size:.72rem;color:var(--t3);margin-top:2px">金額或付款方式不確定時，先送出由對方確認</div>
         </div>
         <label class="sw"><input type="checkbox" id="pending-toggle" onchange="togglePendingConfirm(this.checked)"><span class="sw-slider"></span></label>
       </div>
       <div id="pending-extra" style="display:none;margin-top:12px">
         <input class="fc" id="pending-note" placeholder="備註給對方（可略），例：下午茶的費用">
-        <div style="font-size:.72rem;color:var(--t3);margin-top:5px">💡 對方登入時會收到確認提示，填入金額後正式記帳</div>
+        <div style="font-size:.72rem;color:var(--t3);margin-top:5px">💡 對方登入時會收到提示，確認金額與付款方式後正式記帳</div>
       </div>
     </div>
 
@@ -1883,6 +1883,7 @@ function submit() {
       detail: document.getElementById('tx-detail').value.trim(),
       person,
       pay, cardId: selCard, icardId: selIcard, acctId: selAcct,
+      amount: parseInt(astr) || null,
       requestedBy:   currentPersonLabel(),
       assignedTo:    otherPerson,
       note:   document.getElementById('pending-note').value.trim(),
@@ -1900,7 +1901,7 @@ function submit() {
         const detail   = document.getElementById('tx-detail').value.trim();
         const note     = document.getElementById('pending-note').value.trim();
         const dateStr  = req.date;
-        let desc = `**${req.requestedBy}** 有一筆消費，請 **${otherPerson}** 填入金額後確認記帳。`;
+        let desc = `**${req.requestedBy}** 有一筆消費，請 **${otherPerson}** 確認金額與付款方式後記帳。`;
         const fields = [
           { name: '📋 類別', value: catLabel + (detail ? `・${detail}` : ''), inline: true },
           { name: '📅 日期', value: dateStr, inline: true },
@@ -1962,15 +1963,12 @@ function submit() {
     resetForm();
     return;
   }
-  const newTx = addTx(tx); fbAddTx(newTx || tx);
-
-  // ── 若有分期設定，建立分期計劃 ──
+  // ── 分期付款：只建立分期計劃，不記全額；每期到期由 🔔 收件夾記帳（避免與逐期重複計算）──
   if (pay === 'card' && _instOn) {
     const months   = parseInt(document.getElementById('inst-months').value) || 12;
     const startYM  = document.getElementById('inst-startym').value;
     const remOn    = document.getElementById('inst-rem-first')?.classList.contains('on') ? 'first' : 'last';
     const baseAmt  = Math.floor(amt / months);
-    const remAmt   = amt - baseAmt * months;
     const cardName = (()=>{
       const chip = document.querySelector('#card-chips .cc.on');
       return chip ? chip.textContent.trim() : '信用卡';
@@ -1993,13 +1991,21 @@ function submit() {
       paidMonths:  [],
       paidCount:   0,
       status:      'active',
-      sourceTxId:  (newTx || tx).id || null,
+      sourceTxId:  null,
       createdAt:   Date.now(),
     };
     addInstallment(inst);
     fbSyncInstallments();
-    toast('✅ 已記帳並建立 ' + months + ' 期分期計劃！');
+    if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+    const sov2 = document.getElementById('sov');
+    if (sov2) { sov2.classList.add('show'); setTimeout(()=>sov2.classList.remove('show'),1300); }
+    toast(`✅ 已建立 ${months} 期分期（每期約 $${fmt(baseAmt)}）！每期到 🔔 收件夾記帳`);
+    closeInstallmentToggle();
+    resetForm();
+    return;
   }
+
+  const newTx = addTx(tx); fbAddTx(newTx || tx);
 
   // 悠遊卡/錢包餘額同步到 Firebase（避免換頁後被舊資料覆蓋）
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
