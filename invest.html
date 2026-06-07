@@ -298,7 +298,7 @@
 
     <div class="fg">
       <span class="flbl">名稱 / 代號 *</span>
-      <input type="text" class="fc" id="im-name" placeholder="例：0050、VOO" maxlength="30">
+      <input type="text" class="fc" id="im-name" placeholder="例：0050、VOO" maxlength="30" oninput="invAutofillName()">
     </div>
     <div class="fg">
       <span class="flbl">完整名稱（可略）</span>
@@ -498,6 +498,7 @@
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="./js/tw_stocks.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 
@@ -1003,6 +1004,16 @@ function extractTWCode(inv) {
   const raw = (inv.ticker || inv.name || '').trim();
   const m = raw.match(/(\d{4,6}[A-Za-z]?)/);  // 4-6 位數字，可含字母如 00878B
   return m ? m[1] : '';
+}
+
+// 輸入台股代號時，自動帶出完整名稱（完整名稱欄為空才填）
+function invAutofillName() {
+  const code = (document.getElementById('im-name').value || '').trim().toUpperCase();
+  const fullEl = document.getElementById('im-fullname');
+  if (!fullEl || fullEl.value.trim()) return;
+  if (typeof TW_STOCK_NAMES !== 'undefined' && TW_STOCK_NAMES[code]) {
+    fullEl.value = TW_STOCK_NAMES[code];
+  }
 }
 function openWantGoo() {
   if (!_wgCode) { toast('找不到股號，請確認名稱含代號（例：2330）', 'warn'); return; }

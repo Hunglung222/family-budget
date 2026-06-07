@@ -536,6 +536,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/tw_stocks.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 
@@ -797,10 +798,18 @@ const COMMON_TICKERS = {
   '0050':'元大台灣50','0056':'元大高股息','00878':'國泰永續高股息','00919':'群益台灣精選高息',
   '2603':'長榮','2609':'陽明','2615':'萬海','3034':'聯詠','2379':'瑞昱',
 };
+// 查股票名稱：優先完整對照表(tw_stocks.js)，後備常見股字典
+function lookupStockName(ticker) {
+  const t = (ticker || '').trim().toUpperCase();
+  if (typeof TW_STOCK_NAMES !== 'undefined' && TW_STOCK_NAMES[t]) return TW_STOCK_NAMES[t];
+  return COMMON_TICKERS[t] || '';
+}
+
 function autofillName() {
   const ticker = document.getElementById('tm-ticker').value.trim();
   const nameEl = document.getElementById('tm-name');
-  if (COMMON_TICKERS[ticker] && !nameEl.value) nameEl.value = COMMON_TICKERS[ticker];
+  const nm = lookupStockName(ticker);
+  if (nm && !nameEl.value) nameEl.value = nm;
 }
 
 function showAddTrade() {
@@ -1467,7 +1476,8 @@ function setWatchMarket(m, el) {
 function watchAutofill() {
   const ticker = document.getElementById('w-ticker').value.trim();
   const nameEl = document.getElementById('w-name');
-  if (COMMON_TICKERS[ticker] && !nameEl.value) nameEl.value = COMMON_TICKERS[ticker];
+  const nm = lookupStockName(ticker);
+  if (nm && !nameEl.value) nameEl.value = nm;
 }
 
 function addWatch() {
@@ -1477,7 +1487,7 @@ function addWatch() {
 
   const ok = addWatchItem({
     ticker,
-    name: name || COMMON_TICKERS[ticker] || '',
+    name: name || lookupStockName(ticker),
     market: _watchMarket,
     addedAt: Date.now(),
   });
@@ -1541,36 +1551,6 @@ function renderWatchlist() {
 
 // ══ 關注清單 K 線圖功能 ══════════════════════════════
 
-// 14 個技術指標（同 invest.html）
-const WKL_INDICATORS = [
-  { id:'ma',   label:'均線(MA)',  tv:'MASimple@tv-basicstudies',  group:'趨勢' },
-  { id:'ema',  label:'EMA',       tv:'MAExp@tv-basicstudies',     group:'趨勢' },
-  { id:'bb',   label:'布林帶',    tv:'BB@tv-basicstudies',        group:'趨勢' },
-  { id:'vwap', label:'VWAP',      tv:'VWAP@tv-basicstudies',      group:'趨勢' },
-  { id:'sar',  label:'SAR',       tv:'SAR@tv-basicstudies',       group:'趨勢' },
-  { id:'rsi',  label:'RSI',       tv:'RSI@tv-basicstudies',       group:'動能' },
-  { id:'macd', label:'MACD',      tv:'MACD@tv-basicstudies',      group:'動能' },
-  { id:'kd',   label:'KD',        tv:'Stoch@tv-basicstudies',     group:'動能' },
-  { id:'cci',  label:'CCI',       tv:'CCI@tv-basicstudies',       group:'動能' },
-  { id:'wr',   label:'W%R',       tv:'WilliamsR@tv-basicstudies', group:'動能' },
-  { id:'adx',  label:'ADX/DMI',   tv:'DMI@tv-basicstudies',       group:'動能' },
-  { id:'vol',  label:'成交量',    tv:'Volume@tv-basicstudies',    group:'量能' },
-  { id:'obv',  label:'OBV',       tv:'OBV@tv-basicstudies',       group:'量能' },
-  { id:'atr',  label:'ATR',       tv:'ATR@tv-basicstudies',       group:'波動' },
-];
-
-let _wklSymbol   = '';
-let _wklInterval = 'D';
-let _wklStudies  = new Set();
-let _wklTimer    = null;
-
-// 建立 TV symbol（利用 market 欄位精確區分上市/上櫃）
-function buildWatchTVSymbol(ticker, market) {
-  const t = (ticker || '').toUpperCase().trim();
-  if (market === 'otc') return 'TPEX:' + t;
-  return 'TWSE:' + t;
-}
-
 // 開啟 K 線 Modal（關注清單皆為台股 → 玩股網）
 let _wklCode = '';
 function openWatchKline(ticker, name, market) {
@@ -1588,81 +1568,6 @@ function openWatchKline(ticker, name, market) {
 function openWatchWantGoo() {
   if (!_wklCode) { toast('找不到股號', 'warn'); return; }
   window.open('https://www.wantgoo.com/stock/' + _wklCode + '/technical-chart', '_blank');
-}
-
-// 建立指標 chips
-function buildWklChips() {
-  const el = document.getElementById('wkl-ind-chips');
-  if (!el) return;
-  let lastGroup = '';
-  el.innerHTML = WKL_INDICATORS.map(ind => {
-    let sep = '';
-    if (ind.group !== lastGroup && lastGroup !== '') {
-      sep = '<div style="width:1px;height:26px;background:var(--border);flex-shrink:0;align-self:center"></div>';
-    }
-    lastGroup = ind.group;
-    return sep + `<button class="pill-sm wkl-ind-btn" id="wkl-ind-${ind.id}"
-      onclick="toggleWklInd('${ind.id}',this)"
-      style="padding:5px 10px;font-size:.72rem;white-space:nowrap;flex-shrink:0">${ind.label}</button>`;
-  }).join('');
-}
-
-// 切換指標
-function toggleWklInd(id, el) {
-  if (_wklStudies.has(id)) { _wklStudies.delete(id); el.classList.remove('on'); }
-  else                     { _wklStudies.add(id);    el.classList.add('on');  }
-  const cnt = document.getElementById('wkl-ind-count');
-  if (cnt) cnt.textContent = _wklStudies.size > 0 ? `(${_wklStudies.size} 個)` : '';
-  clearTimeout(_wklTimer);
-  _wklTimer = setTimeout(() => setWklInterval(_wklInterval), 700);
-}
-
-// 重置指標
-function resetWklIndicators() {
-  _wklStudies.clear();
-  document.querySelectorAll('.wkl-ind-btn').forEach(b => b.classList.remove('on'));
-  const cnt = document.getElementById('wkl-ind-count');
-  if (cnt) cnt.textContent = '';
-  setWklInterval(_wklInterval);
-}
-
-// 切換週期並更新圖表
-function setWklInterval(interval) {
-  _wklInterval = interval;
-  ['5','60','D','W','M'].forEach(k => document.getElementById('wkl-tab-' + k)?.classList.remove('on'));
-  document.getElementById('wkl-tab-' + interval)?.classList.add('on');
-
-  const iframe  = document.getElementById('wkl-iframe');
-  const loading = document.getElementById('wkl-loading');
-  if (!iframe || !_wklSymbol) return;
-
-  if (loading) loading.style.display = 'flex';
-  iframe.style.display = 'none';
-
-  const rangeMap = { '5':'1D', '60':'5D', 'D':'6M', 'W':'3Y', 'M':'all' };
-  const params   = new URLSearchParams({
-    frameElementId: 'wkl_tv',
-    symbol:         _wklSymbol,
-    interval:       interval,
-    hidesidetoolbar:'1',
-    saveimage:      '0',
-    theme:          'dark',
-    style:          '1',
-    timezone:       'Asia/Taipei',
-    locale:         'zh_TW',
-    withdateranges: '1',
-    range:          rangeMap[interval] || '6M',
-    hide_legend:    '0',
-  });
-
-  if (_wklStudies.size > 0) {
-    const arr = Array.from(_wklStudies)
-      .map(id => WKL_INDICATORS.find(i => i.id === id)?.tv)
-      .filter(Boolean);
-    if (arr.length) params.set('studies', JSON.stringify(arr));
-  }
-
-  iframe.src = 'https://s.tradingview.com/widgetembed/?' + params.toString();
 }
 
 // ══ 計算機功能 ════════════════════════════════════════
