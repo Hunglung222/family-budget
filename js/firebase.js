@@ -137,6 +137,44 @@ function getCardName(cardId){
 
 
 // ── 初始拉取全部資料 ─────────────────────────────────
+// ── 固定支出同步 ─────────────────────────────────────
+async function fbPullRecurring() {
+  try {
+    const d = await getDb().collection('shared').doc('recurring').get();
+    if (d.exists) {
+      const { list } = d.data();
+      if (Array.isArray(list)) localStorage.setItem('recurring_items', JSON.stringify(list));
+    }
+  } catch(e) { console.warn('[FB] pullRecurring', e); }
+}
+async function fbPullRecurringDone() {
+  const now = new Date();
+  const ym  = now.getFullYear() + '_' + (now.getMonth()+1);
+  try {
+    const snap = await getDb().collection('shared').doc('recurring_done_' + ym).get();
+    if (snap.exists) {
+      const remote = snap.data().done || [];
+      // merge：取本機 + 遠端聯集，讓雙方動作都保留
+      const local   = (() => { try { return JSON.parse(localStorage.getItem('recurring_done_' + ym) || '[]'); } catch { return []; } })();
+      const merged  = [...new Set([...local, ...remote])];
+      localStorage.setItem('recurring_done_' + ym, JSON.stringify(merged));
+    }
+  } catch(e) { console.warn('[FB] pullRecurringDone', e); }
+}
+async function fbMarkRecurringDone(notifId) {
+  if (typeof markRecurringDone === 'function') markRecurringDone(notifId); // 先寫本機
+  const now = new Date();
+  const ym  = now.getFullYear() + '_' + (now.getMonth()+1);
+  try {
+    const docRef = getDb().collection('shared').doc('recurring_done_' + ym);
+    const snap   = await docRef.get();
+    const done   = snap.exists ? (snap.data().done || []) : [];
+    if (!done.includes(notifId)) {
+      done.push(notifId);
+      await docRef.set({ done, updatedAt: Date.now() });
+    }
+  } catch(e) { console.warn('[FB] markRecurringDone', e); }
+}
 async function fbPullAll(){
   try{
     const db = getDb();
@@ -164,6 +202,9 @@ async function fbPullAll(){
     await fbPullSharedCardList();
     // 同步自己的共用卡片（讓對方能拉到）
     await fbSyncSharedCardList();
+    // 固定支出設定與本月已記帳清單
+    await fbPullRecurring();
+    await fbPullRecurringDone();
     // 宏龍私密資料（只有 kevin 會執行）
     await fbPullPrivateData();
     return true;

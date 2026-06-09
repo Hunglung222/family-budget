@@ -1309,19 +1309,107 @@ function renderInboxList() {
 }
 
 function inboxActionAdd(id) {
-  // add.html 的通知動作：直接跳轉到對應頁
   const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
   const item  = items.find(x => x.id === id);
   if (!item) return;
-  if (item.type === 'bill_due') { closeModal('inbox-modal'); location.href = './wallet.html'; }
-  else if (item.type === 'budget_alert') { closeModal('inbox-modal'); location.href = './report.html'; }
-  else if (item.type === 'receipt') {
+
+  if (item.type === 'bill_due') {
+    closeModal('inbox-modal'); location.href = './wallet.html';
+  } else if (item.type === 'budget_alert') {
+    closeModal('inbox-modal'); location.href = './report.html';
+  } else if (item.type === 'receipt') {
     if (typeof clearInboxReceipt === 'function') clearInboxReceipt(id);
     document.getElementById('inbox-item-' + id)?.remove();
     updateInboxBadge();
+  } else if (item.type === 'recurring' || item.type === 'installment') {
+    showRecurringQuickConfirm(id, item);
   } else {
     closeModal('inbox-modal');
   }
+}
+
+function showRecurringQuickConfirm(id, item) {
+  const rec   = item.raw;
+  const isInst = item.type === 'installment';
+  const defAmt = isInst
+    ? (rec.monthlyAmt || rec.amount || 0)
+    : (rec.amt || 0);
+  const payLabel = isInst ? '💳 信用卡' :
+    rec.pay === 'acct' ? '🏦 帳戶' :
+    rec.pay === 'card' ? '💳 信用卡' : '💵 現金';
+
+  const actionEl = document.getElementById('inbox-action-' + id);
+  if (!actionEl) return;
+
+  actionEl.innerHTML = `
+    <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px;margin-top:8px">
+      <div style="font-size:.75rem;color:var(--t2);margin-bottom:6px">
+        付款：${payLabel}　分類：${catName(rec.cat)||rec.cat||'未分類'}
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:.82rem;color:var(--t2)">金額 $</span>
+        <input type="number" id="rc-quick-amt-${id}"
+          value="${defAmt||''}" placeholder="輸入金額"
+          inputmode="numeric"
+          style="flex:1;padding:6px 10px;background:var(--card2);border:1px solid var(--border);
+                 border-radius:8px;color:var(--t);font-size:.88rem;font-family:inherit">
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="confirmRecurringTx('${id}')"
+          style="flex:1;padding:8px;background:linear-gradient(135deg,var(--p),var(--p2));
+                 color:#000;border:none;border-radius:8px;font-weight:700;font-size:.85rem;
+                 cursor:pointer;font-family:inherit">✅ 確認記帳</button>
+        <button onclick="inboxDismissAdd('${id}')"
+          style="padding:8px 14px;background:var(--card2);border:1px solid var(--border);
+                 color:var(--t2);border-radius:8px;font-size:.82rem;cursor:pointer;font-family:inherit">稍後</button>
+      </div>
+    </div>`;
+  // 讓金額輸入框取得焦點
+  setTimeout(() => document.getElementById('rc-quick-amt-' + id)?.focus(), 100);
+}
+
+function confirmRecurringTx(id) {
+  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
+  const item  = items.find(x => x.id === id);
+  if (!item) return;
+  const rec    = item.raw;
+  const isInst = item.type === 'installment';
+  const amtEl  = document.getElementById('rc-quick-amt-' + id);
+  const amt    = parseInt(amtEl?.value) || 0;
+  if (!amt) { toast('請輸入金額', 'warn'); amtEl?.focus(); return; }
+
+  const pay    = isInst ? 'card' : (rec.pay || 'cash');
+  const cardId = isInst ? (rec.cardId || null) : (pay === 'card' ? (rec.cardId||null) : null);
+  const acctId = !isInst && pay === 'acct' ? (rec.acctId || null) : null;
+
+  const tx = {
+    amount:  amt,
+    cat:     rec.cat || '',
+    detail:  rec.name || (isInst ? '分期付款' : '固定支出'),
+    person:  typeof currentUser === 'function' ? currentUser() : '',
+    pay, cardId, acctId, icardId: null,
+    at:      new Date().toISOString(),
+    tags:    [],
+  };
+
+  const saved = addTx(tx);
+  if (typeof fbAddTx === 'function')        fbAddTx(saved || tx);
+  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
+  // 寫入 Firebase done 標記（讓對方裝置下次 pull 後不再顯示通知，防重複記帳）
+  if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
+  else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+  if (typeof discordOnAdd === 'function')   discordOnAdd(saved || tx);
+
+  document.getElementById('inbox-item-' + id)?.remove();
+  updateInboxBadge();
+
+  const remaining = document.querySelectorAll('[id^="inbox-item-"]');
+  if (!remaining.length) {
+    const listEl = document.getElementById('inbox-list');
+    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
+  }
+
+  toast(`✅ 已記帳：${tx.detail} -$${fmt(amt)}`);
 }
 
 function inboxDismissAdd(id) {

@@ -1027,6 +1027,24 @@ function closeModal(id) {
 }
 
 // ── 固定繳費讀取（供 index.html 收件夾使用）─────────────
+// ── 固定支出本月已記帳標記（跨裝置防重複）──────────────
+function _recurringDoneKey() {
+  const d = new Date();
+  return 'recurring_done_' + d.getFullYear() + '_' + (d.getMonth()+1);
+}
+function getRecurringDoneList() {
+  try { return JSON.parse(localStorage.getItem(_recurringDoneKey()) || '[]'); } catch { return []; }
+}
+function markRecurringDone(notifId) {
+  const list = getRecurringDoneList();
+  if (!list.includes(notifId)) {
+    list.push(notifId);
+    localStorage.setItem(_recurringDoneKey(), JSON.stringify(list));
+  }
+}
+function isRecurringDone(notifId) {
+  return getRecurringDoneList().includes(notifId);
+}
 function getRecurring() {
   try { return JSON.parse(localStorage.getItem('recurring_items') || '[]'); } catch { return []; }
 }
@@ -1085,7 +1103,7 @@ function getInboxItems() {
     const diff = rec.day - todayDay;
     if (diff < -1 || diff > 3) return;
     const notifId = `rec_${rec.name}_${todayYear}_${todayMonth}`;
-    if (isInboxItemDismissed(notifId)) return;
+    if (isInboxItemDismissed(notifId) || isRecurringDone(notifId)) return;
     const dueLabel = diff === 0 ? '今天到期' : diff < 0 ? `已過期 ${Math.abs(diff)} 天` : `${diff} 天後到期`;
     items.push({
       id: notifId,
