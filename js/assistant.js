@@ -271,6 +271,23 @@ function parseDateRange(msg) {
   // 去年
   if (/去年/.test(msg)) return { from: toStr(y-1, 1, 1), to: toStr(y-1, 12, 31) };
 
+  // ── 多月份提及：「4月5月6月」「4月和5月」「4、5、6月」等格式 ──
+  // 方法1：直接連寫 /(\d+)月/ matchAll 收集（處理「4月5月6月」）
+  const allMonthDirect = [...msg.matchAll(/(\d{1,2})月/g)]
+    .map(m => +m[1]).filter(n => n >= 1 && n <= 12);
+  // 方法2：列舉格式「4、5、6月」「4,5,6月」— 最後一個數字才有月，補取前面的
+  const listMonthMatch = msg.match(/((?:\d{1,2}[、,，\s/]+){1,})\d{1,2}月/);
+  const allMonthList = listMonthMatch
+    ? [...listMonthMatch[0].matchAll(/(\d{1,2})/g)].map(m => +m[1]).filter(n => n >= 1 && n <= 12)
+    : [];
+  const uniqueMonths = [...new Set([...allMonthDirect, ...allMonthList])];
+  if (uniqueMonths.length >= 2) {
+    const minM = Math.min(...uniqueMonths);
+    const maxM = Math.max(...uniqueMonths);
+    const mYear = minM > mo + 1 ? y - 1 : y;
+    return { from: toStr(mYear, minM, 1), to: toStr(mYear, maxM, lastDay(mYear, maxM)) };
+  }
+
   // X月份 或 X月（指定整月，不含後接「日」的單日格式）
   // (?!\d+日?) 確保「5月16日」這種不被當成「5月整月」
   const mMonth = msg.match(/([一二三四五六七八九十百]+|\d{1,2})月份?(?!\d)/);
@@ -1639,6 +1656,7 @@ function buildUI() {
         <div id="ast-hdr-name" style="font-weight:800;font-size:.92rem">${char.name}</div>
         <div style="font-size:.68rem;color:var(--t3)">理財 AI 助理 · 隨時問我</div>
       </div>
+      <button onclick="forceResync()" id="ast-sync-btn" style="padding:5px 10px;background:var(--card2);border:1px solid var(--border);color:var(--t3);border-radius:8px;font-size:.68rem;cursor:pointer;font-family:inherit" title="強制從 Firebase 重新載入所有記帳資料">🔄 同步</button>
       <button onclick="clearChat()" style="padding:5px 10px;background:var(--card2);border:1px solid var(--border);color:var(--t3);border-radius:8px;font-size:.68rem;cursor:pointer;font-family:inherit">清空</button>
       <button onclick="closeAssistant()" style="width:30px;height:30px;background:var(--card2);border:1px solid var(--border);color:var(--t2);border-radius:50%;font-size:1rem;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
@@ -1729,6 +1747,28 @@ window.quickAsk = function(text) {
   sendMsg(text);
 };
 
+window.forceResync = async function() {
+  const btn = document.getElementById('ast-sync-btn');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
+  _dataSynced = false;
+  _syncPromise = null;
+  try {
+    if (typeof fbPullAll === 'function') {
+      await Promise.race([
+        fbPullAll(),
+        new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')),10000))
+      ]);
+      _dataSynced = true;
+      const count = (typeof getTx === 'function') ? getTx().length : 0;
+      if (btn) { btn.textContent = '🔄 同步'; btn.disabled = false; }
+      appendMsg('assistant', `✅ 資料已重新同步，共載入 ${count} 筆記帳。
+現在可以重新問我了！`);
+    }
+  } catch(e) {
+    if (btn) { btn.textContent = '🔄 同步'; btn.disabled = false; }
+    appendMsg('assistant', `⚠️ 同步失敗（${e.message}），請確認網路狀態後重試。`);
+  }
+};
 window.clearChat = function() {
   chatHistory = [];
   pendingTx   = null;
