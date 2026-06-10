@@ -1121,7 +1121,7 @@ function getInboxItems() {
 
   // ── 3. 分期月繳提醒 ─────────────────────────────────
   getInstallments().forEach(inst => {
-    if (!inst.active && inst.active !== undefined) return;
+    if (inst.status && inst.status !== 'active') return; // 只處理 active 狀態的分期
     const startDate = new Date(inst.startDate || inst.createdAt);
     const mDiff = (todayYear - startDate.getFullYear()) * 12 + todayMonth - (startDate.getMonth()+1);
     if (mDiff < 0 || mDiff >= (inst.months || inst.totalMonths || 0)) return;

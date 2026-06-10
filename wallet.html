@@ -585,9 +585,10 @@ function fmtDT(ts) {
 let pickedColor='#1d4ed8', pickedEditColor='#1d4ed8', topupCardId='', topupPayMethod='cash';
 let addAcctShared=false, acctTxId='', acctTxShared=false, acctTxType='in';
 let payFromType='wallet', payBillId='';
-let acctYM  = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
-let walYM   = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
-let billsYM = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
+const _curYM = (()=>{ const n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0'); })();
+let acctYM  = localStorage.getItem('wallet_acctYM')  || _curYM;
+let walYM   = localStorage.getItem('wallet_walYM')   || _curYM;
+let billsYM = localStorage.getItem('wallet_billsYM') || _curYM;
 let walAdjType='in';
 
 function init() {
@@ -838,12 +839,14 @@ function acctPrevMonth() {
   const [y,m] = acctYM.split('-').map(Number);
   const d = new Date(y, m-2, 1);
   acctYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  localStorage.setItem('wallet_acctYM', acctYM);
   renderAccounts();
 }
 function acctNextMonth() {
   const [y,m] = acctYM.split('-').map(Number);
   const d = new Date(y, m, 1);
   acctYM = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+  localStorage.setItem('wallet_acctYM', acctYM);
   renderAccounts();
 }
 function _shiftYM(ym, delta) {
@@ -860,15 +863,15 @@ function renderWalNav() {
   const el=document.getElementById('wal-ym-nav');
   if(el) el.textContent=_ymLabel(walYM);
 }
-function walPrevMonth()  { walYM=_shiftYM(walYM,-1); renderWallet(); }
-function walNextMonth()  { walYM=_shiftYM(walYM, 1); renderWallet(); }
+function walPrevMonth()  { walYM=_shiftYM(walYM,-1);  localStorage.setItem('wallet_walYM',walYM);   renderWallet(); }
+function walNextMonth()  { walYM=_shiftYM(walYM, 1);  localStorage.setItem('wallet_walYM',walYM);   renderWallet(); }
 // 帳單記錄月份導航
 function renderBillsNav() {
   const el=document.getElementById('bills-ym-nav');
   if(el) el.textContent=_ymLabel(billsYM);
 }
-function billsPrevMonth() { billsYM=_shiftYM(billsYM,-1); renderCards(); }
-function billsNextMonth() { billsYM=_shiftYM(billsYM, 1); renderCards(); }
+function billsPrevMonth() { billsYM=_shiftYM(billsYM,-1); localStorage.setItem('wallet_billsYM',billsYM); renderCards(); }
+function billsNextMonth() { billsYM=_shiftYM(billsYM, 1); localStorage.setItem('wallet_billsYM',billsYM); renderCards(); }
 function toggleAcctHist(btn) {
   const detail = btn.nextElementSibling;
   const isOpen = detail.style.display !== 'none';

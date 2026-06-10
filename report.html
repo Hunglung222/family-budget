@@ -842,13 +842,18 @@ function goToDateList(dateStr) {
 }
 
 function renderBud(){
-  const now=new Date();const txs=txByMonth(now.getFullYear(),now.getMonth()+1);const s=calcStats(txs);
-  document.getElementById('bud-list').innerHTML=getCats().map(c=>{
+  // 使用 txData（已依使用者選定的日期區間過濾），而非硬碼本月
+  const s=calcStats(txData);
+  // 顯示目前查詢的日期範圍提示
+  const rangeLabel = document.getElementById('range-lbl')?.textContent || '本月';
+  document.getElementById('bud-list').innerHTML=
+    `<div style="font-size:.75rem;color:var(--t3);margin-bottom:10px;padding:4px 2px">📅 以下數據對應查詢區間：${rangeLabel}</div>`
+    + getCats().map(c=>{
     const bud=getBudget(c.id),sp=s.byCat[c.id]||0;
     const pct=bud>0?Math.min(sp/bud*100,100):0,over=bud>0&&sp>bud,near=bud>0&&!over&&pct>=80;
     return `<div class="bitem"><div class="bhdr"><span class="bcat">${c.name}</span>
       <input type="number" class="binput" value="${bud||''}" placeholder="設定預算" onchange="saveBud('${c.id}',this.value)" onfocus="this.select()"></div>
-      ${bud>0?`<div class="bamts">已用 $${fmt(sp)} / $${fmt(bud)}</div><div class="bbar"><div class="bfill${over?' d':near?' w':''}" style="width:${pct}%"></div></div>${over?`<div class="bwarn d">⚠️ 超支 $${fmt(sp-bud)}</div>`:near?`<div class="bwarn w">🔔 已用 ${Math.round(pct)}%</div>`:''}`:`<div style="font-size:.72rem;color:var(--t3);margin-top:4px">本月：$${fmt(sp)}（未設預算）</div>`}
+      ${bud>0?`<div class="bamts">已用 $${fmt(sp)} / $${fmt(bud)}</div><div class="bbar"><div class="bfill${over?' d':near?' w':''}" style="width:${pct}%"></div></div>${over?`<div class="bwarn d">⚠️ 超支 $${fmt(sp-bud)}</div>`:near?`<div class="bwarn w">🔔 已用 ${Math.round(pct)}%</div>`:''}`:`<div style="font-size:.72rem;color:var(--t3);margin-top:4px">已用：$${fmt(sp)}（未設預算）</div>`}
     </div>`;
   }).join('');
 }

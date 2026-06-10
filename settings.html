@@ -798,7 +798,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.06.09 19:49';
+const APP_VERSION = 'v2026.06.10 09:11';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
@@ -1535,6 +1535,7 @@ function toggleRcPaySel(sel) {
   document.getElementById('rc-card-fg').style.display = sel.value === 'card' ? '' : 'none';
 }
 function showAddRecurring() {
+  _rcEditIdx = null;
   document.getElementById('rc-name').value = '';
   document.getElementById('rc-amt').value  = '';
   document.getElementById('rc-day').value  = '';
@@ -1589,15 +1590,24 @@ function submitRecurring() {
   const pay    = (document.getElementById('rc-pay')?.value) || 'cash';
   const acctId = pay === 'acct' ? (document.getElementById('rc-acct-sel')?.value || null) : null;
   const cardId = pay === 'card' ? (document.getElementById('rc-card-sel')?.value || null) : null;
-  list.push({ name, amt, day, cat, discord: disc, interval, startMonth, pay, acctId, cardId, createdAt: new Date().toISOString() });
-  saveRecurring(list);
-  if (typeof getDb === 'function') {
-    getDb().collection('shared').doc('recurring').set({ list, updatedAt: Date.now() }).catch(()=>{});
+  const intervalLabel2 = {1:'每月',2:'每2個月',3:'每3個月',6:'每半年',12:'每年'}[interval]||'每月';
+  if (_rcEditIdx !== null) {
+    const orig = list[_rcEditIdx] || {};
+    list[_rcEditIdx] = { ...orig, name, amt, day, cat, discord: disc, interval, startMonth, pay, acctId, cardId };
+    _rcEditIdx = null;
+    saveRecurring(list);
+    if (typeof getDb==='function') getDb().collection('shared').doc('recurring').set({list,updatedAt:Date.now()}).catch(()=>{});
+    closeModal('add-recurring-modal');
+    renderRecurring();
+    toast(`✅ 已更新「${name}」`);
+  } else {
+    list.push({ name, amt, day, cat, discord: disc, interval, startMonth, pay, acctId, cardId, createdAt: new Date().toISOString() });
+    saveRecurring(list);
+    if (typeof getDb==='function') getDb().collection('shared').doc('recurring').set({list,updatedAt:Date.now()}).catch(()=>{});
+    closeModal('add-recurring-modal');
+    renderRecurring();
+    toast(`✅ 已新增「${name}」${intervalLabel2} ${day} 日提醒`);
   }
-  closeModal('add-recurring-modal');
-  renderRecurring();
-  const intervalLabel = {1:'每月',2:'每2個月',3:'每3個月',6:'每半年',12:'每年'}[interval]||'每月';
-  toast(`✅ 已新增「${name}」${intervalLabel} ${day} 日提醒`);
 }
 
 function delRecurring(idx) {
