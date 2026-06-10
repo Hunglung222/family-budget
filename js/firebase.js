@@ -205,6 +205,8 @@ async function fbPullAll(){
     // 固定支出設定與本月已記帳清單
     await fbPullRecurring();
     await fbPullRecurringDone();
+    // 共用備忘錄（兩人都拉取）
+    await fbPullMemos();
     // 宏龍私密資料（只有 kevin 會執行）
     await fbPullPrivateData();
     return true;
@@ -311,42 +313,37 @@ async function fbPullPrivTx() {
 
 // ── 備忘錄 Firebase 同步（只有 kevin 本人能讀寫）──────────────────
 async function fbAddMemo(memo) {
-  if (!isKevin()) return;
+  // 兩人共用，皆可寫入
   try {
-    await getDb().collection('memos').doc(uid()).collection('items').doc(memo.id).set(memo);
+    await getDb().collection('shared_memos').doc(memo.id).set(memo);
   } catch(e) { console.warn('[FB]addMemo', e); }
 }
 
 async function fbEditMemo(id, updates) {
-  if (!isKevin()) return;
   try {
-    await getDb().collection('memos').doc(uid()).collection('items').doc(id).update({
+    await getDb().collection('shared_memos').doc(id).update({
       ...updates, updatedAt: new Date().toISOString()
     });
   } catch(e) { console.warn('[FB]editMemo', e); }
 }
 
 async function fbDelMemo(id) {
-  if (!isKevin()) return;
   try {
-    await getDb().collection('memos').doc(uid()).collection('items').doc(id).delete();
+    await getDb().collection('shared_memos').doc(id).delete();
   } catch(e) { console.warn('[FB]delMemo', e); }
 }
 
 async function fbPullMemos() {
-  if (!isKevin()) return;
+  // 兩人都可拉取共用備忘錄
   try {
-    const snap = await getDb().collection('memos').doc(uid()).collection('items')
-      .orderBy('at','desc').get();
+    const snap = await getDb().collection('shared_memos').orderBy('at','desc').get();
     if (snap.empty) return;
     const items = snap.docs.map(d => d.data());
     const localList = getMemos();
-    // 合併並去重（以 id 為唯一鍵）
     const mergedMap = new Map();
     [...items, ...localList].forEach(m => { if(!mergedMap.has(m.id)) mergedMap.set(m.id, m); });
     const merged = [...mergedMap.values()].sort((a,b)=>new Date(b.at)-new Date(a.at));
-    // 同 fbPullPrivTx：直接用 pPrivKey('memos')，與 getMemos 讀的 key 一致
-    localStorage.setItem(pPrivKey('memos'), JSON.stringify(merged));
+    localStorage.setItem('shared_memos', JSON.stringify(merged));
     console.log('[FB] 備忘錄已拉取', merged.length, '筆');
   } catch(e) { console.warn('[FB]pullMemos', e); }
 }
@@ -355,7 +352,7 @@ async function fbPullMemos() {
 async function fbPullPrivateData() {
   if (!isKevin()) return;
   await fbPullPrivTx();
-  await fbPullMemos();
+  // fbPullMemos 已在 fbPullAll 呼叫（兩人共用）
 }
 
 async function fbSyncWal(){await fbSyncPersonal();}

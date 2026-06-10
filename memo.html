@@ -8,7 +8,7 @@
 </head>
 <body>
 <header class="hdr">
-  <div><h1>📝 備忘錄</h1><div class="hdr-sub">個人筆記</div></div>
+  <div><h1>📝 備忘錄</h1><div class="hdr-sub">家庭共用筆記</div></div>
   <a href="./settings.html" class="hdr-btn">⚙️</a>
 </header>
 
@@ -80,23 +80,26 @@ function toast(msg, type='') {
 const TAG_COLOR = { '財務':'var(--p)','待辦':'var(--ok)','購物清單':'var(--warn)','重要':'#f43f5e','其他':'var(--t3)' };
 
 window.addEventListener('DOMContentLoaded', async ()=>{
-  const email = localStorage.getItem('current_email')||'';
-  if(email !== 'kevin67222@gmail.com'){
-    document.querySelector('.w').innerHTML =
-      '<div style="text-align:center;padding:60px 20px;color:var(--t3)"><div style="font-size:3rem;margin-bottom:16px">🔒</div><div style="font-size:1.1rem">此功能僅限宏龍使用</div></div>';
-    return;
-  }
   applyTheme();
+  // 兩人共用備忘錄 — 從 Firebase 同步
   await fbPullMemos();
+  // 一次性遷移：若 Kevin 有舊備忘錄，順帶上傳到 shared_memos
+  try {
+    const migrated = getMemos().filter(m => !m._synced);
+    if (migrated.length && typeof fbAddMemo === 'function') {
+      migrated.slice(0, 20).forEach(m => { fbAddMemo(m); });
+    }
+  } catch(e) {}
   renderMemoList();
 });
 
 function addMemoRecord(){
   const title   = document.getElementById('m-title').value.trim();
-  const content = document.getElementById('m-content').value.trim();
+  const cnt     = document.getElementById('m-content').value.trim();
   const tag     = document.getElementById('m-tag').value;
-  if(!content){ toast('請輸入內容','warn'); return; }
-  const m = addMemo({title, content, tag});
+  if(!cnt){ toast('請輸入內容','warn'); return; }
+  const author  = (typeof currentUser==='function') ? currentUser() : (localStorage.getItem('current_user')||'');
+  const m = addMemo({title, content:cnt, tag, author});
   fbAddMemo(m);
   document.getElementById('m-title').value='';
   document.getElementById('m-content').value='';
@@ -131,7 +134,11 @@ function renderMemoList(){
         </div>
       </div>
       <div style="font-size:.85rem;color:var(--t2);line-height:1.7;white-space:pre-wrap">${m.content}</div>
-      <div style="font-size:.7rem;color:var(--t3);margin-top:8px">${fmtD(m.at)} ${fmtT(m.at)}${m.updatedAt?' · 已更新':''}</div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+        ${m.author?`<span style="background:rgba(0,229,180,.12);color:var(--p);padding:1px 6px;border-radius:20px">👤 ${m.author}</span>`:''}
+        <span>${fmtD(m.at)} ${fmtT(m.at)}</span>
+        ${m.updatedAt?`<span style="color:var(--warn)">✎ ${m.editedBy||''}${m.editedBy?' 編輯':' 已更新'}</span>`:''}
+      </div>
     </div>`).join('');
 }
 
@@ -152,10 +159,11 @@ function closeMemoModal(){ document.getElementById('memo-modal').style.display='
 function saveMemoEdit(){
   const id      = document.getElementById('em-id').value;
   const title   = document.getElementById('em-title').value.trim();
-  const content = document.getElementById('em-content').value.trim();
-  if(!content){ toast('請輸入內容','warn'); return; }
-  editMemo(id,{title,content});
-  fbEditMemo(id,{title,content});
+  const cnt     = document.getElementById('em-content').value.trim();
+  if(!cnt){ toast('請輸入內容','warn'); return; }
+  const editedBy = (typeof currentUser==='function') ? currentUser() : (localStorage.getItem('current_user')||'');
+  editMemo(id,{title,content:cnt,editedBy});
+  fbEditMemo(id,{title,content:cnt,editedBy});
   closeMemoModal(); renderMemoList(); toast('✅ 已更新');
 }
 </script>

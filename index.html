@@ -105,13 +105,15 @@
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-shrink:0">
       <div class="st" style="margin:0">💬 家庭簡訊</div>
       <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="showChatClearMenu()"
-          style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">
-          清除
+        <button onclick="showChatClearMenu()" title="清除對話"
+          style="width:36px;height:36px;background:var(--card2);border:1px solid var(--border);color:var(--t2);
+                 border-radius:10px;cursor:pointer;font-size:1.05rem;display:flex;align-items:center;justify-content:center">
+          🗑️
         </button>
-        <button onclick="closeModal('chat-modal')"
-          style="font-size:.72rem;color:var(--t3);background:none;border:none;cursor:pointer;padding:4px 8px;font-family:inherit">
-          關閉
+        <button onclick="closeModal('chat-modal')" title="關閉"
+          style="width:36px;height:36px;background:var(--card2);border:1px solid var(--border);color:var(--t2);
+                 border-radius:10px;cursor:pointer;font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center">
+          ✕
         </button>
       </div>
     </div>
@@ -739,9 +741,8 @@ function toast(msg,type=''){const el=document.getElementById('toast');el.textCon
 
 applyTheme();
 // 宏龍專屬功能顯示
-if((localStorage.getItem('current_email')||'')==='kevin67222@gmail.com'){
-  ['memo-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='flex';});
-}
+// 備忘錄入口：開放給兩人
+['memo-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.style.display='flex';});
 document.getElementById('hdr-date').textContent=new Date().toLocaleDateString('zh-TW',{weekday:'long',month:'long',day:'numeric'});
 render();
 

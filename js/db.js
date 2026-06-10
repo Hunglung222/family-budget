@@ -414,47 +414,54 @@ function fixDuplicates() {
   const txMap = new Map(); txRaw.forEach(t=>{ if(!txMap.has(t.id)) txMap.set(t.id,t); });
   DB.set(pPrivKey('tx'), [...txMap.values()]);
 
-  const memoRaw = DB.get(pPrivKey('memos')) || [];
+  const memoRaw = DB.get('shared_memos') || [];
   const memoMap = new Map(); memoRaw.forEach(m=>{ if(!memoMap.has(m.id)) memoMap.set(m.id,m); });
-  DB.set(pPrivKey('memos'), [...memoMap.values()]);
+  DB.set('shared_memos', [...memoMap.values()]);
 
   console.log(`[fixDuplicates] 私密記帳: ${txRaw.length}→${txMap.size}, 備忘錄: ${memoRaw.length}→${memoMap.size}`);
   return { txBefore: txRaw.length, txAfter: txMap.size, memoBefore: memoRaw.length, memoAfter: memoMap.size };
 }
 
 function getMemos() {
-  // 一次性遷移：同 getPrivTx
+  const SHARED_KEY = 'shared_memos';
+  // 一次性遷移：舊 pPrivKey('memos') → shared_memos（讓盈慧也能看到 Kevin 原有的備忘錄）
   try {
+    const oldKey = pPrivKey('memos');
+    const oldRaw = DB.get(oldKey) || [];
     const wrongKey = 'db_priv_' + uid() + '_memos';
     const wrongRaw = localStorage.getItem(wrongKey);
-    if (wrongRaw) {
-      const wrongList = JSON.parse(wrongRaw);
-      const currentList = DB.get(pPrivKey('memos')) || [];
-      const merged = new Map();
-      [...currentList, ...wrongList].forEach(m => { if (!merged.has(m.id)) merged.set(m.id, m); });
-      DB.set(pPrivKey('memos'), [...merged.values()]);
-      localStorage.removeItem(wrongKey);
-      console.log('[Migration] 已遷移備忘錄資料到正確 key（共', merged.size, '筆）');
+    const wrongList = wrongRaw ? (JSON.parse(wrongRaw)||[]) : [];
+    const sharedCur = DB.get(SHARED_KEY) || [];
+    const allSrc = [...sharedCur, ...oldRaw, ...wrongList];
+    if (oldRaw.length || wrongList.length) {
+      const map = new Map();
+      allSrc.forEach(m=>{ if(!map.has(m.id)) map.set(m.id,m); });
+      DB.set(SHARED_KEY, [...map.values()]);
+      DB.set(oldKey, []);                         // 清舊私有 key
+      if (wrongRaw) localStorage.removeItem(wrongKey);
+      console.log('[Migration] 備忘錄已遷移至共用存儲 shared_memos');
     }
   } catch(e) { console.warn('[Migration] memos 遷移失敗:', e); }
 
-  const raw = DB.get(pPrivKey('memos')) || [];
+  const raw = DB.get('shared_memos') || [];
   const map = new Map(); raw.forEach(m=>{ if(!map.has(m.id)) map.set(m.id,m); });
   return [...map.values()];
 }
 function addMemo(m) {
   const list = getMemos();
-  m.id  = 'memo_'+Date.now().toString(36);
-  m.at  = new Date().toISOString();
+  m.id     = 'memo_'+Date.now().toString(36);
+  m.at     = new Date().toISOString();
+  m.author = m.author || (typeof currentUser==='function' ? currentUser() : '');
   if (list.find(x=>x.id===m.id)) return m;
   list.unshift(m);
-  DB.set(pPrivKey('memos'), list);
+  DB.set('shared_memos', list);
   return m;
 }
 function editMemo(id, updates) {
-  DB.set(pPrivKey('memos'), getMemos().map(m=>m.id===id?{...m,...updates,updatedAt:new Date().toISOString()}:m));
+  const editedBy = typeof currentUser==='function' ? currentUser() : '';
+  DB.set('shared_memos', getMemos().map(m=>m.id===id?{...m,...updates,updatedAt:new Date().toISOString(),editedBy}:m));
 }
-function delMemo(id)  { DB.set(pPrivKey('memos'), getMemos().filter(m=>m.id!==id)); }
+function delMemo(id)  { DB.set('shared_memos', getMemos().filter(m=>m.id!==id)); }
 function catName(id) { return catFind(id).name; }
 function addCat(c)   { const l=getCats(); c.id='cat_'+Date.now().toString(36); l.push(c); DB.set('cats',l); }
 function delCat(id)  { DB.set('cats', getCats().filter(c=>c.id!==id)); }
