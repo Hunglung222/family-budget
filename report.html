@@ -77,7 +77,7 @@
     <div id="week-pred-cats" style="font-size:.8rem;color:var(--t2)"></div>
     <!-- 每週預算把關（只在本週模式顯示）-->
     <div id="week-budget-section" style="margin-top:12px"></div>
-    <button id="week-detail-toggle" type="button"
+    <button id="week-detail-toggle" type="button" onclick="toggleWeekDetail()"
       style="width:100%;margin-top:10px;padding:7px;background:none;border:1px solid var(--border);
              border-radius:8px;color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">
       <span style="pointer-events:none">▸ 分類明細</span>
@@ -1035,8 +1035,16 @@ function renderWeekBudget(isMonth) {
   const wb = getWeekBudget();
   if (!wb.results.length) {
     el.innerHTML =
-      `<div style="background:var(--card2);border-radius:10px;padding:12px;font-size:.78rem;color:var(--t3);text-align:center">
-        💡 尚未設定分類預算。到「設定 → 記帳 → 預算設定」設好月預算，這裡就會自動拆成每週額度幫你把關。
+      `<div style="background:var(--pdim);border:1.5px dashed var(--p);border-radius:10px;padding:14px;text-align:center">
+        <div style="font-size:1.4rem;margin-bottom:6px">🎯</div>
+        <div style="font-size:.84rem;font-weight:700;color:var(--p);margin-bottom:4px">設定月預算，自動計算每週額度</div>
+        <div style="font-size:.75rem;color:var(--t2);margin-bottom:12px;line-height:1.5">
+          例如飲食月預算設 $12,000<br>系統會自動依本週天數比例拆算<br>讓你每天都知道還能花多少
+        </div>
+        <button onclick="location.href='./settings.html'"
+          style="padding:8px 20px;background:var(--p);color:#000;border:none;border-radius:50px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit">
+          前往設定月預算 →
+        </button>
       </div>`;
     return;
   }
