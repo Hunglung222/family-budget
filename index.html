@@ -1088,8 +1088,14 @@ function renderInboxList() {
     return;
   }
 
-  const iconColor = { pending_confirm:'rgba(251,191,36,.15)', recurring:'rgba(0,229,180,.1)', installment:'rgba(99,102,241,.1)' };
-  const iconBorder = { pending_confirm:'rgba(251,191,36,.3)', recurring:'rgba(0,229,180,.3)', installment:'rgba(99,102,241,.3)' };
+  const iconColor = {
+    pending_confirm:'rgba(251,191,36,.15)', recurring:'rgba(0,229,180,.1)', installment:'rgba(99,102,241,.1)',
+    insight:'rgba(251,146,60,.15)', cashflow_alert:'rgba(239,68,68,.12)',
+  };
+  const iconBorder = {
+    pending_confirm:'rgba(251,191,36,.3)', recurring:'rgba(0,229,180,.3)', installment:'rgba(99,102,241,.3)',
+    insight:'rgba(251,146,60,.3)', cashflow_alert:'rgba(239,68,68,.3)',
+  };
 
   listEl.innerHTML = items.map(item => `
   <div id="inbox-item-${item.id}" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
@@ -1181,6 +1187,19 @@ function inboxAction(id) {
     const amtInput = document.getElementById('inbox-amt-' + id);
     if (amtInput && preAmount) amtInput.value = preAmount;
     amtInput?.focus();
+
+  } else if (item.type === 'insight') {
+    // AI 洞察 → 依類型導向對應頁面
+    closeModal('inbox-modal');
+    const t = item.raw?.insightType;
+    if (t === 'overpace' || t === 'spike') location.href = './report.html';
+    else if (t === 'impulse')              location.href = './report.html';
+    else                                   location.href = './report.html';
+
+  } else if (item.type === 'cashflow_alert') {
+    // 現金流預警 → 錢包頁
+    closeModal('inbox-modal');
+    location.href = './wallet.html';
   }
 }
 
