@@ -502,6 +502,83 @@ async function discordBillReminder(){
   }
 }
 
+// ── 月結報告（依週期月，結算「剛結束的上一個週期月」）──────────
+// force=true 時忽略開關與防重複，供「立即測試」按鈕使用
+async function discordMonthlyReport(force=false){
+  const cfg=getDiscord();
+  if(!force && (!cfg.onMonthly || !getWebhook())) return false;
+  if(!getWebhook()) return false;
+
+  // 結算「上一個已結束的週期月」：取本週期月起始日的前一天當基準
+  const { start: curStart } = getBudgetPeriod(new Date());
+  const refForLast = new Date(curStart.getTime() - 86400000); // 上期最後一天
+  const { start: pStart, end: pEnd } = getBudgetPeriod(refForLast);
+
+  // 防重複：以該週期月起始日為 key
+  const periodKey = `discord_monthly_${pStart.getFullYear()}_${pStart.getMonth()+1}_${pStart.getDate()}`;
+  if(!force && localStorage.getItem(periodKey)) return false;
+
+  // 統計該週期月支出
+  const tx = getTx().filter(t=>{const d=new Date(t.at);return d>=pStart && d<=pEnd;});
+  const totalSpent = tx.reduce((s,t)=>s+t.amount,0);
+
+  // 各分類佔比（取前 6 大）
+  const byCat={};
+  tx.forEach(t=>{byCat[t.cat]=(byCat[t.cat]||0)+t.amount;});
+  const catLines = Object.entries(byCat)
+    .sort((a,b)=>b[1]-a[1]).slice(0,6)
+    .map(([cid,amt])=>{
+      const pct = totalSpent>0 ? Math.round(amt/totalSpent*100) : 0;
+      return `• ${catName(cid)||cid}：**$${fmt(amt)}**（${pct}%）`;
+    }).join('\n');
+
+  // 收入與儲蓄率
+  let incomeLine = '';
+  try{
+    const incomes = getIncomes().filter(i=>{const d=new Date(i.at);return d>=pStart && d<=pEnd;});
+    const totalIncome = incomes.reduce((s,i)=>s+(i.amount||0),0);
+    if(totalIncome>0){
+      const saveRate = Math.round((totalIncome-totalSpent)/totalIncome*100);
+      incomeLine = `\n💵 收入：**$${fmt(totalIncome)}**　儲蓄率：**${saveRate}%**`;
+    }
+  }catch(e){}
+
+  // 預算達成率（只列有設定預算的分類）
+  let budgetLine = '';
+  try{
+    const items = getBudgetConfig().items||{};
+    const overList = [];
+    Object.keys(items).forEach(cid=>{
+      const limit = items[cid]?.limit||0; if(!limit) return;
+      const spent = byCat[cid]||0;
+      const pct = Math.round(spent/limit*100);
+      if(pct>=100) overList.push(`⚠️ ${catName(cid)||cid} 超支（${pct}%）`);
+    });
+    if(overList.length) budgetLine = '\n\n🚨 **超支分類**\n'+overList.join('\n');
+  }catch(e){}
+
+  // 與上上個週期月比較
+  let compareLine = '';
+  try{
+    const refPrev = new Date(pStart.getTime() - 86400000);
+    const { start: ppStart, end: ppEnd } = getBudgetPeriod(refPrev);
+    const prevTx = getTx().filter(t=>{const d=new Date(t.at);return d>=ppStart && d<=ppEnd;});
+    const prevTotal = prevTx.reduce((s,t)=>s+t.amount,0);
+    if(prevTotal>0){
+      const diff = totalSpent-prevTotal;
+      const diffPct = Math.round(Math.abs(diff)/prevTotal*100);
+      compareLine = `\n📈 較上期 ${diff>=0?'增加':'減少'} **$${fmt(Math.abs(diff))}**（${diffPct}%）`;
+    }
+  }catch(e){}
+
+  const periodLabel = `${pStart.getMonth()+1}/${pStart.getDate()} ～ ${pEnd.getMonth()+1}/${pEnd.getDate()}`;
+  const msg = `📅 **家庭記帳月結報告**\n週期：${periodLabel}\n\n💰 總支出：**$${fmt(totalSpent)}**（${tx.length} 筆）${incomeLine}${compareLine}\n\n📊 **支出分類 Top**\n${catLines||'（本期無支出記錄）'}${budgetLine}`;
+
+  await discordSend(msg);
+  if(!force) localStorage.setItem(periodKey,'1');
+  return true;
+}
+
 async function discordDailySummary(){
   const cfg=getDiscord();if(!cfg.onDaily||!getWebhook())return;
   const key='discord_daily_'+new Date().toDateString();
@@ -521,10 +598,21 @@ function scheduleNotifications(){
   const now=new Date(),target=new Date();
   target.setHours(cfg.dailyHour||21,0,0,0);
   if(target<=now)target.setDate(target.getDate()+1);
-  setTimeout(async()=>{
+  // 到了發送時間，先跑日結算與帳單提醒，並檢查是否該發月結報告
+  const runAll = async()=>{
     await discordDailySummary();
     await discordBillReminder();
-    setInterval(async()=>{await discordDailySummary();await discordBillReminder();},864e5);
+    // 月結報告：到設定的 monthlyDay 當天才發（discordMonthlyReport 內含防重複）
+    try{
+      const c=getDiscord();
+      if(c.onMonthly && new Date().getDate()===(c.monthlyDay||11)){
+        await discordMonthlyReport();
+      }
+    }catch(e){console.warn('[monthly]',e);}
+  };
+  setTimeout(async()=>{
+    await runAll();
+    setInterval(runAll,864e5);
   },target-now);
 }
 

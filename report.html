@@ -75,6 +75,8 @@
       </div>
     </div>
     <div id="week-pred-cats" style="font-size:.8rem;color:var(--t2)"></div>
+    <!-- 每週預算把關（只在本週模式顯示）-->
+    <div id="week-budget-section" style="margin-top:12px"></div>
     <button id="week-detail-toggle" type="button"
       style="width:100%;margin-top:10px;padding:7px;background:none;border:1px solid var(--border);
              border-radius:8px;color:var(--t3);font-size:.75rem;cursor:pointer;font-family:inherit">
@@ -153,6 +155,7 @@
   <div class="panel" id="p-bud">
     <div style="font-size:.78rem;color:var(--t2);margin-bottom:12px">輸入金額後自動儲存（本月數據）</div>
     <div id="bud-list"></div>
+    <div id="bud-history" style="margin-top:16px"></div>
   </div>
 </div>
 
@@ -165,6 +168,10 @@
     <div class="chart-card" style="margin-top:12px">
       <div class="ct">🧠 想要 vs 需要</div>
       <div id="want-need-analysis"></div>
+    </div>
+    <div class="chart-card" style="margin-top:12px">
+      <div class="ct">📊 想要/需要 歷史趨勢</div>
+      <div id="want-need-history"></div>
     </div>
     <div class="chart-card" style="margin-top:12px">
       <div class="ct">💰 省錢大作戰 - 消費分析</div>
@@ -856,6 +863,53 @@ function renderBud(){
       ${bud>0?`<div class="bamts">已用 $${fmt(sp)} / $${fmt(bud)}</div><div class="bbar"><div class="bfill${over?' d':near?' w':''}" style="width:${pct}%"></div></div>${over?`<div class="bwarn d">⚠️ 超支 $${fmt(sp-bud)}</div>`:near?`<div class="bwarn w">🔔 已用 ${Math.round(pct)}%</div>`:''}`:`<div style="font-size:.72rem;color:var(--t3);margin-top:4px">已用：$${fmt(sp)}（未設預算）</div>`}
     </div>`;
   }).join('');
+  renderBudHistory();
+}
+
+function renderBudHistory(){
+  const el = document.getElementById('bud-history');
+  if (!el) return;
+  if (typeof getBudgetHistory !== 'function') { el.innerHTML=''; return; }
+  const hist = getBudgetHistory(6);
+  if (!hist.cats.length) {
+    el.innerHTML = `<div style="background:var(--card2);border-radius:10px;padding:12px;font-size:.76rem;color:var(--t3);text-align:center;margin-top:8px">
+      💡 設定分類預算後，這裡會顯示過去 6 個週期月的達成率趨勢，幫你找出長期失控的分類。
+    </div>`;
+    return;
+  }
+
+  // 每個分類一列，顯示過去各期的達成率小格
+  const lightColor = pct => pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22c55e';
+  const catRows = hist.cats.map(cat => {
+    const cells = hist.periods.map(p => {
+      const cd = p.catData[cat.id];
+      const pct = cd ? cd.pct : 0;
+      const h = Math.max(6, Math.min(pct, 150) / 150 * 40); // 高度依達成率，上限 150%
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+        <div style="width:100%;height:42px;display:flex;align-items:flex-end;justify-content:center">
+          <div title="${p.label}：${pct}%" style="width:70%;height:${h}px;background:${lightColor(pct)};border-radius:3px 3px 0 0"></div>
+        </div>
+        <div style="font-size:.6rem;color:var(--t3)">${p.label}</div>
+      </div>`;
+    }).join('');
+    const warn = cat.overCount > 0
+      ? `<span style="color:#ef4444;font-size:.7rem;font-weight:700">超支 ${cat.overCount} 次</span>`
+      : `<span style="color:#22c55e;font-size:.7rem">未超支</span>`;
+    return `<div style="background:var(--card2);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.82rem;font-weight:700">${cat.name}</span>
+        <span>${warn} <span style="color:var(--t3);font-size:.7rem;margin-left:4px">平均 ${cat.avgPct}%</span></span>
+      </div>
+      <div style="display:flex;gap:3px;align-items:flex-end">${cells}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div style="border-top:1px solid var(--border);padding-top:14px">
+      <div style="font-size:.9rem;font-weight:900;margin-bottom:4px">📉 預算達成率歷史（近 6 期）</div>
+      <div style="font-size:.72rem;color:var(--t3);margin-bottom:10px">綠 &lt;80% · 黃 80~99% · 紅 ≥100%（超支）。長期偏紅的分類就是花費壓不下來的主因。</div>
+      ${catRows}
+    </div>`;
 }
 
 function saveBud(id,v){setBudget(id,parseInt(v)||0);renderBud();toast('預算已儲存');}
@@ -963,8 +1017,96 @@ function renderWeekPred() {
       ).join('')
     : `<span style="color:var(--t3)">${noDataMsg}</span>`;
 
+  // 每週預算把關：只在「本週」模式顯示
+  renderWeekBudget(isMonth);
+
   // 詳細分類表（hidden by default）
   if (window._weekDetailOpen) renderWeekDetail(pred);
+}
+
+// ── 每週預算把關區塊 ──────────────────────────────────
+function renderWeekBudget(isMonth) {
+  const el = document.getElementById('week-budget-section');
+  if (!el) return;
+  // 本月模式不顯示週預算
+  if (isMonth) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+
+  const wb = getWeekBudget();
+  if (!wb.results.length) {
+    el.innerHTML =
+      `<div style="background:var(--card2);border-radius:10px;padding:12px;font-size:.78rem;color:var(--t3);text-align:center">
+        💡 尚未設定分類預算。到「設定 → 記帳 → 預算設定」設好月預算，這裡就會自動拆成每週額度幫你把關。
+      </div>`;
+    return;
+  }
+
+  const lightColor = { red:'#ef4444', yellow:'#f59e0b', green:'#22c55e' };
+  const lightBg    = { red:'rgba(239,68,68,.12)', yellow:'rgba(245,158,11,.12)', green:'rgba(34,197,94,.12)' };
+  const lightEmoji = { red:'🔴', yellow:'🟡', green:'🟢' };
+
+  const rows = wb.results.map(r => {
+    const barPct = Math.min(r.pct, 100);
+    const overText = r.remaining < 0
+      ? `<span style="color:#ef4444;font-weight:900">超支 $${fmt(-r.remaining)}</span>`
+      : `<span style="color:${lightColor[r.light]}">剩 $${fmt(r.remaining)}</span>`;
+    return `
+      <div style="padding:10px 0;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+          <span style="font-weight:700;font-size:.85rem">${lightEmoji[r.light]} ${r.cat.name}</span>
+          <span style="font-size:.8rem;color:var(--t2)">$${fmt(r.spent)} / $${fmt(r.weekLimit)}</span>
+        </div>
+        <div style="height:7px;background:var(--card2);border-radius:5px;overflow:hidden;margin-bottom:4px">
+          <div style="height:100%;width:${barPct}%;background:${lightColor[r.light]};border-radius:5px;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.72rem;color:var(--t3)">
+          <span>已用 ${r.pct}%</span>
+          ${overText}
+        </div>
+      </div>`;
+  }).join('');
+
+  const totalPct = wb.totalWeekLimit > 0 ? Math.round(wb.totalSpent / wb.totalWeekLimit * 100) : 0;
+  const totalRemaining = wb.totalWeekLimit - wb.totalSpent;
+
+  // 整月累積結餘橫幅（預算結轉）
+  const bal = wb.cumTotalBalance;
+  const isAhead = bal >= 0;
+  const cumBanner = `
+    <div style="margin-top:10px;padding:10px 12px;border-radius:10px;
+                background:${isAhead?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)'};
+                border:1px solid ${isAhead?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:.8rem;font-weight:900;color:${isAhead?'#22c55e':'#ef4444'}">
+          ${isAhead?'✅ 整月累積：超前':'⚠️ 整月累積：落後'}
+        </span>
+        <span style="font-size:.92rem;font-weight:900;color:${isAhead?'#22c55e':'#ef4444'}">
+          ${isAhead?'省下 ':'超支 '}$${fmt(Math.abs(bal))}
+        </span>
+      </div>
+      <div style="font-size:.7rem;color:var(--t3);margin-top:4px">
+        到今天為止（第 ${wb.daysElapsedInPeriod}/${wb.periodDays} 天）應花 $${fmt(wb.cumTotalShould)}，實際花 $${fmt(wb.cumTotalActual)}
+      </div>
+    </div>`;
+
+  el.innerHTML = `
+    <div style="background:var(--card2);border-radius:12px;padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:.84rem;font-weight:900;color:var(--t)">🎯 本週預算把關</span>
+        <span style="font-size:.7rem;color:var(--t3)">本週 ${wb.overlapDays} 天 / 週期月 ${wb.periodDays} 天</span>
+      </div>
+      <div style="font-size:.72rem;color:var(--t3);margin-bottom:8px">
+        依週期月（${wb.periodStart.getMonth()+1}/${wb.periodStart.getDate()}～${wb.periodEnd.getMonth()+1}/${wb.periodEnd.getDate()}）天數比例自動拆分
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:2px solid var(--border)">
+        <span style="font-size:.82rem;font-weight:900">本週總額度</span>
+        <span style="font-size:.95rem;font-weight:900;color:${totalRemaining<0?'#ef4444':'var(--p)'}">
+          $${fmt(wb.totalSpent)} / $${fmt(wb.totalWeekLimit)}（${totalPct}%）
+        </span>
+      </div>
+      ${cumBanner}
+      ${rows}
+    </div>`;
 }
 function renderWeekDetail(pred) {
   const rows = [...pred.catResults].sort((a,b)=>b.total-a.total);
@@ -1147,6 +1289,63 @@ function renderWantNeed() {
     <div style="font-size:.7rem;color:var(--t3);margin-top:8px;padding:0 2px">
       💡 需要 = 無衝動/情緒/想要標籤的消費。若要提升準確度，請在記帳時標記消費動機。
     </div>`;
+  renderWantNeedHistory();
+}
+
+function renderWantNeedHistory() {
+  const el = document.getElementById('want-need-history');
+  if (!el || typeof getWantNeedHistory !== 'function') return;
+
+  const periods = getWantNeedHistory(4);
+  // 若全部都沒有標籤資料，顯示提示
+  const hasData = periods.some(p => p.tagRate > 0);
+  if (!hasData) {
+    el.innerHTML = `<div style="font-size:.78rem;color:var(--t3);text-align:center;padding:12px">
+      目前標籤紀錄較少，記帳時多加上「需要／想要／衝動」標籤，趨勢圖就會越來越準確。
+    </div>`;
+    return;
+  }
+
+  const C = { need:'#00e5b4', want:'#4f8ef7', impulse:'#f59e0b' };
+  const maxTotal = Math.max(...periods.map(p => p.total), 1);
+
+  const bars = periods.map(p => {
+    const barH = Math.round(p.total / maxTotal * 60); // px，最高 60
+    const needH    = Math.round(barH * p.needPct    / 100);
+    const wantH    = Math.round(barH * p.wantPct    / 100);
+    const impulseH = Math.max(0, barH - needH - wantH);
+    const impPctLabel = p.impulsePct > 0 ? `<div style="font-size:.58rem;color:${C.impulse}">⚡${p.impulsePct}%</div>` : '';
+    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+      ${impPctLabel}
+      <div style="width:100%;height:70px;display:flex;flex-direction:column;justify-content:flex-end;align-items:center">
+        <div style="width:72%;display:flex;flex-direction:column;gap:1px;border-radius:4px 4px 0 0;overflow:hidden">
+          ${impulseH > 0 ? `<div style="height:${impulseH}px;background:${C.impulse}"></div>` : ''}
+          ${wantH    > 0 ? `<div style="height:${wantH}px;background:${C.want}"></div>` : ''}
+          ${needH    > 0 ? `<div style="height:${needH}px;background:${C.need}"></div>` : ''}
+        </div>
+      </div>
+      <div style="font-size:.62rem;color:var(--t3);margin-top:2px">${p.label}</div>
+      <div style="font-size:.65rem;color:var(--t2)">$${fmt(Math.round(p.total/1000))}k</div>
+    </div>`;
+  }).join('');
+
+  const legend = `<div style="display:flex;gap:12px;font-size:.7rem;margin-bottom:10px">
+    <span><span style="display:inline-block;width:10px;height:10px;background:${C.need};border-radius:2px;margin-right:3px"></span>需要</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:${C.want};border-radius:2px;margin-right:3px"></span>想要</span>
+    <span><span style="display:inline-block;width:10px;height:10px;background:${C.impulse};border-radius:2px;margin-right:3px"></span>衝動</span>
+  </div>`;
+
+  // 趨勢解讀
+  const latest = periods[periods.length - 1];
+  const prev   = periods[periods.length - 2];
+  let trend = '';
+  if (prev && latest) {
+    const impDiff = latest.impulsePct - prev.impulsePct;
+    if      (impDiff >=  5) trend = `<div style="font-size:.76rem;color:#f59e0b;margin-top:8px">⚠️ 衝動消費比上期增加 ${impDiff}%，留意一下</div>`;
+    else if (impDiff <= -5) trend = `<div style="font-size:.76rem;color:#22c55e;margin-top:8px">✅ 衝動消費比上期減少 ${Math.abs(impDiff)}%，繼續保持！</div>`;
+  }
+
+  el.innerHTML = `${legend}<div style="display:flex;gap:4px;align-items:flex-end">${bars}</div>${trend}`;
 }
 
 // ── 標籤分析 ──────────────────────────────────────────

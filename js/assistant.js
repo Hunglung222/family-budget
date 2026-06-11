@@ -271,16 +271,27 @@ function parseDateRange(msg) {
   // 去年
   if (/去年/.test(msg)) return { from: toStr(y-1, 1, 1), to: toStr(y-1, 12, 31) };
 
-  // ── 多月份提及：「4月5月6月」「4月和5月」「4、5、6月」等格式 ──
-  // 方法1：直接連寫 /(\d+)月/ matchAll 收集（處理「4月5月6月」）
+  // ── 多月份提及：「4月5月6月」「4月和5月」「4、5、6月」「4-6月」「四月到六月」──
+  const _ch2num = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10,'十一':11,'十二':12};
+  // 方法1：阿拉伯數字直接連寫 /(\d+)月/
   const allMonthDirect = [...msg.matchAll(/(\d{1,2})月/g)]
     .map(m => +m[1]).filter(n => n >= 1 && n <= 12);
-  // 方法2：列舉格式「4、5、6月」「4,5,6月」— 最後一個數字才有月，補取前面的
-  const listMonthMatch = msg.match(/((?:\d{1,2}[、,，\s/]+){1,})\d{1,2}月/);
+  // 方法2：列舉格式「4、5、6月」「4,5,6月」「4-6月」「4~6月」
+  const listMonthMatch = msg.match(/((?:\d{1,2}[、,，\s/~\-至到]+){1,})\d{1,2}月/);
   const allMonthList = listMonthMatch
     ? [...listMonthMatch[0].matchAll(/(\d{1,2})/g)].map(m => +m[1]).filter(n => n >= 1 && n <= 12)
     : [];
-  const uniqueMonths = [...new Set([...allMonthDirect, ...allMonthList])];
+  // 方法3：中文數字多月「四月到六月」「四、五、六月」
+  const cnMonths = [...msg.matchAll(/([一二三四五六七八九十]+)月/g)]
+    .map(m => _ch2num[m[1]]).filter(n => n >= 1 && n <= 12);
+  // 範圍格式「4-6月」「4~6月」「四到六月」：補齊中間月份
+  let rangeMonths = [];
+  const rangeMatch = msg.match(/(\d{1,2})\s*[-~至到]\s*(\d{1,2})\s*月/);
+  if (rangeMatch) {
+    const a = +rangeMatch[1], b = +rangeMatch[2];
+    if (a>=1 && b<=12 && a<b) for (let i=a;i<=b;i++) rangeMonths.push(i);
+  }
+  const uniqueMonths = [...new Set([...allMonthDirect, ...allMonthList, ...cnMonths, ...rangeMonths])];
   if (uniqueMonths.length >= 2) {
     const minM = Math.min(...uniqueMonths);
     const maxM = Math.max(...uniqueMonths);

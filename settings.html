@@ -421,8 +421,16 @@
 
   <!-- 新增固定支出 Modal -->
   <div class="ov" id="add-recurring-modal">
-    <div class="sheet"><div class="sh"></div><div class="st">📌 新增固定支出提醒</div>
-      <div class="fg"><span class="flbl">項目名稱</span>
+    <div class="sheet"><div class="sh"></div><div class="st" id="rc-modal-title">📌 新增固定項目提醒</div>
+      <div class="fg"><span class="flbl">類型</span>
+        <div style="display:flex;gap:8px">
+          <button type="button" id="rc-type-expense" onclick="setRcType('expense')"
+            style="flex:1;padding:10px;border-radius:10px;border:1.5px solid var(--p);background:var(--pdim);color:var(--p);font-weight:700;cursor:pointer;font-family:inherit">💸 固定支出</button>
+          <button type="button" id="rc-type-income" onclick="setRcType('income')"
+            style="flex:1;padding:10px;border-radius:10px;border:1px solid var(--border);background:var(--card2);color:var(--t3);font-weight:700;cursor:pointer;font-family:inherit">💰 固定收入</button>
+        </div>
+      </div>
+      <div class="fg"><span class="flbl" id="rc-name-lbl">項目名稱</span>
         <input type="text" class="fc" id="rc-name" placeholder="例：房租、Netflix、網路費" maxlength="20"></div>
       <div class="fg"><span class="flbl">金額（可略，填 0 表示金額不固定）</span>
         <input type="number" class="fc" id="rc-amt" placeholder="0" inputmode="numeric"></div>
@@ -445,9 +453,11 @@
         </select>
         <div style="font-size:.72rem;color:var(--t3);margin-top:4px">例：水費每2個月5號，上次繳4月 → 起始月設4月，下次提醒6/5</div>
       </div>
-      <div class="fg"><span class="flbl">🏷️ 分類</span>
+      <div class="fg" id="rc-cat-fg"><span class="flbl" id="rc-cat-lbl">🏷️ 分類</span>
         <select class="fc" id="rc-cat"></select></div>
-      <div class="fg"><span class="flbl">💳 付款方式</span>
+      <div class="fg" id="rc-source-fg" style="display:none"><span class="flbl">💰 收入來源</span>
+        <input type="text" class="fc" id="rc-source" placeholder="例：薪資、房租收入、獎金" maxlength="20"></div>
+      <div class="fg" id="rc-pay-fg"><span class="flbl" id="rc-pay-lbl">💳 付款方式</span>
         <select class="fc" id="rc-pay" onchange="toggleRcPaySel(this)">
           <option value="cash">💵 現金</option>
           <option value="acct">🏦 帳戶</option>
@@ -700,6 +710,19 @@
     </div>
   </div>
 
+  <!-- 資料健康檢查 -->
+  <div class="sec-t">🩺 資料健康檢查</div>
+  <div class="set-card">
+    <div class="srow" onclick="openHealthCheck()">
+      <div class="sico" style="background:rgba(0,229,180,.15)">🩺</div>
+      <div class="sinfo">
+        <div class="sname">執行資料健康檢查</div>
+        <div class="sdesc">偵測重複交易、分期狀態異常、失效預算等問題，可一鍵修復</div>
+      </div>
+      <span class="sarr">›</span>
+    </div>
+  </div>
+
   <!-- 危險區 -->
   <div class="sec-t">⚠️ 危險操作</div>
   <div class="set-card">
@@ -724,6 +747,20 @@
   <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
     <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
     <div class="btn-row"><button class="btn btn-s" onclick="closeModal()">取消</button><button class="btn btn-d" id="cm-ok">確認</button></div>
+  </div>
+</div>
+
+<!-- 資料健康檢查結果 Modal -->
+<div class="ov" id="health-modal">
+  <div class="sheet" style="max-height:88dvh;display:flex;flex-direction:column">
+    <div class="sh"></div>
+    <div class="st" style="margin:0 0 4px">🩺 資料健康檢查</div>
+    <div style="font-size:.74rem;color:var(--t3);margin-bottom:12px">此檢查只讀取資料、不會自動修改，修復需你逐項確認</div>
+    <div id="health-body" style="flex:1;overflow-y:auto;padding:2px"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-s" onclick="closeModal('health-modal')">關閉</button>
+      <button class="btn btn-p" onclick="openHealthCheck()">🔄 重新檢查</button>
+    </div>
   </div>
 </div>
 
@@ -755,6 +792,60 @@
 <script src="./js/firebase.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
+// ── 資料健康檢查 ──────────────────────────────────────
+function openHealthCheck() {
+  if (typeof runHealthCheck !== 'function') { toast('健康檢查功能載入失敗','warn'); return; }
+  const res = runHealthCheck();
+  renderHealthResult(res);
+  showModal('health-modal');
+}
+function renderHealthResult(res) {
+  const body = document.getElementById('health-body');
+  if (!body) return;
+  if (res.healthy) {
+    body.innerHTML = `<div style="text-align:center;padding:32px 16px">
+      <div style="font-size:3rem;margin-bottom:12px">✅</div>
+      <div style="font-size:1rem;font-weight:900;color:#22c55e">資料一切正常</div>
+      <div style="font-size:.8rem;color:var(--t3);margin-top:6px">沒有偵測到任何異常，可以放心使用</div>
+    </div>`;
+    return;
+  }
+  const levelStyle = {
+    error: { bg:'rgba(239,68,68,.1)',  bd:'rgba(239,68,68,.3)',  c:'#ef4444', icon:'🔴' },
+    warn:  { bg:'rgba(245,158,11,.1)', bd:'rgba(245,158,11,.3)', c:'#f59e0b', icon:'🟠' },
+    info:  { bg:'rgba(79,142,247,.1)', bd:'rgba(79,142,247,.3)', c:'#4f8ef7', icon:'🔵' },
+  };
+  const head = `<div style="display:flex;gap:8px;margin-bottom:12px;font-size:.78rem">
+    <span style="color:#ef4444">🔴 ${res.summary.error} 嚴重</span>
+    <span style="color:#f59e0b">🟠 ${res.summary.warn} 警告</span>
+    <span style="color:#4f8ef7">🔵 ${res.summary.info} 提示</span>
+  </div>`;
+  body.innerHTML = head + res.issues.map((it, idx) => {
+    const s = levelStyle[it.level] || levelStyle.info;
+    return `<div style="background:${s.bg};border:1px solid ${s.bd};border-radius:10px;padding:11px 13px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="font-size:.86rem;font-weight:700;color:${s.c}">${s.icon} ${it.title}</div>
+        ${it.fixable ? `<button onclick="doHealthFix('${it.fixKey}',${idx})"
+          style="flex-shrink:0;padding:5px 12px;background:var(--pdim);border:1px solid var(--p);color:var(--p);border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit">🔧 修復</button>` : ''}
+      </div>
+      <div style="font-size:.76rem;color:var(--t2);margin-top:5px">${it.detail}</div>
+    </div>`;
+  }).join('');
+}
+function doHealthFix(fixKey, idx) {
+  if (!fixKey || typeof runHealthFix !== 'function') return;
+  if (!confirm('確定要執行此項修復嗎？此動作會調整資料。')) return;
+  const n = runHealthFix(fixKey);
+  // 同步到 Firebase（依修復類型）
+  try {
+    if (fixKey === 'dedupeTx' && typeof fbSyncPersonal === 'function') fbSyncPersonal();
+    if ((fixKey === 'fixInstPaidCount' || fixKey === 'closeFinishedInst') && typeof fbSyncInstallments === 'function') fbSyncInstallments();
+  } catch(e) {}
+  toast(`✅ 已修復（處理 ${n} 筆）`);
+  // 重新檢查刷新
+  openHealthCheck();
+}
+
 const ACCENT_DEFS=[
   // 原有 6 色
   {key:'teal',  color:'#00e5b4',label:'翠綠'},
@@ -798,7 +889,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.06.10 12:01';
+const APP_VERSION = 'v2026.06.11 09:10';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
@@ -1099,20 +1190,26 @@ function saveNotify(){
 async function sendMonthlyNow() {
   if(!getWebhook()){ toast('請先設定 Webhook URL','err'); return; }
   toast('📅 月報發送中，請稍候...','info');
-  // 計算當前週期月範圍（根據 budgetStartDay）
-  const sd = getBudgetStartDay();
-  const now = new Date();
-  const {start, end} = getBudgetPeriod();
-  // 取前一個週期
-  const prevEnd = new Date(start); prevEnd.setDate(prevEnd.getDate()-1);
-  const prevStart = new Date(start); prevStart.setMonth(prevStart.getMonth()-1);
-  const txList = getTx().filter(t => {
-    const d = new Date(t.at); return d >= start && d <= end;
-  });
-  if(!txList.length){ toast('本期尚無記帳資料','warn'); return; }
-  // 存月度摘要到 Firebase
-  await saveMonthSummaryToFB(start, end, txList);
-  toast('✅ 月報已補發，請查看 Discord');
+  try{
+    // 1) App 端直接推送（立即可在 Discord 看到，force=true 忽略開關與防重複）
+    let sent = false;
+    if(typeof discordMonthlyReport === 'function'){
+      sent = await discordMonthlyReport(true);
+    }
+    // 2) 同時把摘要存 Firebase（供 GAS 排程備援 / 歷史查詢）
+    const {start, end} = getBudgetPeriod();
+    const prevEnd = new Date(start.getTime() - 86400000);
+    const {start: pStart, end: pEnd} = getBudgetPeriod(prevEnd);
+    const txList = getTx().filter(t => { const d=new Date(t.at); return d>=pStart && d<=pEnd; });
+    if(txList.length && typeof saveMonthSummaryToFB === 'function'){
+      await saveMonthSummaryToFB(pStart, pEnd, txList);
+    }
+    if(sent) toast('✅ 月報已發送，請查看 Discord');
+    else toast('已嘗試發送，若未收到請確認 Webhook 設定','warn');
+  }catch(e){
+    console.warn('[sendMonthlyNow]', e);
+    toast('發送失敗：'+(e.message||'未知錯誤'),'err');
+  }
 }
 
 async function saveMonthSummaryToFB(start, end, txList) {
@@ -1510,32 +1607,105 @@ function renderRecurring() {
   el.innerHTML = list.map((r, i) => {
     const isDue    = today === r.day && isRecurringDue(r, thisMonth);
     const isAlmost = (today === r.day - 1 || (r.day === 1 && today >= 30)) && isRecurringDue(r, thisMonth);
-    const catInfo = catFind(r.cat) || {name: r.cat, color: '#94a3b8'};
+    const isIncome = r.type === 'income';
+    const catInfo = isIncome
+      ? {name: r.source || '收入', color: '#22c55e'}
+      : (catFind(r.cat) || {name: r.cat, color: '#94a3b8'});
     let statusTag = '';
     if (isDue)     statusTag = '<span style="background:rgba(244,63,94,.15);color:var(--danger);border-radius:20px;padding:2px 8px;font-size:.65rem;font-weight:700;margin-left:6px">⏰ 今天到期</span>';
     else if (isAlmost) statusTag = '<span style="background:rgba(251,191,36,.15);color:var(--warn);border-radius:20px;padding:2px 8px;font-size:.65rem;font-weight:700;margin-left:6px">⚠️ 明天到期</span>';
+    const typeTag = isIncome
+      ? '<span style="background:rgba(34,197,94,.15);color:#22c55e;border-radius:20px;padding:2px 8px;font-size:.65rem;font-weight:700;margin-left:6px">💰 收入</span>'
+      : '';
+    const payDesc = isIncome
+      ? '收入來源'
+      : (r.pay==='acct'?'🏦帳戶':r.pay==='card'?'💳信用卡':'💵現金');
 
     return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border)">
       <div style="width:36px;height:36px;border-radius:9px;background:${catInfo.color}22;border:1.5px solid ${catInfo.color}44;display:flex;align-items:center;justify-content:center;font-size:.85rem;flex-shrink:0;font-weight:700;color:${catInfo.color}">${r.day}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:.9rem;font-weight:700;display:flex;align-items:center;flex-wrap:wrap">
-          ${r.name}${statusTag}
+          ${r.name}${typeTag}${statusTag}
         </div>
         <div style="font-size:.72rem;color:var(--t3);margin-top:2px">
-          ${intervalLabel(r)} ${r.day} 日 · ${catInfo.name}${r.amt ? ' · $'+fmt(r.amt) : ''} · ${r.pay==='acct'?'🏦帳戶':r.pay==='card'?'💳信用卡':'💵現金'}${r.discord ? ' · 📣 Discord' : ''}
+          ${intervalLabel(r)} ${r.day} 日 · ${catInfo.name}${r.amt ? ' · $'+fmt(r.amt) : ''} · ${payDesc}${r.discord ? ' · 📣 Discord' : ''}
         </div>
       </div>
-      <button onclick="delRecurring(${i})" style="width:30px;height:30px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);color:var(--danger);border-radius:8px;font-size:.9rem;cursor:pointer;flex-shrink:0">✕</button>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        <button onclick="showEditRecurring(${i})" style="width:30px;height:30px;background:var(--pdim);border:1px solid var(--p);color:var(--p);border-radius:8px;font-size:.8rem;cursor:pointer">✎</button>
+        <button onclick="delRecurring(${i})" style="width:30px;height:30px;background:rgba(244,63,94,.1);border:1px solid rgba(244,63,94,.2);color:var(--danger);border-radius:8px;font-size:.9rem;cursor:pointer">✕</button>
+      </div>
     </div>`;
   }).join('');
+}
+
+let _rcType = 'expense'; // expense | income
+
+function setRcType(type) {
+  _rcType = type;
+  const isExpense = type === 'expense';
+  // 按鈕外觀
+  const expBtn = document.getElementById('rc-type-expense');
+  const incBtn = document.getElementById('rc-type-income');
+  if (expBtn && incBtn) {
+    expBtn.style.cssText = `flex:1;padding:10px;border-radius:10px;border:${isExpense?'1.5px solid var(--p)':'1px solid var(--border)'};background:${isExpense?'var(--pdim)':'var(--card2)'};color:${isExpense?'var(--p)':'var(--t3)'};font-weight:700;cursor:pointer;font-family:inherit`;
+    incBtn.style.cssText = `flex:1;padding:10px;border-radius:10px;border:${!isExpense?'1.5px solid var(--p)':'1px solid var(--border)'};background:${!isExpense?'var(--pdim)':'var(--card2)'};color:${!isExpense?'var(--p)':'var(--t3)'};font-weight:700;cursor:pointer;font-family:inherit`;
+  }
+  // 欄位顯示切換
+  document.getElementById('rc-cat-fg').style.display    = isExpense ? '' : 'none';
+  document.getElementById('rc-source-fg').style.display = isExpense ? 'none' : '';
+  document.getElementById('rc-pay-fg').style.display    = isExpense ? '' : 'none';
+  // 收入時隱藏付款明細子選單
+  if (!isExpense) {
+    document.getElementById('rc-acct-fg').style.display = 'none';
+    document.getElementById('rc-card-fg').style.display = 'none';
+  }
+  // 標題與名稱提示
+  const titleEl = document.getElementById('rc-modal-title');
+  const nameLbl = document.getElementById('rc-name-lbl');
+  if (titleEl) titleEl.textContent = isExpense ? '📌 新增固定支出提醒' : '💰 新增固定收入提醒';
+  if (nameLbl) nameLbl.textContent = isExpense ? '項目名稱' : '收入名稱';
 }
 
 function toggleRcPaySel(sel) {
   document.getElementById('rc-acct-fg').style.display = sel.value === 'acct' ? '' : 'none';
   document.getElementById('rc-card-fg').style.display = sel.value === 'card' ? '' : 'none';
 }
+let _rcEditIdx = null; // 編輯模式 index，null=新增
+
+function showEditRecurring(idx) {
+  const list = getRecurring();
+  const r = list[idx];
+  if (!r) return;
+  // 先初始化（填充選單），再覆蓋值
+  showAddRecurring();
+  _rcEditIdx = idx;
+  setRcType(r.type === 'income' ? 'income' : 'expense');
+  document.getElementById('rc-name').value = r.name || '';
+  document.getElementById('rc-amt').value  = r.amt || '';
+  document.getElementById('rc-day').value  = r.day || '';
+  document.getElementById('rc-interval').value = r.interval || 1;
+  document.getElementById('rc-startmonth-fg').style.display = (r.interval||1) > 1 ? '' : 'none';
+  if (r.startMonth) document.getElementById('rc-startmonth').value = r.startMonth;
+  document.getElementById('rc-discord').checked = r.discord !== false;
+  if (r.type === 'income') {
+    const srcEl = document.getElementById('rc-source');
+    if (srcEl) srcEl.value = r.source || r.name || '';
+  } else {
+    const paySel = document.getElementById('rc-pay');
+    if (paySel) { paySel.value = r.pay || 'cash'; toggleRcPaySel(paySel); }
+    if (r.pay === 'acct' && r.acctId) { const s=document.getElementById('rc-acct-sel'); if(s) s.value=r.acctId; }
+    if (r.pay === 'card' && r.cardId) { const s=document.getElementById('rc-card-sel'); if(s) s.value=r.cardId; }
+    if (r.cat) { const c=document.getElementById('rc-cat'); if(c) c.value=r.cat; }
+  }
+  const titleEl = document.getElementById('rc-modal-title');
+  if (titleEl) titleEl.textContent = '✎ 編輯固定項目';
+}
+
 function showAddRecurring() {
   _rcEditIdx = null;
+  setRcType('expense');
+  const srcEl=document.getElementById('rc-source'); if(srcEl) srcEl.value='';
   document.getElementById('rc-name').value = '';
   document.getElementById('rc-amt').value  = '';
   document.getElementById('rc-day').value  = '';
@@ -1580,20 +1750,24 @@ function submitRecurring() {
   const day  = parseInt(document.getElementById('rc-day').value) || 0;
   const cat  = document.getElementById('rc-cat').value;
   const disc = document.getElementById('rc-discord').checked;
-  if (!name)       { toast('請填入項目名稱', 'warn'); return; }
+  if (!name)       { toast('請填入名稱', 'warn'); return; }
   if (!day || day < 1 || day > 28) { toast('請填入有效日期（1～28）', 'warn'); return; }
 
   const interval   = parseInt(document.getElementById('rc-interval').value) || 1;
   const startMonth = interval === 1 ? 1 : parseInt(document.getElementById('rc-startmonth').value) || new Date().getMonth()+1;
 
   const list = getRecurring();
-  const pay    = (document.getElementById('rc-pay')?.value) || 'cash';
-  const acctId = pay === 'acct' ? (document.getElementById('rc-acct-sel')?.value || null) : null;
-  const cardId = pay === 'card' ? (document.getElementById('rc-card-sel')?.value || null) : null;
+  const rcType = _rcType || 'expense';
+  const isIncome = rcType === 'income';
+  const pay    = isIncome ? null : ((document.getElementById('rc-pay')?.value) || 'cash');
+  const acctId = (!isIncome && pay === 'acct') ? (document.getElementById('rc-acct-sel')?.value || null) : null;
+  const cardId = (!isIncome && pay === 'card') ? (document.getElementById('rc-card-sel')?.value || null) : null;
+  const source = isIncome ? (document.getElementById('rc-source')?.value.trim() || name) : null;
   const intervalLabel2 = {1:'每月',2:'每2個月',3:'每3個月',6:'每半年',12:'每年'}[interval]||'每月';
+  const baseFields = { name, amt, day, cat, discord: disc, interval, startMonth, type: rcType, pay, acctId, cardId, source };
   if (_rcEditIdx !== null) {
     const orig = list[_rcEditIdx] || {};
-    list[_rcEditIdx] = { ...orig, name, amt, day, cat, discord: disc, interval, startMonth, pay, acctId, cardId };
+    list[_rcEditIdx] = { ...orig, ...baseFields };
     _rcEditIdx = null;
     saveRecurring(list);
     if (typeof getDb==='function') getDb().collection('shared').doc('recurring').set({list,updatedAt:Date.now()}).catch(()=>{});
@@ -1601,12 +1775,12 @@ function submitRecurring() {
     renderRecurring();
     toast(`✅ 已更新「${name}」`);
   } else {
-    list.push({ name, amt, day, cat, discord: disc, interval, startMonth, pay, acctId, cardId, createdAt: new Date().toISOString() });
+    list.push({ ...baseFields, createdAt: new Date().toISOString() });
     saveRecurring(list);
     if (typeof getDb==='function') getDb().collection('shared').doc('recurring').set({list,updatedAt:Date.now()}).catch(()=>{});
     closeModal('add-recurring-modal');
     renderRecurring();
-    toast(`✅ 已新增「${name}」${intervalLabel2} ${day} 日提醒`);
+    toast(`✅ 已新增${isIncome?'固定收入':'固定支出'}「${name}」${intervalLabel2} ${day} 日提醒`);
   }
 }
 

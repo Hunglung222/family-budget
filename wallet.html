@@ -115,6 +115,13 @@
     </div>
     <div id="goals-list"></div>
 
+    <!-- 未來 30 天現金流預測 -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
+      <div class="sec-t" style="margin:0">📆 近期支出預測</div>
+      <span style="font-size:.72rem;color:var(--t3)">未來 30 天</span>
+    </div>
+    <div id="cashflow-section"></div>
+
     <div class="sec-t" style="margin-top:16px">💳 待繳信用卡帳單</div>
     <div id="pending-bills"></div>
     <div style="height:120px"></div>
@@ -604,6 +611,7 @@ function init() {
 
 function render() {
   renderOverview();
+  renderCashFlow();
   renderWallet();
   renderAccounts();
   renderCards();
@@ -620,6 +628,53 @@ function renderOverview() {
   document.getElementById('nw-invest').textContent = '$'+fmt(nw.investTotal||0);
   document.getElementById('nw-bills').textContent  = '$'+fmt(nw.pendingBills);
   document.getElementById('nw-inst').textContent   = '$'+fmt(nw.instDebt||0);
+// ── 現金流預測 ───────────────────────────────────────
+function renderCashFlow() {
+  const el = document.getElementById('cashflow-section');
+  if (!el || typeof getCashFlowForecast !== 'function') return;
+
+  const cf = getCashFlowForecast(30);
+
+  if (!cf.events.length) {
+    el.innerHTML = `<div style="background:var(--card2);border-radius:10px;padding:12px;font-size:.78rem;color:var(--t3);text-align:center">
+      未來 30 天沒有偵測到待繳帳單或固定支出 ✅
+    </div>`;
+    return;
+  }
+
+  const typeIcon  = { bill:'💳', installment:'📦', recurring:'🔄' };
+  const rows = cf.events.map(ev => {
+    const dStr = ev.diff === 0 ? '今天' : ev.diff === 1 ? '明天' : `${ev.diff} 天後`;
+    const urgStyle = ev.urgent
+      ? 'color:#ef4444;font-weight:700'
+      : ev.diff <= 7 ? 'color:#f59e0b' : 'color:var(--t2)';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:1.1rem;width:22px;text-align:center;flex-shrink:0">${typeIcon[ev.type]||'📌'}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.84rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${ev.label}</div>
+        <div style="font-size:.72rem;${urgStyle}">${dStr}（${ev.date.getMonth()+1}/${ev.date.getDate()}）</div>
+      </div>
+      <div style="font-size:.9rem;font-weight:900;color:#ff6b82;flex-shrink:0">$${fmt(ev.amount)}</div>
+    </div>`;
+  }).join('');
+
+  const balColor = cf.isAlert ? '#ef4444' : '#22c55e';
+  const alertBanner = cf.isAlert ? `
+    <div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.78rem;color:#ef4444;font-weight:700">
+      ⚠️ 近期待繳 $${fmt(Math.round(cf.totalDue))} 接近可用資產（$${fmt(Math.round(cf.totalBalance))}），請注意資金調度
+    </div>` : '';
+
+  el.innerHTML = `
+    <div style="background:var(--card2);border-radius:12px;padding:12px 14px">
+      ${alertBanner}
+      <div style="display:flex;justify-content:space-between;font-size:.76rem;color:var(--t3);margin-bottom:10px;padding-bottom:8px;border-bottom:2px solid var(--border)">
+        <span>可用資產：<span style="color:${balColor};font-weight:700">$${fmt(Math.round(cf.totalBalance))}</span></span>
+        <span>30天待繳：<span style="color:#ff6b82;font-weight:700">$${fmt(Math.round(cf.totalDue))}</span></span>
+      </div>
+      ${rows}
+    </div>`;
+}
+
 // ── 儲蓄目標 ─────────────────────────────────────────
 function renderGoals() {
   const list   = getGoals();

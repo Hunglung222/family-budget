@@ -1280,8 +1280,20 @@ function renderInboxList() {
     </div>`;
     return;
   }
-  const iconColor  = { pending_confirm:'rgba(251,191,36,.15)', recurring:'rgba(0,229,180,.1)', installment:'rgba(99,102,241,.1)' };
-  const iconBorder = { pending_confirm:'rgba(251,191,36,.3)',  recurring:'rgba(0,229,180,.3)', installment:'rgba(99,102,241,.3)' };
+  const iconColor  = {
+    pending_confirm: 'rgba(251,191,36,.15)',
+    recurring:       'rgba(0,229,180,.1)',
+    installment:     'rgba(99,102,241,.1)',
+    insight:         'rgba(251,146,60,.15)',   // 橘
+    cashflow_alert:  'rgba(239,68,68,.12)',    // 紅
+  };
+  const iconBorder = {
+    pending_confirm: 'rgba(251,191,36,.3)',
+    recurring:       'rgba(0,229,180,.3)',
+    installment:     'rgba(99,102,241,.3)',
+    insight:         'rgba(251,146,60,.3)',
+    cashflow_alert:  'rgba(239,68,68,.3)',
+  };
   listEl.innerHTML = items.map(item => `
   <div id="inbox-item-${item.id}" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
     <div style="display:flex;gap:12px;align-items:flex-start">
@@ -1323,6 +1335,16 @@ function inboxActionAdd(id) {
     updateInboxBadge();
   } else if (item.type === 'recurring' || item.type === 'installment') {
     showRecurringQuickConfirm(id, item);
+  } else if (item.type === 'insight') {
+    // 依洞察類型導向不同頁面
+    closeModal('inbox-modal');
+    const t = item.raw?.insightType;
+    if (t === 'overpace' || t === 'spike') location.href = './report.html';
+    else if (t === 'impulse')              location.href = './report.html#tag';
+    else                                   location.href = './report.html';
+  } else if (item.type === 'cashflow_alert') {
+    closeModal('inbox-modal');
+    location.href = './wallet.html';
   } else {
     closeModal('inbox-modal');
   }
@@ -1378,6 +1400,31 @@ function confirmRecurringTx(id) {
   const amt    = parseInt(amtEl?.value) || 0;
   if (!amt) { toast('請輸入金額', 'warn'); amtEl?.focus(); return; }
 
+  // 固定收入：走 addIncome 流程，不建立支出交易
+  const isIncome = !isInst && rec.type === 'income';
+  if (isIncome) {
+    const inc = {
+      amount: amt,
+      source: rec.source || rec.name || '固定收入',
+      person: typeof currentUser === 'function' ? currentUser() : '',
+      note:   rec.name || '',
+      at:     new Date().toISOString(),
+    };
+    if (typeof addIncome === 'function') addIncome(inc);
+    if (typeof fbSyncIncomes === 'function') fbSyncIncomes();
+    if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
+    else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+    document.getElementById('inbox-item-' + id)?.remove();
+    updateInboxBadge();
+    const rem0 = document.querySelectorAll('[id^="inbox-item-"]');
+    if (!rem0.length) {
+      const le = document.getElementById('inbox-list');
+      if (le) le.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
+    }
+    toast(`💰 已入帳：${inc.source} +$${fmt(amt)}`);
+    return;
+  }
+
   const pay    = isInst ? 'card' : (rec.pay || 'cash');
   const cardId = isInst ? (rec.cardId || null) : (pay === 'card' ? (rec.cardId||null) : null);
   const acctId = !isInst && pay === 'acct' ? (rec.acctId || null) : null;
@@ -1394,10 +1441,21 @@ function confirmRecurringTx(id) {
 
   const saved = addTx(tx);
   if (typeof fbAddTx === 'function')        fbAddTx(saved || tx);
+
+  // 分期：寫入 paidMonths 標記該期已繳（避免 inbox 重複提醒）
+  if (isInst && rec.id && rec.periodYM && typeof markInstallmentPaid === 'function') {
+    markInstallmentPaid(rec.id, rec.periodYM);
+    if (typeof fbSyncInstallments === 'function') fbSyncInstallments();
+  }
+
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
-  // 寫入 Firebase done 標記（讓對方裝置下次 pull 後不再顯示通知，防重複記帳）
-  if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
-  else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+  // 固定支出：寫入 Firebase done 標記（讓對方裝置下次 pull 後不再顯示通知，防重複記帳）
+  if (!isInst) {
+    if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
+    else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+  } else {
+    if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
+  }
   if (typeof discordOnAdd === 'function')   discordOnAdd(saved || tx);
 
   document.getElementById('inbox-item-' + id)?.remove();

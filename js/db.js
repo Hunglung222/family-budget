@@ -669,6 +669,242 @@ function getWeekPrediction() {
   };
 }
 
+// ── 每週預算把關 ──────────────────────────────────────
+// 將「週期月」的分類月預算，依「本週落在週期月內的實際天數比例」拆成週預算
+// 例：週期月 6/10~7/9（30天），本週一 6/8 ~ 週日 6/14，交集為 6/10~6/14 共 5 天
+//     飲食月預算 12000 → 本週預算 = 12000 × (5/30) = 2000
+function getWeekBudget(now) {
+  now = now || new Date();
+  // 1) 本週範圍（週一 ~ 週日）
+  const dow = now.getDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  const weekStart = new Date(now); weekStart.setDate(now.getDate()+mondayOffset); weekStart.setHours(0,0,0,0);
+  const weekEnd   = new Date(weekStart); weekEnd.setDate(weekStart.getDate()+6); weekEnd.setHours(23,59,59,999);
+
+  // 2) 週期月範圍與總天數（日期歸零計算，避免 end 的 23:59:59 進位多一天）
+  const { start: pStart, end: pEnd } = getBudgetPeriod(now);
+  const _d0 = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+  const periodDays = Math.round((_d0(pEnd) - _d0(pStart)) / 86400000) + 1;
+
+  // 3) 本週 ∩ 週期月 的交集天數（避免跨期時把上/下期天數也算進來）
+  const segStart = weekStart > pStart ? weekStart : pStart;
+  const segEnd   = weekEnd   < pEnd   ? weekEnd   : pEnd;
+  let overlapDays = 0;
+  if (segEnd >= segStart) {
+    const a = new Date(segStart); a.setHours(0,0,0,0);
+    const b = new Date(segEnd);   b.setHours(0,0,0,0);
+    overlapDays = Math.round((b - a) / 86400000) + 1;
+  }
+  const ratio = periodDays > 0 ? (overlapDays / periodDays) : 0;
+
+  // 4) 本週實際花費（依分類，只計落在交集區間的交易）
+  const allTx = getTx();
+  const weekTx = allTx.filter(t => { const d = new Date(t.at); return d >= weekStart && d <= weekEnd; });
+
+  // 5) 每個「有設定預算」的分類，計算週預算與已花
+  const cfg = getBudgetConfig();
+  const items = cfg.items || {};
+  const results = [];
+  getCats().forEach(cat => {
+    const monthLimit = items[cat.id]?.limit || 0;
+    if (!monthLimit) return; // 只顯示有設定預算的分類
+    const weekLimit = Math.round(monthLimit * ratio);
+    const spent = weekTx.filter(t => t.cat === cat.id).reduce((s,t)=>s+t.amount, 0);
+    const remaining = weekLimit - spent;
+    const pct = weekLimit > 0 ? Math.round(spent / weekLimit * 100) : 0;
+    // 號誌：<70% 綠、70~99% 黃、>=100% 紅
+    const light = pct >= 100 ? 'red' : pct >= 70 ? 'yellow' : 'green';
+    results.push({ cat, monthLimit, weekLimit, spent, remaining, pct, light });
+  });
+  results.sort((a,b) => b.pct - a.pct);
+
+  // 6) 累積結餘（預算結轉核心）：從週期月起始到「今天」，應花 vs 實花
+  //    應花預算 = 月預算 × (已過天數 / 週期月總天數)
+  //    讓使用者看清整個月到目前為止是超前還是落後，不只看單週
+  const todayEnd = new Date(now); todayEnd.setHours(23,59,59,999);
+  const elapsedStart = _d0(pStart);
+  const elapsedToday = _d0(now);
+  const daysElapsedInPeriod = Math.min(
+    periodDays,
+    Math.max(1, Math.round((elapsedToday - elapsedStart) / 86400000) + 1)
+  );
+  const periodTx = allTx.filter(t => { const d = new Date(t.at); return d >= pStart && d <= todayEnd; });
+  const cumResults = results.map(r => {
+    const shouldSpend = Math.round(r.monthLimit * (daysElapsedInPeriod / periodDays));
+    const actualSpent = periodTx.filter(t => t.cat === r.cat.id).reduce((s,t)=>s+t.amount, 0);
+    const balance = shouldSpend - actualSpent; // 正=超前(省)，負=落後(超支)
+    return { cat: r.cat, monthLimit: r.monthLimit, shouldSpend, actualSpent, balance };
+  });
+  const cumTotalShould = cumResults.reduce((s,r)=>s+r.shouldSpend, 0);
+  const cumTotalActual = cumResults.reduce((s,r)=>s+r.actualSpent, 0);
+  const cumTotalBalance = cumTotalShould - cumTotalActual;
+
+  return {
+    weekStart, weekEnd, periodStart: pStart, periodEnd: pEnd,
+    periodDays, overlapDays, ratio, daysElapsedInPeriod,
+    results,
+    totalWeekLimit: results.reduce((s,r)=>s+r.weekLimit, 0),
+    totalSpent:     results.reduce((s,r)=>s+r.spent, 0),
+    // 累積結餘（結轉）
+    cumResults, cumTotalShould, cumTotalActual, cumTotalBalance,
+  };
+}
+
+// ── 預算超支歷史（回溯過去 N 個週期月的達成率）──────────
+function getBudgetHistory(monthsBack=6) {
+  const items = getBudgetConfig().items || {};
+  const budgetedCats = Object.keys(items).filter(id => (items[id]?.limit||0) > 0);
+  if (!budgetedCats.length) return { periods: [], cats: [] };
+
+  const allTx = getTx();
+  const periods = [];
+  // 從本週期月往前回溯
+  let ref = new Date();
+  for (let i = 0; i < monthsBack; i++) {
+    const { start, end } = getBudgetPeriod(ref);
+    const periodTx = allTx.filter(t => { const d = new Date(t.at); return d >= start && d <= end; });
+    const catData = {};
+    budgetedCats.forEach(cid => {
+      const limit = items[cid].limit;
+      const spent = periodTx.filter(t => t.cat === cid).reduce((s,t)=>s+t.amount, 0);
+      catData[cid] = { limit, spent, pct: limit > 0 ? Math.round(spent/limit*100) : 0, over: spent > limit };
+    });
+    periods.unshift({
+      label: `${start.getMonth()+1}/${start.getDate()}`,
+      startISO: toLocalISO(start),
+      catData,
+      totalLimit: budgetedCats.reduce((s,c)=>s+items[c].limit, 0),
+      totalSpent: budgetedCats.reduce((s,c)=>s+(catData[c].spent), 0),
+    });
+    // 往前一個週期月
+    ref = new Date(start.getTime() - 86400000);
+  }
+
+  // 每個分類的超支次數統計
+  const cats = budgetedCats.map(cid => ({
+    id: cid,
+    name: catName(cid) || cid,
+    limit: items[cid].limit,
+    overCount: periods.filter(p => p.catData[cid]?.over).length,
+    avgPct: Math.round(periods.reduce((s,p)=>s+(p.catData[cid]?.pct||0), 0) / periods.length),
+  }));
+
+  return { periods, cats };
+}
+
+// ── 資料健康檢查 ──────────────────────────────────────
+// 偵測常見資料異常，回傳 { issues: [...], summary }，不自動修改任何資料
+function runHealthCheck() {
+  const issues = [];
+  const add = (level, title, detail, fixable=false, fixKey=null) =>
+    issues.push({ level, title, detail, fixable, fixKey });
+
+  // 1) 交易 id 重複
+  try {
+    const tx = getTx();
+    const seen = new Set(), dup = new Set();
+    tx.forEach(t => { if (seen.has(t.id)) dup.add(t.id); else seen.add(t.id); });
+    if (dup.size) add('warn', '交易記錄有重複 ID', `共 ${dup.size} 個重複 ID（可能因多次匯入造成）`, true, 'dedupeTx');
+  } catch(e) {}
+
+  // 2) 交易缺少必要欄位
+  try {
+    const bad = getTx().filter(t => !t.at || typeof t.amount !== 'number' || !t.pay);
+    if (bad.length) add('warn', '交易缺少必要欄位', `${bad.length} 筆交易缺少日期/金額/付款方式`, false);
+  } catch(e) {}
+
+  // 3) 分期 paidMonths 與 paidCount 不一致
+  try {
+    const insts = getInstallments();
+    const mismatch = insts.filter(i => (i.paidMonths||[]).length !== (i.paidCount||0));
+    if (mismatch.length) add('warn', '分期已繳期數不一致', `${mismatch.length} 筆分期的 paidMonths 與 paidCount 對不上`, true, 'fixInstPaidCount');
+  } catch(e) {}
+
+  // 4) 分期已全繳但仍標記 active
+  try {
+    const stuck = getInstallments().filter(i =>
+      i.status === 'active' && (i.paidMonths||[]).length >= (i.months||i.totalMonths||0) && (i.months||i.totalMonths||0) > 0);
+    if (stuck.length) add('warn', '分期已繳完未結案', `${stuck.length} 筆分期已全部繳清但仍為進行中`, true, 'closeFinishedInst');
+  } catch(e) {}
+
+  // 5) 帳戶餘額 vs 歷史加總（僅提示，不自動改）
+  try {
+    [...getAccts(false), ...getAccts(true)].forEach(a => {
+      if (!Array.isArray(a.history)) return;
+      const net = a.history.reduce((s,h) => s + (h.type==='in' ? h.amount : -h.amount), 0);
+      // 帳戶可能有初始餘額，故只在差距極大時提示
+      if (Math.abs((a.balance||0) - net) > 0 && a.history.length > 0) {
+        // 不一定是錯（有初始餘額），列為 info
+        // 略過：太容易誤報，改不列入
+      }
+    });
+  } catch(e) {}
+
+  // 6) 信用卡帳單 total 為負或 NaN
+  try {
+    const badBills = getCardBills().filter(b => typeof b.total !== 'number' || b.total < 0 || isNaN(b.total));
+    if (badBills.length) add('warn', '信用卡帳單金額異常', `${badBills.length} 筆帳單金額為負或非數字`, false);
+  } catch(e) {}
+
+  // 7) 預算設定指向不存在的分類
+  try {
+    const catIds = new Set(getCats().map(c => c.id));
+    const cfg = getBudgetConfig().items || {};
+    const orphan = Object.keys(cfg).filter(id => !catIds.has(id));
+    if (orphan.length) add('info', '預算指向已刪除分類', `${orphan.length} 個預算設定對應的分類已不存在`, true, 'cleanOrphanBudget');
+  } catch(e) {}
+
+  // 8) 固定支出/收入指向不存在分類
+  try {
+    const catIds = new Set(getCats().map(c => c.id));
+    const badRec = getRecurring().filter(r => r.type !== 'income' && r.cat && !catIds.has(r.cat));
+    if (badRec.length) add('info', '固定支出分類失效', `${badRec.length} 筆固定支出對應的分類已不存在`, false);
+  } catch(e) {}
+
+  const errCount  = issues.filter(i => i.level==='error').length;
+  const warnCount = issues.filter(i => i.level==='warn').length;
+  const infoCount = issues.filter(i => i.level==='info').length;
+  return {
+    issues,
+    summary: { total: issues.length, error: errCount, warn: warnCount, info: infoCount },
+    healthy: issues.length === 0,
+  };
+}
+
+// 修復動作（依 fixKey 執行，回傳修復筆數）
+function runHealthFix(fixKey) {
+  if (fixKey === 'dedupeTx') {
+    const tx = getTx(), seen = new Set(), out = [];
+    tx.forEach(t => { if (!seen.has(t.id)) { seen.add(t.id); out.push(t); } });
+    const removed = tx.length - out.length;
+    DB.set('tx', out);
+    return removed;
+  }
+  if (fixKey === 'fixInstPaidCount') {
+    const list = getInstallments(); let n = 0;
+    list.forEach(i => { const c=(i.paidMonths||[]).length; if(i.paidCount!==c){i.paidCount=c;n++;} });
+    saveInstallments(list);
+    return n;
+  }
+  if (fixKey === 'closeFinishedInst') {
+    const list = getInstallments(); let n = 0;
+    list.forEach(i => {
+      const m=(i.months||i.totalMonths||0);
+      if (i.status==='active' && m>0 && (i.paidMonths||[]).length>=m) { i.status='completed'; n++; }
+    });
+    saveInstallments(list);
+    return n;
+  }
+  if (fixKey === 'cleanOrphanBudget') {
+    const catIds = new Set(getCats().map(c => c.id));
+    const cfg = getBudgetConfig(); const items = cfg.items||{}; let n=0;
+    Object.keys(items).forEach(id => { if(!catIds.has(id)){ delete items[id]; n++; } });
+    cfg.items = items; saveBudgetConfig(cfg);
+    return n;
+  }
+  return 0;
+}
+
 // ── 資產總覽 ─────────────────────────────────────────
 function calcNetWorth() {
   const wal         = getWal().balance;
@@ -741,6 +977,21 @@ function updateInstallment(id, patch) {
 
 function delInstallment(id) {
   saveInstallments(getInstallments().filter(i => i.id !== id));
+}
+
+// 標記某分期的某月份已記帳（寫入 paidMonths，避免 inbox 重複提醒）
+function markInstallmentPaid(instId, periodYM) {
+  const list = getInstallments();
+  const idx  = list.findIndex(i => i.id === instId);
+  if (idx < 0) return;
+  const inst = list[idx];
+  inst.paidMonths = inst.paidMonths || [];
+  if (!inst.paidMonths.includes(periodYM)) inst.paidMonths.push(periodYM);
+  inst.paidCount = inst.paidMonths.length;
+  // 全部期數繳完 → 標記 completed
+  if (inst.paidCount >= (inst.months || inst.totalMonths || 0)) inst.status = 'completed';
+  saveInstallments(list);
+  return inst;
 }
 
 // 計算某分期某期次的金額
@@ -1112,44 +1363,50 @@ function getInboxItems() {
     const notifId = `rec_${rec.name}_${todayYear}_${todayMonth}`;
     if (isInboxItemDismissed(notifId) || isRecurringDone(notifId)) return;
     const dueLabel = diff === 0 ? '今天到期' : diff < 0 ? `已過期 ${Math.abs(diff)} 天` : `${diff} 天後到期`;
+    const isIncome = rec.type === 'income';
     items.push({
       id: notifId,
       type: 'recurring',
-      icon: '🔄',
+      icon: isIncome ? '💰' : '🔄',
       title: rec.name,
-      subtitle: `$${fmt(rec.amt || 0)} · ${dueLabel}`,
+      subtitle: `${isIncome?'收入 ':''}$${fmt(rec.amt || 0)} · ${dueLabel}`,
       note: '',
       date: `${todayYear}/${String(todayMonth).padStart(2,'0')}/${String(rec.day).padStart(2,'0')}`,
       isNew: true,
-      actionLabel: '立即記帳',
+      actionLabel: isIncome ? '立即入帳' : '立即記帳',
       raw: rec,
     });
   });
 
-  // ── 3. 分期月繳提醒 ─────────────────────────────────
+  // ── 3. 分期月繳提醒（統一用 startYM 計算，與 getPendingInstallments 一致）──
+  const _curYM = todayYear + '-' + String(todayMonth).padStart(2,'0');
   getInstallments().forEach(inst => {
-    if (inst.status && inst.status !== 'active') return; // 只處理 active 狀態的分期
-    const startDate = new Date(inst.startDate || inst.createdAt);
-    const mDiff = (todayYear - startDate.getFullYear()) * 12 + todayMonth - (startDate.getMonth()+1);
-    if (mDiff < 0 || mDiff >= (inst.months || inst.totalMonths || 0)) return;
-    const period = mDiff + 1;
+    if (inst.status && inst.status !== 'active') return; // 只處理 active 狀態
+    if (!inst.startYM) return;                            // 無起始月則略過
+    const [sy, sm] = inst.startYM.split('-').map(Number);
+    const months   = inst.months || inst.totalMonths || 0;
+    const paidSet  = new Set(inst.paidMonths || []);
+    // 本月（或之前未記）的期次才提醒
+    const mDiff = (todayYear - sy) * 12 + (todayMonth - sm);
+    if (mDiff < 0 || mDiff >= months) return;
+    if (paidSet.has(_curYM)) return;                      // 本月已記過，不再提醒
+    const period   = mDiff + 1;
+    const periodAmt = typeof installmentPeriodAmt === 'function'
+      ? installmentPeriodAmt(inst, mDiff)
+      : (inst.monthlyAmt || 0);
     const notifId = `inst_${inst.id}_${todayYear}_${todayMonth}`;
     if (isInboxItemDismissed(notifId)) return;
-    // 提醒日：每月 1 日起（或分期開始日當天）
-    const remindDay = startDate.getDate();
-    const diff2 = remindDay - todayDay;
-    if (diff2 < -1 || diff2 > 3) return;
     items.push({
       id: notifId,
       type: 'installment',
       icon: '📦',
       title: inst.name,
-      subtitle: `第 ${period}/${inst.months || inst.totalMonths} 期 · $${fmt(inst.monthlyAmt || inst.amount || 0)}`,
+      subtitle: `第 ${period}/${months} 期 · $${fmt(periodAmt)}`,
       note: '',
       date: todayStr,
       isNew: true,
       actionLabel: '立即記帳',
-      raw: { ...inst, currentPeriod: period },
+      raw: { ...inst, currentPeriod: period, periodYM: _curYM },
     });
   });
 
@@ -1246,6 +1503,29 @@ function getInboxItems() {
     });
   });
 
+  // ── 8. AI 主動洞察 ───────────────────────────────────
+  try {
+    getInsightItems().forEach(it => items.push(it));
+  } catch(e) { console.warn('[insight]', e); }
+
+  // ── 9. 現金流警示（未來 14 天到期金額 > 可用資產 80%）─
+  try {
+    const cf = getCashFlowForecast(14);
+    if (cf.isAlert) {
+      const cfId = `cashflow_alert_${todayYear}_${todayMonth}`;
+      if (!isInboxItemDismissed(cfId)) {
+        items.push({
+          id: cfId, type: 'cashflow_alert', icon: '💸',
+          title: '近期大額支出預警',
+          subtitle: `未來 14 天需繳 $${fmt(Math.round(cf.totalDue))}，目前可用資產 $${fmt(Math.round(cf.totalBalance))}`,
+          note: '',
+          date: todayStr, isNew: true, actionLabel: '查看現金流',
+          raw: { insightType: 'cashflow' },
+        });
+      }
+    }
+  } catch(e) { console.warn('[cashflow_alert]', e); }
+
   // 依建立時間排序（新 → 舊）
   items.sort((a,b) => {
     const ta = a.raw?.createdAt || 0;
@@ -1257,6 +1537,221 @@ function getInboxItems() {
 
 function getUnreadInboxCount() {
   return getInboxItems().length;
+}
+
+// ══════════════════════════════════════════════════════
+// 功能 A：AI 主動洞察（生成 insight 類型 inbox 項目）
+// ══════════════════════════════════════════════════════
+function getInsightItems() {
+  const insights = [];
+  const today = new Date();
+  const yy = today.getFullYear(), mm = today.getMonth() + 1;
+  const todayStr = toLocalISO(today).slice(0, 10);
+
+  // ─ 條件1：月支出節奏 — 累積已超「應花」120% 以上 ─
+  try {
+    const wb = typeof getWeekBudget === 'function' ? getWeekBudget(today) : null;
+    if (wb && wb.cumTotalShould > 0) {
+      const overRatio = wb.cumTotalActual / wb.cumTotalShould;
+      if (overRatio >= 1.2) {
+        const id = `insight_overpace_${yy}_${mm}`;
+        if (!isInboxItemDismissed(id)) {
+          const over = wb.cumTotalActual - wb.cumTotalShould;
+          insights.push({
+            id, type: 'insight', icon: '📈',
+            title: '本月支出節奏超前',
+            subtitle: `照目前進度，本月超支 $${fmt(Math.round(over * (wb.periodDays / wb.daysElapsedInPeriod)))} 機率高`,
+            note: `到今天為止已花 $${fmt(wb.cumTotalActual)}，應花 $${fmt(wb.cumTotalShould)}（${Math.round(overRatio*100)}%）`,
+            date: todayStr, isNew: true, actionLabel: '查看週預算', raw: { insightType: 'overpace' },
+          });
+        }
+      }
+    }
+  } catch(e) {}
+
+  // ─ 條件2：特定分類本週花費 ≥ 週歷史平均 200% ─
+  try {
+    const wp = typeof getWeekPrediction === 'function' ? getWeekPrediction() : null;
+    if (wp && wp.catResults) {
+      wp.catResults.forEach(c => {
+        if (!c.weekAmt || !c.predicted || c.predicted <= 0) return;
+        const ratio = c.weekAmt / c.predicted;
+        if (ratio < 2) return;
+        const id = `insight_spike_${c.cat.id}_${yy}_${mm}`;
+        if (isInboxItemDismissed(id)) return;
+        insights.push({
+          id, type: 'insight', icon: '🔥',
+          title: `${c.cat.name} 消費異常飆高`,
+          subtitle: `本週已花 $${fmt(c.weekAmt)}，是週均 $${fmt(Math.round(c.predicted))} 的 ${Math.round(ratio*100)}%`,
+          note: '',
+          date: todayStr, isNew: true, actionLabel: '查看報表', raw: { insightType: 'spike', catId: c.cat.id },
+        });
+      });
+    }
+  } catch(e) {}
+
+  // ─ 條件3：連續 2 週衝動消費 > 15% ─
+  try {
+    const allTx = getTx();
+    const IMPULSE = new Set(['impulse', 'emotion', 'social']);
+    // 本週
+    const wd = today.getDay(), mo = wd === 0 ? -6 : 1 - wd;
+    const wkS = new Date(today); wkS.setDate(today.getDate() + mo); wkS.setHours(0,0,0,0);
+    const wkE = new Date(wkS); wkE.setDate(wkS.getDate() + 6); wkE.setHours(23,59,59,999);
+    // 上週
+    const pwkS = new Date(wkS); pwkS.setDate(wkS.getDate() - 7);
+    const pwkE = new Date(wkE); pwkE.setDate(wkE.getDate() - 7);
+    const impPct = (start, end) => {
+      const wtx = allTx.filter(t => { const d = new Date(t.at); return d >= start && d <= end; });
+      const tot = wtx.reduce((s,t) => s + t.amount, 0);
+      if (!tot) return 0;
+      const imp = wtx.filter(t => (t.tags||[]).some(id => IMPULSE.has(id))).reduce((s,t) => s + t.amount, 0);
+      return imp / tot * 100;
+    };
+    const thisPct = impPct(wkS, wkE);
+    const lastPct = impPct(pwkS, pwkE);
+    if (thisPct >= 15 && lastPct >= 15) {
+      const id = `insight_impulse_${yy}_${mm}`;
+      if (!isInboxItemDismissed(id)) {
+        insights.push({
+          id, type: 'insight', icon: '⚡',
+          title: '連續 2 週衝動消費偏高',
+          subtitle: `上週 ${Math.round(lastPct)}%、本週 ${Math.round(thisPct)}%，建議啟用「冷靜期」`,
+          note: '',
+          date: todayStr, isNew: true, actionLabel: '查看標籤分析', raw: { insightType: 'impulse' },
+        });
+      }
+    }
+  } catch(e) {}
+
+  return insights;
+}
+
+// ══════════════════════════════════════════════════════
+// 功能 B：未來 30 天現金流預測
+// ══════════════════════════════════════════════════════
+function getCashFlowForecast(days = 30) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const events = [];
+
+  // 1) 未繳信用卡帳單（截止日在 days 天內）
+  try {
+    getPendingBills().forEach(bill => {
+      const due = new Date(bill.year, bill.month - 1, bill.dueDay || 15);
+      const diff = Math.ceil((due - today) / 86400000);
+      if (diff >= 0 && diff <= days) {
+        const card = cardFind(bill.cardId);
+        events.push({
+          date: due, diff, amount: bill.total,
+          label: `💳 ${card?.name || '信用卡'} ${bill.month}月帳單`,
+          type: 'bill', urgent: diff <= 3,
+        });
+      }
+    });
+  } catch(e) {}
+
+  // 2) 未繳分期（本月 + 未來月份落在 days 內）
+  try {
+    const d0 = new Date(today); d0.setDate(1);
+    const d1 = new Date(today.getTime() + days * 86400000);
+    getInstallments().filter(i => i.status === 'active').forEach(inst => {
+      if (!inst.startYM) return;
+      const [sy, sm] = inst.startYM.split('-').map(Number);
+      const paidSet = new Set(inst.paidMonths || []);
+      for (let m = 0; m < inst.months; m++) {
+        let iy = sy, imo = sm + m - 1;
+        iy += Math.floor(imo / 12); imo = imo % 12 + 1;
+        const ymStr = iy + '-' + String(imo).padStart(2, '0');
+        if (paidSet.has(ymStr)) continue;
+        // 假設每月 1 日為分期記帳日（月初提醒）
+        const due = new Date(iy, imo - 1, 1);
+        const diff = Math.ceil((due - today) / 86400000);
+        if (diff >= 0 && diff <= days) {
+          events.push({
+            date: due, diff, amount: installmentPeriodAmt(inst, m),
+            label: `📦 ${inst.name} 第${m+1}/${inst.months}期`,
+            type: 'installment', urgent: false,
+          });
+        }
+      }
+    });
+  } catch(e) {}
+
+  // 3) 固定支出（今後 days 天內會到期的）
+  try {
+    const todayD = today.getDate(), todayM = today.getMonth() + 1, todayY = today.getFullYear();
+    getRecurring().filter(r => r.type !== 'income' && r.amt > 0).forEach(rec => {
+      // 找「今後 days 天內」最近一次到期日
+      for (let offset = 0; offset <= days + 31; offset++) {
+        const d = new Date(today.getTime() + offset * 86400000);
+        if (d.getDate() !== rec.day) continue;
+        const diff = offset;
+        if (diff > days) break;
+        // 檢查該月是否該觸發（interval）
+        const dm = d.getMonth() + 1, dy = d.getFullYear();
+        const startM = rec.startMonth || 1;
+        const monthsFrom = (dy - 2024) * 12 + dm - startM;
+        if (monthsFrom >= 0 && monthsFrom % (rec.interval || 1) === 0) {
+          events.push({
+            date: new Date(d), diff, amount: rec.amt,
+            label: `🔄 ${rec.name}`,
+            type: 'recurring', urgent: diff <= 2,
+          });
+        }
+        break; // 每個 recurring 只加一次
+      }
+    });
+  } catch(e) {}
+
+  // 依日期排序
+  events.sort((a, b) => a.date - b.date);
+
+  // 目前總可用資產（錢包 + 帳戶）
+  let totalBalance = 0;
+  try {
+    totalBalance += (getWal()?.balance || 0);
+    [...getAccts(false), ...getAccts(true)].forEach(a => { totalBalance += (a.balance || 0); });
+  } catch(e) {}
+
+  const totalDue = events.reduce((s, e) => s + e.amount, 0);
+  const isAlert = totalBalance > 0 && totalDue > totalBalance * 0.8;
+
+  return { events, totalBalance, totalDue, isAlert, days };
+}
+
+// ══════════════════════════════════════════════════════
+// 功能 C：想要 vs 需要 歷史趨勢（回溯 N 個週期月）
+// ══════════════════════════════════════════════════════
+function getWantNeedHistory(periodsBack = 4) {
+  const WANT_TAGS    = new Set(['want']);
+  const IMPULSE_TAGS = new Set(['impulse', 'emotion', 'social']);
+  const allTx = getTx();
+  const periods = [];
+  let ref = new Date();
+
+  for (let i = 0; i < periodsBack; i++) {
+    const { start, end } = getBudgetPeriod(ref);
+    const ptx = allTx.filter(t => { const d = new Date(t.at); return d >= start && d <= end; });
+    const total = ptx.reduce((s,t) => s + t.amount, 0);
+    let wantAmt = 0, impulseAmt = 0, needAmt = 0;
+    ptx.forEach(t => {
+      const tags = t.tags || [];
+      if (tags.some(id => IMPULSE_TAGS.has(id)))    impulseAmt += t.amount;
+      else if (tags.some(id => WANT_TAGS.has(id)))  wantAmt    += t.amount;
+      else                                           needAmt    += t.amount;
+    });
+    const tagged = wantAmt + impulseAmt;
+    periods.unshift({
+      label:      `${start.getMonth()+1}/${start.getDate()}`,
+      total,
+      needPct:    total > 0 ? Math.round(needAmt    / total * 100) : 0,
+      wantPct:    total > 0 ? Math.round(wantAmt    / total * 100) : 0,
+      impulsePct: total > 0 ? Math.round(impulseAmt / total * 100) : 0,
+      tagRate:    total > 0 ? Math.round(tagged      / total * 100) : 0,
+    });
+    ref = new Date(start.getTime() - 86400000);
+  }
+  return periods;
 }
 
 // ── 儲蓄目標追蹤 ─────────────────────────────────────
