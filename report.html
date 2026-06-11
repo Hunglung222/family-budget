@@ -1116,20 +1116,22 @@ function renderWeekBudget(isMonth) {
       ${rows}
     </div>`;
 }
-function renderWeekDetail(pred) {
+function renderWeekDetail(pred, isMonth) {
+  const panel = document.getElementById('week-detail-panel');
+  if (!panel) return;
   const rows = [...pred.catResults].sort((a,b)=>b.total-a.total);
+  const periodLabel = isMonth ? '本月已花' : '本週已花';
   if (!rows.length) {
-    document.getElementById('week-detail-panel').innerHTML =
-      '<div style="color:var(--t3);font-size:.82rem;text-align:center;padding:10px 0">本週尚無記帳資料</div>';
+    panel.innerHTML = `<div style="color:var(--t3);font-size:.82rem;text-align:center;padding:10px 0">${isMonth?'本月':'本週'}尚無記帳資料</div>`;
     return;
   }
-  document.getElementById('week-detail-panel').innerHTML =
+  panel.innerHTML =
     `<table style="width:100%;border-collapse:collapse;font-size:.8rem">
       <thead><tr style="color:var(--t3);font-size:.72rem">
         <th style="text-align:left;padding:4px 0">分類</th>
-        <th style="text-align:right;padding:4px 6px">已花</th>
-        <th style="text-align:right;padding:4px 6px;color:#f59e0b">預估</th>
-        <th style="text-align:right;padding:4px 0">合計</th>
+        <th style="text-align:right;padding:4px 6px">${periodLabel}</th>
+        <th style="text-align:right;padding:4px 6px;color:#f59e0b">預估剩餘</th>
+        <th style="text-align:right;padding:4px 0">預估合計</th>
       </tr></thead>
       <tbody>${rows.map(r =>
         `<tr style="border-top:1px solid var(--border)">
@@ -1144,33 +1146,18 @@ function renderWeekDetail(pred) {
 function toggleWeekDetail() {
   window._weekDetailOpen = !window._weekDetailOpen;
   const panel = document.getElementById('week-detail-panel');
-  const btn = document.getElementById('week-detail-toggle');
+  const btn   = document.getElementById('week-detail-toggle');
   if (!panel || !btn) return;
   panel.style.display = window._weekDetailOpen ? 'block' : 'none';
-  // 更新內部 span 文字（避免覆蓋 pointer-events:none 設定）
   const span = btn.querySelector('span') || btn;
   span.textContent = (window._weekDetailOpen ? '▾' : '▸') + ' 分類明細';
-  if (window._weekDetailOpen) renderWeekDetail(getWeekPrediction());
-}
-// 綁定 toggle button click（避免內聯 onclick 在手機失效）
-(function bindWeekDetailToggle() {
-  const tryBind = () => {
-    const btn = document.getElementById('week-detail-toggle');
-    if (btn && !btn._bound) {
-      btn._bound = true;
-      btn.addEventListener('click', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        toggleWeekDetail();
-      });
-    }
-  };
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', tryBind);
-  } else {
-    tryBind();
+  if (window._weekDetailOpen) {
+    const isMonth = window._predMode === 'month';
+    const pred = isMonth ? getMonthPrediction() : getWeekPrediction();
+    renderWeekDetail(pred, isMonth);
   }
-})();
+}
+// 分類明細按鈕使用直接 onclick="toggleWeekDetail()"
 
 
 // ── 商家排行 Top 10 ─────────────────────────────────────
