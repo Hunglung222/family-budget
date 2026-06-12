@@ -792,7 +792,214 @@ function getBudgetHistory(monthsBack=6) {
   return { periods, cats };
 }
 
-// ── 資料健康檢查 ──────────────────────────────────────
+// ── 訂閱服務偵測 ──────────────────────────────────────────
+// 偵測「每月固定金額的重複支出」（非固定支出設定）
+// 條件：同 detail、相似金額（±5%）、間隔 25~35 天，出現 ≥ 2 次
+function detectSubscriptions() {
+  const allTx = getTx().slice().sort((a, b) => new Date(a.at) - new Date(b.at));
+  const groups = {};
+  allTx.forEach(t => {
+    const key = (t.detail || '').trim().toLowerCase();
+    if (!key || key.length < 2) return;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({ at: new Date(t.at), amount: t.amount, detail: t.detail });
+  });
+
+  const subs = [];
+  for (const [key, txs] of Object.entries(groups)) {
+    if (txs.length < 2) continue;
+    // 找相鄰筆中間隔 25~35 天且金額 ±10% 的對
+    let matchPairs = 0;
+    for (let i = 1; i < txs.length; i++) {
+      const dayGap = (txs[i].at - txs[i-1].at) / 86400000;
+      const amtRatio = txs[i].amount / txs[i-1].amount;
+      if (dayGap >= 25 && dayGap <= 40 && amtRatio >= 0.9 && amtRatio <= 1.1) matchPairs++;
+    }
+    if (matchPairs < 1) continue;
+    const avgAmt = Math.round(txs.reduce((s, t) => s + t.amount, 0) / txs.length);
+    const lastAt = txs[txs.length - 1].at;
+    subs.push({
+      name:      txs[0].detail,
+      avgAmt,
+      count:     txs.length,
+      yearCost:  avgAmt * 12,
+      lastAt:    lastAt.toISOString().slice(0, 10),
+      matchPairs,
+    });
+  }
+  return subs.sort((a, b) => b.yearCost - a.yearCost).slice(0, 10);
+}
+
+// ── 月度財務體檢 ──────────────────────────────────────────
+// 產生上一個完整週期月的綜合健康度分數（0~100）與評語
+function getMonthlyHealthReport() {
+  const now   = new Date();
+  const curP  = getBudgetPeriod(now);
+  const lastP = getBudgetPeriod(new Date(curP.start.getTime() - 86400000));
+
+  const allTx = getTx();
+  const ptx   = allTx.filter(t => { const d=new Date(t.at); return d>=lastP.start && d<=lastP.end; });
+  const incomes = getIncomes().filter(i => { const d=new Date(i.at||''); return d>=lastP.start && d<=lastP.end; });
+
+  const totalSpent  = ptx.reduce((s,t)=>s+t.amount, 0);
+  const totalIncome = incomes.reduce((s,i)=>s+(i.amount||0), 0);
+  const savingsRate = totalIncome > 0 ? Math.round((totalIncome - totalSpent) / totalIncome * 100) : null;
+
+  // 淨資產計算
+  const nw = typeof calcNetWorth === 'function' ? calcNetWorth() : null;
+
+  // 預算達成率
+  const budItems = getBudgetConfig().items || {};
+  const cats = Object.keys(budItems).filter(id => (budItems[id]?.limit||0) > 0);
+  let budScore = 100;
+  if (cats.length) {
+    const overCount = cats.filter(cid => {
+      const spent = ptx.filter(t=>t.cat===cid).reduce((s,t)=>s+t.amount,0);
+      return spent > budItems[cid].limit;
+    }).length;
+    budScore = Math.round((cats.length - overCount) / cats.length * 100);
+  }
+
+  // 衝動消費比例
+  const IMPULSE = new Set(['impulse','emotion','social']);
+  const impulseAmt = ptx.filter(t=>(t.tags||[]).some(id=>IMPULSE.has(id))).reduce((s,t)=>s+t.amount,0);
+  const impulseRate = totalSpent > 0 ? Math.round(impulseAmt / totalSpent * 100) : 0;
+
+  // 綜合分數（加權）
+  const savScore    = savingsRate !== null ? Math.min(Math.max(savingsRate, 0), 40) : 20; // 儲蓄率 40%
+  const budScoreW   = budScore * 0.35;   // 預算紀律 35%
+  const impulseW    = Math.max(0, 25 - impulseRate); // 衝動消費 25%
+  const totalScore  = Math.round(savScore + budScoreW + impulseW);
+
+  const label =
+    totalScore >= 85 ? { grade:'A', emoji:'🌟', msg:'財務狀況非常健康，繼續保持！' }
+  : totalScore >= 70 ? { grade:'B', emoji:'👍', msg:'整體良好，個別分類有改善空間。' }
+  : totalScore >= 55 ? { grade:'C', emoji:'⚠️', msg:'部分指標偏弱，建議重點改善預算控管。' }
+  :                    { grade:'D', emoji:'🔴', msg:'財務壓力較大，建議仔細檢視支出結構。' };
+
+  return {
+    period: `${lastP.start.getMonth()+1}/${lastP.start.getDate()} ～ ${lastP.end.getMonth()+1}/${lastP.end.getDate()}`,
+    totalSpent, totalIncome, savingsRate,
+    budScore, impulseRate,
+    totalScore, label,
+    netWorth: nw?.total || null,
+    txCount: ptx.length,
+  };
+}
+
+// ── 週目標挑戰（連續達標紀錄）────────────────────────────
+// 每週預算把關達標（總花費 < 本週預算額度）= +1 streak
+// 資料存 localStorage 'week_challenge'，格式 [{weekKey, reached, pct}]
+function getWeekChallenge() {
+  try { return JSON.parse(localStorage.getItem('week_challenge') || '[]'); } catch { return []; }
+}
+function saveWeekChallenge(list) { localStorage.setItem('week_challenge', JSON.stringify(list)); }
+// 計算連續達標週數
+function getWeekStreak() {
+  const list = getWeekChallenge().slice().reverse(); // 最新在前
+  let streak = 0;
+  for (const w of list) {
+    if (w.reached) streak++;
+    else break;
+  }
+  return streak;
+}
+// 每次進報表頁時呼叫，更新本週達標狀態
+function updateWeekChallengeStatus() {
+  const wb = typeof getWeekBudget === 'function' ? getWeekBudget() : null;
+  if (!wb || !wb.results.length) return;
+  // weekKey = YYYY-Www（ISO週號）
+  const now = new Date();
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+  const weekNum = Math.ceil(((now - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+  const weekKey = `${now.getFullYear()}-W${String(weekNum).padStart(2, '0')}`;
+  const pct = wb.totalWeekLimit > 0 ? Math.round(wb.totalSpent / wb.totalWeekLimit * 100) : 0;
+  const reached = pct <= 100 && wb.daysElapsedInPeriod > 0;
+  // 僅在週末（週日or週六）才記錄，避免週中重複計算
+  // 改為：只在 daysLeft === 0 或 daysLeft === 1 時更新（本週最後2天）
+  const list = getWeekChallenge();
+  const existing = list.findIndex(w => w.weekKey === weekKey);
+  const entry = { weekKey, reached, pct, updatedAt: now.toISOString() };
+  if (existing >= 0) list[existing] = entry;
+  else list.push(entry);
+  // 只保留最近 12 週
+  saveWeekChallenge(list.slice(-12));
+}
+
+// ── 消費日型態分析 ────────────────────────────────────────
+// 統計週一到週日的平均支出，找出爆量日
+function getDayPatternStats(txList) {
+  const DOW = ['週日','週一','週二','週三','週四','週五','週六'];
+  const buckets = Array.from({length:7}, () => ({ total:0, count:0, weeks:new Set() }));
+  (txList||getTx()).forEach(t => {
+    const d = new Date(t.at);
+    const dow = d.getDay();
+    const weekKey = `${d.getFullYear()}_${Math.floor((d.getDate()-1)/7)}_${d.getMonth()}`;
+    buckets[dow].total += t.amount;
+    buckets[dow].count++;
+    buckets[dow].weeks.add(weekKey);
+  });
+  const results = buckets.map((b, i) => ({
+    day:     DOW[i],
+    dowIdx:  i,
+    total:   b.total,
+    count:   b.count,
+    weekCnt: b.weeks.size,
+    avg:     b.weeks.size > 0 ? Math.round(b.total / b.weeks.size) : 0,
+  }));
+  // 找爆量日：均值超過整體均值 1.5 倍
+  const overallAvg = results.reduce((s,r)=>s+r.avg,0) / 7;
+  results.forEach(r => { r.isHot = overallAvg > 0 && r.avg > overallAvg * 1.5; });
+  return results;
+}
+
+// ── 商家價格追蹤 ──────────────────────────────────────────
+// 回傳指定商家（detail 模糊匹配）的歷次消費記錄，可用於折線圖
+function getMerchantPriceHistory(merchantName, maxRecords = 30) {
+  if (!merchantName) return [];
+  const q = merchantName.toLowerCase().trim();
+  return getTx()
+    .filter(t => t.detail && t.detail.toLowerCase().includes(q))
+    .sort((a, b) => new Date(a.at) - new Date(b.at))
+    .slice(-maxRecords)
+    .map(t => ({
+      date:   (t.at || '').slice(0, 10),
+      amount: t.amount,
+      detail: t.detail,
+      cat:    t.cat,
+    }));
+}
+
+// 回傳前 N 大商家，各含最近 price history（供報表頁商家排行點開後顯示）
+function getTopMerchantsWithTrend(txList, topN = 10) {
+  const groups = {};
+  for (const tx of txList) {
+    const d = (tx.detail || '').trim();
+    if (!d || d.length < 2) continue;
+    if (!groups[d]) groups[d] = { name: d, total: 0, count: 0, txList: [] };
+    groups[d].total  += tx.amount;
+    groups[d].count  += 1;
+    groups[d].txList.push(tx);
+  }
+  return Object.values(groups)
+    .sort((a, b) => b.total - a.total)
+    .slice(0, topN)
+    .map(g => {
+      const sorted = g.txList.sort((a, b) => new Date(a.at) - new Date(b.at));
+      const amounts = sorted.map(t => t.amount);
+      // 偵測漲價：最近3次均值 vs 更早均值
+      let trend = 'stable';
+      if (amounts.length >= 4) {
+        const recent = amounts.slice(-3).reduce((s, a) => s + a, 0) / 3;
+        const older  = amounts.slice(0, -3).reduce((s, a) => s + a, 0) / (amounts.length - 3);
+        if (recent > older * 1.15) trend = 'up';
+        else if (recent < older * 0.85) trend = 'down';
+      }
+      return { name: g.name, total: g.total, count: g.count, avg: Math.round(g.total / g.count), trend, history: sorted.map(t => ({ date: (t.at||'').slice(0,10), amount: t.amount })) };
+    });
+}
+
+// ── 資料健康檢查 ──────────────────────────────────────────
 // 偵測常見資料異常，回傳 { issues: [...], summary }，不自動修改任何資料
 function runHealthCheck() {
   const issues = [];
@@ -859,6 +1066,30 @@ function runHealthCheck() {
     const catIds = new Set(getCats().map(c => c.id));
     const badRec = getRecurring().filter(r => r.type !== 'income' && r.cat && !catIds.has(r.cat));
     if (badRec.length) add('info', '固定支出分類失效', `${badRec.length} 筆固定支出對應的分類已不存在`, false);
+  } catch(e) {}
+
+  // 9) 收入記錄重複偵測（同一天、同來源、同金額出現 2 次以上）
+  try {
+    const incList = getIncomes();
+    const incKey  = i => `${(i.at||'').slice(0,10)}_${i.source||''}_${i.amount||0}`;
+    const incSeen = new Map();
+    incList.forEach(i => { const k=incKey(i); incSeen.set(k,(incSeen.get(k)||0)+1); });
+    const dupInc = [...incSeen.entries()].filter(([,c])=>c>1);
+    if (dupInc.length) add('warn','收入記錄可能重複',
+      `有 ${dupInc.length} 組相同（日期+來源+金額）的收入記錄，可能是固定收入被確認了兩次`,
+      false);
+  } catch(e) {}
+
+  // 10) 本機 vs Firebase 交易筆數落差（比較 localStorage 與最後同步筆數）
+  try {
+    const localCount  = getTx().length;
+    const lastSyncKey = 'fb_last_tx_count';
+    const lastSync    = parseInt(localStorage.getItem(lastSyncKey) || '0');
+    if (lastSync > 0 && Math.abs(localCount - lastSync) > 5) {
+      add('info', '本機與 Firebase 筆數落差',
+        `本機 ${localCount} 筆，上次同步記錄 ${lastSync} 筆，差距 ${Math.abs(localCount-lastSync)} 筆。`
+        + '可到「設定→資料→健康檢查」下方點「強制同步」確認。', false);
+    }
   } catch(e) {}
 
   const errCount  = issues.filter(i => i.level==='error').length;

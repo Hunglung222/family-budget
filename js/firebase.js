@@ -180,7 +180,7 @@ async function fbPullAll(){
     const db = getDb();
     // 共用記帳
     const ts = await db.collection('transactions').orderBy('at','desc').get();
-    const tl = []; ts.forEach(d=>tl.push(d.data())); if(tl.length) DB.set('tx',tl);
+    const tl = []; ts.forEach(d=>tl.push(d.data())); if(tl.length) { DB.set('tx',tl); localStorage.setItem('fb_last_tx_count', tl.length); }
     // 個人資料
     await fbPullPersonal();
     // 同步自己的卡名到共用對照表（讓對方看到）
