@@ -60,12 +60,17 @@
     <button onclick="toggleCycleMode()" id="cycle-toggle-btn" style="padding:5px 14px;border-radius:50px;border:1.5px solid var(--p);background:var(--pdim);color:var(--p);font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap"></button>
   </div>
   <!-- 搜尋框 -->
-  <div style="position:relative;margin-bottom:8px">
-    <input type="text" id="search-input" placeholder="🔍 搜尋明細、分類、金額..."
-      oninput="onSearch()"
-      style="width:100%;box-sizing:border-box;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:11px 36px 11px 14px;color:var(--t);font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s"
-      onfocus="this.style.borderColor='var(--p)'" onblur="this.style.borderColor='var(--border)'">
-    <button id="search-clear" onclick="clearSearch()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div style="flex:1;position:relative">
+      <input type="text" id="search-input" placeholder="🔍 搜尋明細、分類、金額..."
+        oninput="onSearch()"
+        style="width:100%;box-sizing:border-box;background:var(--card);border:1.5px solid var(--border);border-radius:var(--rs);padding:11px 36px 11px 14px;color:var(--t);font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s"
+        onfocus="this.style.borderColor='var(--p)'" onblur="this.style.borderColor='var(--border)'">
+      <button id="search-clear" onclick="clearSearch()" style="display:none;position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--t3);font-size:1.1rem;cursor:pointer;padding:4px">✕</button>
+    </div>
+    <button id="search-all-btn" onclick="toggleSearchAll()"
+      title="開啟後搜尋全部歷史記錄"
+      style="flex-shrink:0;padding:9px 11px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--card);color:var(--t3);font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:.2s">全部</button>
   </div>
   <div class="pills" id="filter-pills">
     <button class="pill on" onclick="setF('all',this)">全部</button>
@@ -354,14 +359,15 @@ function getCycleForMonth(y, m) {
 function render() {
   document.getElementById('mlbl').textContent=`${cy} 年 ${MN[cm-1]} 月`;
   updateCycleBar();
-  let list;
+  // 月份統計（固定用當月資料，不受搜尋全部影響）
+  let monthList;
   if (cycleMode) {
     const {start, end} = getCycleForMonth(cy, cm);
-    list = txByRange(toLocalISO(start), toLocalISO(end));
+    monthList = txByRange(toLocalISO(start), toLocalISO(end));
   } else {
-    list = txByMonth(cy, cm);
+    monthList = txByMonth(cy, cm);
   }
-  const s=calcStats(list);
+  const s=calcStats(monthList);
   if (cycleMode) {
     const now = new Date();
     const {start:cs, end:ce} = getCycleForMonth(cy, cm);
@@ -376,6 +382,9 @@ function render() {
   document.getElementById('s-w').textContent=fmt(getWal().balance);
   document.getElementById('s-1').textContent=fmt(s.byPerson['宏龍']||0);
   document.getElementById('s-2').textContent=fmt(s.byPerson['盈慧']||0);
+
+  // 搜尋全部時從全庫取資料，否則用當月
+  let list = (searchQ && searchAll) ? getTx() : monthList;
 
   // 付款方式篩選
   if(filt==='宏龍'||filt==='盈慧') list=list.filter(t=>t.person===filt);
@@ -406,13 +415,17 @@ function render() {
 
   const el=document.getElementById('list');
   if(!list.length){
+    const scope = (searchQ && searchAll) ? '全部記錄' : '本月';
     const emptyMsg = searchQ
-      ? `<div class="empty"><div class="ei">🔍</div><p>找不到「${searchQ}」<br>試試其他關鍵字</p></div>`
+      ? `<div class="empty"><div class="ei">🔍</div><p>在${scope}找不到「${searchQ}」<br>${!searchAll?'可開啟「全部」搜尋歷史記錄':''}</p></div>`
       : `<div class="empty"><div class="ei">📭</div><p>還沒有記帳<br>點 ➕ 開始記帳</p></div>`;
     el.innerHTML=emptyMsg; return;
   }
   const g=groupDay(list);
-  el.innerHTML=Object.entries(g).map(([d,ts])=>{
+  const scopeNote = (searchQ && searchAll)
+    ? `<div style="font-size:.74rem;color:var(--p);text-align:center;padding:6px 0 2px;font-weight:700">🔍 搜尋全部記錄，共找到 ${list.length} 筆</div>`
+    : '';
+  el.innerHTML=scopeNote+Object.entries(g).map(([d,ts])=>{
     const dt=ts.reduce((s,t)=>s+t.amount,0);
     return `<div class="day-h"><span class="day-d">📅 ${d}</span><span class="day-t">-$${fmt(dt)}</span></div>`+ts.map(txHTML).join('');
   }).join('');
@@ -432,6 +445,18 @@ function clearSearch() {
   document.getElementById('search-clear').style.display = 'none';
   document.getElementById('filter-pills').style.display = 'flex';
   render();
+}
+function toggleSearchAll() {
+  searchAll = !searchAll;
+  const btn = document.getElementById('search-all-btn');
+  if (btn) {
+    btn.style.background    = searchAll ? 'var(--p)'      : 'var(--card)';
+    btn.style.color         = searchAll ? '#000'          : 'var(--t3)';
+    btn.style.borderColor   = searchAll ? 'var(--p)'      : 'var(--border)';
+    btn.style.fontWeight    = searchAll ? '900'           : '700';
+    btn.title = searchAll ? '目前搜尋全部歷史記錄（點擊切回當月）' : '點擊後搜尋全部歷史記錄';
+  }
+  if (searchQ) render();
 }
 
 function txHTML(t) {
@@ -476,7 +501,8 @@ let editId = '';
 let editPerson = '宏龍';
 let editPay = 'cash';
 let editTags = [];
-let searchQ = '';        // 搜尋關鍵字
+let searchQ = '';
+let searchAll = false;        // 搜尋關鍵字
 let _undoTimer = null;   // undo 計時器
 let _undoTx = null;      // 待復原的交易
 
