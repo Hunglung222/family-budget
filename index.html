@@ -422,8 +422,15 @@ function render() {
     el.innerHTML=emptyMsg; return;
   }
   const g=groupDay(list);
-  const scopeNote = (searchQ && searchAll)
-    ? `<div style="font-size:.74rem;color:var(--p);text-align:center;padding:6px 0 2px;font-weight:700">🔍 搜尋全部記錄，共找到 ${list.length} 筆</div>`
+  const searchTotal = searchQ ? list.reduce((s,t)=>s+t.amount,0) : 0;
+  const scopeLabel  = (searchQ && searchAll) ? '全部記錄' : '本月';
+  const scopeNote   = searchQ
+    ? `<div style="display:flex;justify-content:space-between;align-items:center;
+                   padding:8px 12px;margin-bottom:6px;background:var(--card2);
+                   border-radius:10px;border:1px solid var(--border)">
+        <span style="font-size:.76rem;color:var(--t2)">🔍 ${scopeLabel}「${searchQ}」共 <b>${list.length}</b> 筆</span>
+        <span style="font-size:.88rem;font-weight:900;color:var(--danger)">-$${fmt(searchTotal)}</span>
+      </div>`
     : '';
   el.innerHTML=scopeNote+Object.entries(g).map(([d,ts])=>{
     const dt=ts.reduce((s,t)=>s+t.amount,0);
