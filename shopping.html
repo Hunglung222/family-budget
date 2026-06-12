@@ -65,6 +65,9 @@
     <button id="tab-cup" onclick="switchShopTab('cup')"
       style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:var(--p);color:#000;transition:.18s">☕ 寄杯追蹤</button>
     <button id="tab-order" onclick="switchShopTab('order')"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:none;color:var(--t3);transition:.18s">🛒 購物追蹤</button>
+    <button id="tab-wish" onclick="switchShopTab('wish')"
+      style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:none;color:var(--t3);transition:.18s">💭 想買清單</button>
       style="flex:1;padding:9px 0;border:none;border-radius:9px;font-size:.82rem;font-weight:700;cursor:pointer;font-family:inherit;background:transparent;color:var(--t3);transition:.18s">📦 網購管理</button>
   </div>
 
@@ -116,6 +119,15 @@
     <div id="order-list"></div>
     <div style="height:120px"></div>
   </div><!-- end panel-order -->
+
+  <!-- ══ 想買清單（冷靜期）分頁 ══ -->
+  <div id="panel-wish" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-size:.76rem;color:var(--t3);line-height:1.5">加入後 <b style="color:var(--p)">7 天</b>再提醒「還想買嗎？」<br>讓衝動冷靜後再決定</div>
+      <button onclick="openAddWish()" style="padding:6px 14px;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);border-radius:50px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">＋ 加入想買</button>
+    </div>
+    <div id="wish-list"></div>
+  </div>
 
 </div>
 
@@ -326,19 +338,22 @@ function switchShopTab(tab) {
   _shopTab = tab;
   document.getElementById('panel-cup').style.display   = tab === 'cup'   ? 'block' : 'none';
   document.getElementById('panel-order').style.display = tab === 'order' ? 'block' : 'none';
+  document.getElementById('panel-wish').style.display  = tab === 'wish'  ? 'block' : 'none';
   const tCup   = document.getElementById('tab-cup');
   const tOrder = document.getElementById('tab-order');
-  tCup.style.background   = tab === 'cup'   ? 'var(--p)' : 'transparent';
-  tCup.style.color        = tab === 'cup'   ? '#000' : 'var(--t3)';
-  tOrder.style.background = tab === 'order' ? 'var(--p)' : 'transparent';
-  tOrder.style.color      = tab === 'order' ? '#000' : 'var(--t3)';
+  const tWish  = document.getElementById('tab-wish');
+  [[tCup,'cup'],[tOrder,'order'],[tWish,'wish']].forEach(([btn, t]) => {
+    if (!btn) return;
+    btn.style.background = tab===t ? 'var(--p)' : 'transparent';
+    btn.style.color      = tab===t ? '#000' : 'var(--t3)';
+  });
   // header ＋ 按鈕只在網購管理分頁顯示
   const addBtn = document.getElementById('hdr-add-btn');
   if (addBtn) addBtn.style.display = tab === 'order' ? 'flex' : 'none';
-  // 副標題
   const sub = document.getElementById('shop-sub');
   if (sub) sub.textContent = tab === 'cup' ? '' : (document.getElementById('order-count')?.textContent || '');
   if (tab === 'order') render();
+  if (tab === 'wish')  renderWishList();
 }
 
 // ── 網購月份切換 ──────────────────────────────────────
@@ -1242,6 +1257,68 @@ async function migrateOrdersToShared(){
   }catch(e){
     toast('合併失敗：'+e.message,'err');
     if(btn){ btn.disabled=false; btn.textContent='立即合併'; }
+  }
+}
+
+// ══ 想買清單（冷靜期機制）══
+function getWishList(){try{return JSON.parse(localStorage.getItem('wish_list')||'[]');}catch{return[];}}
+function saveWishList(l){localStorage.setItem('wish_list',JSON.stringify(l));}
+function openAddWish(){
+  const name=prompt('想買什麼？（商品名稱）');
+  if(!name||!name.trim())return;
+  const amtStr=prompt(`「${name.trim()}」大約多少錢？（可留空）`);
+  const amt=parseInt(amtStr)||0;
+  const list=getWishList();
+  list.unshift({id:'w_'+Date.now(),name:name.trim(),amt,addedAt:new Date().toISOString(),done:false});
+  saveWishList(list); renderWishList();
+  toast('💭 已加入想買清單，7天後會提醒你');
+}
+function renderWishList(){
+  const el=document.getElementById('wish-list'); if(!el)return;
+  const list=getWishList();
+  if(!list.length){
+    el.innerHTML=`<div style="text-align:center;padding:32px 16px;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">💭</div><div style="font-size:.85rem">還沒有想買的東西</div><div style="font-size:.76rem;margin-top:4px">加入後 7 天提醒你是否還想要，幫助避免衝動消費</div></div>`;
+    return;
+  }
+  const now=Date.now();
+  const _fmt=typeof fmt==='function'?fmt:n=>n;
+  el.innerHTML=list.map(item=>{
+    const daysPassed=Math.floor((now-new Date(item.addedAt))/86400000);
+    const daysLeft=Math.max(0,7-daysPassed);
+    const isReady=daysPassed>=7&&!item.done;
+    const isDone=item.done;
+    const addedDate=(item.addedAt||'').slice(0,10);
+    const urgStyle=isReady?'background:rgba(0,229,180,.1);border-color:rgba(0,229,180,.3)':'';
+    return `<div style="background:var(--card2);border:1px solid var(--border);${urgStyle};border-radius:12px;padding:13px;margin-bottom:10px;${isDone?'opacity:.5':''}">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="font-size:1.3rem">${isDone?'✅':isReady?'💡':'💭'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:.9rem;font-weight:700;${isDone?'text-decoration:line-through':''}">${item.name}</div>
+          <div style="font-size:.74rem;color:var(--t3);margin-top:2px">${item.amt?`預計 $${_fmt(item.amt)} · `:''}加入 ${addedDate}</div>
+          ${isReady?`<div style="font-size:.78rem;color:var(--p);font-weight:700;margin-top:4px">✨ 已冷靜 7 天，還想買嗎？</div>`:''}
+          ${(!isReady&&!isDone)?`<div style="font-size:.75rem;color:var(--t3);margin-top:4px">⏳ 冷靜期剩 ${daysLeft} 天</div>`:''}
+        </div>
+      </div>
+      ${!isDone?`<div style="display:flex;gap:7px;margin-top:10px">
+        <button onclick="wishDecide('${item.id}','buy')" style="flex:1;padding:7px;background:var(--p);color:#000;border:none;border-radius:8px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">✅ 還是要買</button>
+        <button onclick="wishDecide('${item.id}','skip')" style="flex:1;padding:7px;background:var(--card);border:1px solid var(--border);color:var(--t3);border-radius:8px;font-size:.78rem;cursor:pointer;font-family:inherit">❌ 不需要了</button>
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+function wishDecide(id,decision){
+  const list=getWishList();
+  const item=list.find(w=>w.id===id); if(!item)return;
+  if(decision==='skip'){
+    item.done=true; item.decision='skip'; item.decidedAt=new Date().toISOString();
+    saveWishList(list); renderWishList();
+    toast('✅ 已放棄購買，省下一筆衝動消費！');
+  } else {
+    if(confirm(`決定購買「${item.name}」${item.amt?'（$'+(typeof fmt==='function'?fmt(item.amt):item.amt)+'）':''}？
+點確認後從清單移除。`)){
+      saveWishList(list.filter(w=>w.id!==id)); renderWishList();
+      toast('🛒 已確認購買，記得到記帳頁記錄！');
+    }
   }
 }
 

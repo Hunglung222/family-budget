@@ -721,6 +721,22 @@
       </div>
       <span class="sarr">›</span>
     </div>
+    <div class="srow" onclick="openSubDetect()">
+      <div class="sico" style="background:rgba(99,102,241,.15)">💳</div>
+      <div class="sinfo">
+        <div class="sname">訂閱服務偵測</div>
+        <div class="sdesc">自動找出每月重複扣款，計算年化成本，幫你評估哪些訂閱可以砍</div>
+      </div>
+      <span class="sarr">›</span>
+    </div>
+    <div class="srow" onclick="openHealthReport()">
+      <div class="sico" style="background:rgba(251,146,60,.15)">📋</div>
+      <div class="sinfo">
+        <div class="sname">月度財務體檢報告</div>
+        <div class="sdesc">儲蓄率、預算紀律、衝動消費三項加權，計算上月財務健康分數</div>
+      </div>
+      <span class="sarr">›</span>
+    </div>
   </div>
 
   <!-- 危險區 -->
@@ -743,6 +759,19 @@
   <div style="height:20px"></div>
 </div>
 <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
+<!-- 訂閱服務偵測 Modal -->
+<div class="ov" id="sub-modal">
+  <div class="sheet" style="max-height:88dvh;display:flex;flex-direction:column">
+    <div class="sh"></div>
+    <div class="st" style="margin:0 0 4px">💳 訂閱服務偵測</div>
+    <div style="font-size:.74rem;color:var(--t3);margin-bottom:12px">自動找出每月重複扣款，顯示年化成本</div>
+    <div id="sub-body" style="flex:1;overflow-y:auto;padding:2px"></div>
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-s" onclick="closeModal('sub-modal')">關閉</button>
+    </div>
+  </div>
+</div>
+
 <div class="ov" id="confirm-modal">
   <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
     <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
@@ -846,6 +875,81 @@ function doHealthFix(fixKey, idx) {
   openHealthCheck();
 }
 
+// ── 月度財務體檢 ──────────────────────────────────────────
+function openHealthReport() {
+  const r = typeof getMonthlyHealthReport === 'function' ? getMonthlyHealthReport() : null;
+  if (!r) { toast('資料不足，需有至少一個完整週期月的記帳資料', 'warn'); return; }
+  const _fmt = typeof fmt === 'function' ? fmt : n => n;
+  const scoreColor = r.totalScore >= 85 ? '#22c55e' : r.totalScore >= 70 ? '#f59e0b' : r.totalScore >= 55 ? '#f97316' : '#ef4444';
+  const gaugeW = Math.min(r.totalScore, 100);
+  const rows = [
+    { label: '💵 儲蓄率',    val: r.savingsRate !== null ? `${r.savingsRate}%` : '無收入資料', tip: r.savingsRate >= 20 ? '✅ 良好' : r.savingsRate >= 10 ? '⚠️ 偏低' : '🔴 需改善' },
+    { label: '🎯 預算紀律',  val: `${r.budScore}分`,    tip: r.budScore >= 80 ? '✅ 良好' : '⚠️ 有分類超支' },
+    { label: '⚡ 衝動消費',  val: `${r.impulseRate}%`,  tip: r.impulseRate <= 5 ? '✅ 良好' : r.impulseRate <= 15 ? '⚠️ 稍高' : '🔴 需注意' },
+    { label: '💰 總支出',    val: `$${_fmt(r.totalSpent)}`, tip: `${r.txCount} 筆` },
+    { label: '💵 總收入',    val: r.totalIncome > 0 ? `$${_fmt(r.totalIncome)}` : '-', tip: '' },
+    { label: '🏦 淨資產',    val: r.netWorth !== null ? `$${_fmt(Math.round(r.netWorth))}` : '-', tip: '' },
+  ];
+  const el = document.getElementById('health-body');
+  if (!el) { showModal('health-modal'); return; }
+  el.innerHTML = `
+    <div style="text-align:center;padding:16px 0">
+      <div style="font-size:3.5rem;line-height:1">${r.label.emoji}</div>
+      <div style="font-size:.85rem;color:var(--t3);margin-top:4px">上期：${r.period}</div>
+      <div style="font-size:2.8rem;font-weight:900;color:${scoreColor};margin:8px 0">${r.totalScore}</div>
+      <div style="background:var(--border);height:8px;border-radius:4px;margin:0 16px">
+        <div style="height:8px;width:${gaugeW}%;background:${scoreColor};border-radius:4px;transition:.5s"></div>
+      </div>
+      <div style="font-size:.88rem;font-weight:700;margin-top:8px">等級 ${r.label.grade}　${r.label.msg}</div>
+    </div>
+    <div style="background:var(--card2);border-radius:10px;padding:12px;margin-top:8px">
+      ${rows.map(row => `<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:.82rem;color:var(--t2)">${row.label}</span>
+        <span style="font-size:.86rem;font-weight:900">${row.val} <span style="font-size:.72rem;color:var(--t3);font-weight:400">${row.tip}</span></span>
+      </div>`).join('')}
+    </div>`;
+  showModal('health-modal');
+}
+
+// ── 訂閱服務偵測 ──────────────────────────────────────────
+function openSubDetect() {
+  const el = document.getElementById('sub-body');
+  if (!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--t3)">⏳ 分析中...</div>';
+  showModal('sub-modal');
+  setTimeout(() => {
+    const subs = typeof detectSubscriptions === 'function' ? detectSubscriptions() : [];
+    if (!subs.length) {
+      el.innerHTML = `<div style="text-align:center;padding:32px 16px">
+        <div style="font-size:2rem;margin-bottom:8px">🎉</div>
+        <div style="font-size:.9rem;font-weight:700;color:var(--t)">未偵測到明顯的訂閱型消費</div>
+        <div style="font-size:.76rem;color:var(--t3);margin-top:6px">資料需累積 2 個月以上才能偵測</div>
+      </div>`;
+      return;
+    }
+    const totalYear = subs.reduce((s, sub) => s + sub.yearCost, 0);
+    el.innerHTML = `
+      <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.8rem;color:var(--t2)">偵測到 ${subs.length} 項訂閱</span>
+        <span style="font-weight:900;color:#ef4444">年花 $${fmt(totalYear)}</span>
+      </div>
+      ${subs.map(sub => `
+      <div style="background:var(--card2);border-radius:10px;padding:11px 13px;margin-bottom:8px;border:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div style="font-size:.86rem;font-weight:700;flex:1">${sub.name}</div>
+          <div style="text-align:right;flex-shrink:0;margin-left:8px">
+            <div style="font-size:.9rem;font-weight:900;color:var(--danger)">$${fmt(sub.avgAmt)}/月</div>
+            <div style="font-size:.7rem;color:var(--t3)">年化 $${fmt(sub.yearCost)}</div>
+          </div>
+        </div>
+        <div style="font-size:.71rem;color:var(--t3);margin-top:4px">出現 ${sub.count} 次・最後扣款 ${sub.lastAt}</div>
+      </div>`).join('')}
+      <div style="font-size:.72rem;color:var(--t3);text-align:center;padding:8px 0">
+        💡 偵測條件：相同明細、金額相近、間隔 25~40 天。請自行確認是否為訂閱。
+      </div>`;
+  }, 50);
+}
+
 const ACCENT_DEFS=[
   // 原有 6 色
   {key:'teal',  color:'#00e5b4',label:'翠綠'},
@@ -889,7 +993,7 @@ function init(){
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.06.12 12:15';
+const APP_VERSION = 'v2026.06.13 06:44';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
