@@ -537,6 +537,7 @@ if ('serviceWorker' in navigator) {
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
 <script src="./js/assistant.js"></script>
+<script src="./js/inbox.js"></script>
 
 <!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
@@ -1252,243 +1253,16 @@ function doChatClearAll() {
 // 🔔 通知收件夾（add.html 版）
 // ════════════════════════════════════════════════════
 
-function updateInboxBadge() {
-  const count = typeof getUnreadInboxCount === 'function' ? getUnreadInboxCount() : 0;
-  const badge = document.getElementById('inbox-badge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count > 9 ? '9+' : count;
-    badge.style.display = 'flex';
-  } else {
-    badge.style.display = 'none';
-  }
-}
+// updateInboxBadge → js/inbox.js
 
 function openInbox() {
   renderInboxList();
   showModal('inbox-modal');
 }
 
-function renderInboxList() {
-  const items  = typeof getInboxItems === 'function' ? getInboxItems() : [];
-  const listEl = document.getElementById('inbox-list');
-  if (!listEl) return;
-  if (!items.length) {
-    listEl.innerHTML = `<div style="text-align:center;padding:32px 0;color:var(--t3)">
-      <div style="font-size:2rem;margin-bottom:8px">✅</div>
-      <div style="font-size:.85rem">目前沒有待處理的通知</div>
-    </div>`;
-    return;
-  }
-  const iconColor  = {
-    pending_confirm: 'rgba(251,191,36,.15)',
-    recurring:       'rgba(0,229,180,.1)',
-    installment:     'rgba(99,102,241,.1)',
-    insight:         'rgba(251,146,60,.15)',   // 橘
-    cashflow_alert:  'rgba(239,68,68,.12)',    // 紅
-  };
-  const iconBorder = {
-    pending_confirm: 'rgba(251,191,36,.3)',
-    recurring:       'rgba(0,229,180,.3)',
-    installment:     'rgba(99,102,241,.3)',
-    insight:         'rgba(251,146,60,.3)',
-    cashflow_alert:  'rgba(239,68,68,.3)',
-  };
-  listEl.innerHTML = items.map(item => `
-  <div id="inbox-item-${item.id}" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
-    <div style="display:flex;gap:12px;align-items:flex-start">
-      <div style="width:40px;height:40px;border-radius:50%;background:${iconColor[item.type]||'var(--card)'};border:1px solid ${iconBorder[item.type]||'var(--border)'};display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">${item.icon}</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:.88rem;font-weight:900;color:var(--t);margin-bottom:3px">${item.title}</div>
-        <div style="font-size:.76rem;color:var(--t2);margin-bottom:${item.note?'3px':'0'}">${item.subtitle}</div>
-        ${item.note ? `<div style="font-size:.72rem;color:var(--t3)">備註：${item.note}</div>` : ''}
-        <div style="font-size:.68rem;color:var(--t3);margin-top:3px">${item.date}</div>
-      </div>
-    </div>
-    <div id="inbox-action-${item.id}">
-      <div style="display:flex;gap:7px;margin-top:12px">
-        <button onclick="inboxActionAdd('${item.id}')"
-          style="flex:1;padding:9px;background:var(--p);color:#000;border:none;border-radius:var(--rs);font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">
-          ${item.actionLabel}
-        </button>
-        <button onclick="inboxDismissAdd('${item.id}')"
-          style="padding:9px 14px;background:var(--card);color:var(--t3);border:1px solid var(--border);border-radius:var(--rs);font-size:.76rem;cursor:pointer;font-family:inherit">
-          略過
-        </button>
-      </div>
-    </div>
-  </div>`).join('');
-}
+// renderInboxList → js/inbox.js
 
-function inboxActionAdd(id) {
-  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
-  const item  = items.find(x => x.id === id);
-  if (!item) return;
-
-  if (item.type === 'bill_due') {
-    closeModal('inbox-modal'); location.href = './wallet.html';
-  } else if (item.type === 'budget_alert') {
-    closeModal('inbox-modal'); location.href = './report.html';
-  } else if (item.type === 'receipt') {
-    if (typeof clearInboxReceipt === 'function') clearInboxReceipt(id);
-    document.getElementById('inbox-item-' + id)?.remove();
-    updateInboxBadge();
-  } else if (item.type === 'recurring' || item.type === 'installment') {
-    showRecurringQuickConfirm(id, item);
-  } else if (item.type === 'insight') {
-    // 依洞察類型導向不同頁面
-    closeModal('inbox-modal');
-    const t = item.raw?.insightType;
-    if (t === 'overpace' || t === 'spike') location.href = './report.html';
-    else if (t === 'impulse')              location.href = './report.html#tag';
-    else                                   location.href = './report.html';
-  } else if (item.type === 'cashflow_alert') {
-    closeModal('inbox-modal');
-    location.href = './wallet.html';
-  } else {
-    closeModal('inbox-modal');
-  }
-}
-
-function showRecurringQuickConfirm(id, item) {
-  const rec   = item.raw;
-  const isInst = item.type === 'installment';
-  const defAmt = isInst
-    ? (rec.monthlyAmt || rec.amount || 0)
-    : (rec.amt || 0);
-  const payLabel = isInst ? '💳 信用卡' :
-    rec.pay === 'acct' ? '🏦 帳戶' :
-    rec.pay === 'card' ? '💳 信用卡' : '💵 現金';
-
-  const actionEl = document.getElementById('inbox-action-' + id);
-  if (!actionEl) return;
-
-  actionEl.innerHTML = `
-    <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:10px;margin-top:8px">
-      <div style="font-size:.75rem;color:var(--t2);margin-bottom:6px">
-        付款：${payLabel}　分類：${catName(rec.cat)||rec.cat||'未分類'}
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:.82rem;color:var(--t2)">金額 $</span>
-        <input type="number" id="rc-quick-amt-${id}"
-          value="${defAmt||''}" placeholder="輸入金額"
-          inputmode="numeric"
-          style="flex:1;padding:6px 10px;background:var(--card2);border:1px solid var(--border);
-                 border-radius:8px;color:var(--t);font-size:.88rem;font-family:inherit">
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="confirmRecurringTx('${id}')"
-          style="flex:1;padding:8px;background:linear-gradient(135deg,var(--p),var(--p2));
-                 color:#000;border:none;border-radius:8px;font-weight:700;font-size:.85rem;
-                 cursor:pointer;font-family:inherit">✅ 確認記帳</button>
-        <button onclick="inboxDismissAdd('${id}')"
-          style="padding:8px 14px;background:var(--card2);border:1px solid var(--border);
-                 color:var(--t2);border-radius:8px;font-size:.82rem;cursor:pointer;font-family:inherit">稍後</button>
-      </div>
-    </div>`;
-  // 讓金額輸入框取得焦點
-  setTimeout(() => document.getElementById('rc-quick-amt-' + id)?.focus(), 100);
-}
-
-function confirmRecurringTx(id) {
-  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
-  const item  = items.find(x => x.id === id);
-  if (!item) return;
-  const rec    = item.raw;
-  const isInst = item.type === 'installment';
-  const amtEl  = document.getElementById('rc-quick-amt-' + id);
-  const amt    = parseInt(amtEl?.value) || 0;
-  if (!amt) { toast('請輸入金額', 'warn'); amtEl?.focus(); return; }
-
-  // 固定收入：走 addIncome 流程，不建立支出交易
-  const isIncome = !isInst && rec.type === 'income';
-  if (isIncome) {
-    const inc = {
-      amount: amt,
-      source: rec.source || rec.name || '固定收入',
-      person: typeof currentUser === 'function' ? currentUser() : '',
-      note:   rec.name || '',
-      at:     new Date().toISOString(),
-    };
-    if (typeof addIncome === 'function') addIncome(inc);
-    if (typeof fbSyncIncomes === 'function') fbSyncIncomes();
-    if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
-    else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
-    document.getElementById('inbox-item-' + id)?.remove();
-    updateInboxBadge();
-    const rem0 = document.querySelectorAll('[id^="inbox-item-"]');
-    if (!rem0.length) {
-      const le = document.getElementById('inbox-list');
-      if (le) le.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
-    }
-    toast(`💰 已入帳：${inc.source} +$${fmt(amt)}`);
-    return;
-  }
-
-  const pay    = isInst ? 'card' : (rec.pay || 'cash');
-  const cardId = isInst ? (rec.cardId || null) : (pay === 'card' ? (rec.cardId||null) : null);
-  const acctId = !isInst && pay === 'acct' ? (rec.acctId || null) : null;
-
-  const tx = {
-    amount:  amt,
-    cat:     rec.cat || '',
-    detail:  rec.name || (isInst ? '分期付款' : '固定支出'),
-    person:  typeof currentUser === 'function' ? currentUser() : '',
-    pay, cardId, acctId, icardId: null,
-    at:      new Date().toISOString(),
-    tags:    [],
-  };
-
-  const saved = addTx(tx);
-  if (typeof fbAddTx === 'function')        fbAddTx(saved || tx);
-
-  // 分期：寫入 paidMonths 標記該期已繳（避免 inbox 重複提醒）
-  if (isInst && rec.id && rec.periodYM && typeof markInstallmentPaid === 'function') {
-    markInstallmentPaid(rec.id, rec.periodYM);
-    if (typeof fbSyncInstallments === 'function') fbSyncInstallments();
-  }
-
-  if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
-  // 固定支出：寫入 Firebase done 標記（讓對方裝置下次 pull 後不再顯示通知，防重複記帳）
-  if (!isInst) {
-    if (typeof fbMarkRecurringDone === 'function') fbMarkRecurringDone(id);
-    else if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
-  } else {
-    if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
-  }
-  if (typeof discordOnAdd === 'function')   discordOnAdd(saved || tx);
-
-  document.getElementById('inbox-item-' + id)?.remove();
-  updateInboxBadge();
-
-  const remaining = document.querySelectorAll('[id^="inbox-item-"]');
-  if (!remaining.length) {
-    const listEl = document.getElementById('inbox-list');
-    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
-  }
-
-  toast(`✅ 已記帳：${tx.detail} -$${fmt(amt)}`);
-}
-
-function inboxDismissAdd(id) {
-  if (typeof dismissInboxItem === 'function') dismissInboxItem(id);
-  document.getElementById('inbox-item-' + id)?.remove();
-  updateInboxBadge();
-  const remaining = document.querySelectorAll('[id^="inbox-item-"]');
-  if (!remaining.length) {
-    const listEl = document.getElementById('inbox-list');
-    if (listEl) listEl.innerHTML = '<div style="text-align:center;padding:32px 0;color:var(--t3)"><div style="font-size:2rem;margin-bottom:8px">✅</div><div style="font-size:.85rem">目前沒有待處理的通知</div></div>';
-  }
-}
-
-function clearAllInbox() {
-  const items = typeof getInboxItems === 'function' ? getInboxItems() : [];
-  items.forEach(item => {
-    if (item.type !== 'pending_confirm' && typeof dismissInboxItem === 'function') dismissInboxItem(item.id);
-  });
-  renderInboxList();
-  updateInboxBadge();
-}
+// inboxActionAdd/showRecurringQuickConfirm/confirmRecurringTx/inboxDismissAdd/clearAllInbox → js/inbox.js
 
 function init() {
   applyTheme();
@@ -1702,7 +1476,9 @@ async function getFunnyComment(tx) {
   const key = localStorage.getItem('claude_api_key')||'';
   if (!key) return;
   const char = getChar();
-  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
+  const _tg = (typeof tagLabels === 'function') ? tagLabels(tx) : '';
+  const _tgLine = _tg ? `\n這筆消費被標記為：${_tg}（這是記帳的人對自己花這筆錢的心情/性質的標註，請務必針對這些標籤吐槽、調侃或回應）` : '';
+  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}${_tgLine}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -1726,7 +1502,8 @@ async function getFunnyCommentMulti(tx) {
   if (!key) return;
   const char = getChar();
   const listStr = tx._multiSummary || '';
-  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這次一口氣記了 ${tx._multiCount} 筆：${listStr}\n用你的個性說一句話（15~30字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
+  const _tgM = (typeof tx._multiTags === 'string' && tx._multiTags) ? `\n其中有標記心情標籤：${tx._multiTags}（請針對這些標籤一起吐槽或回應）` : '';
+  const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這次一口氣記了 ${tx._multiCount} 筆：${listStr}${_tgM}\n用你的個性說一句話（15~30字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages',{
       method:'POST',
@@ -2483,8 +2260,12 @@ async function confirmMultiTx() {
       ...featured,
       person: person,
       at: new Date().toISOString(),
-      _multiSummary: valid.map(it=>`${catName(it.cat)}${it.subCat?' › '+it.subCat:''} $${it.amount}`).join('、'),
+      _multiSummary: valid.map(it=>{
+        const tg = (typeof tagLabels === 'function') ? tagLabels(it) : '';
+        return `${catName(it.cat)}${it.subCat?' › '+it.subCat:''} $${it.amount}${tg?'['+tg+']':''}`;
+      }).join('、'),
       _multiCount: valid.length,
+      _multiTags: [...new Set(valid.flatMap(it => (typeof tagLabels==='function'? tagLabels(it):'').split('、').filter(Boolean)))].join('、'),
     };
     getFunnyCommentMulti(multiTx);
   } else if (!hasKey && valid.length) {

@@ -16,6 +16,9 @@
   <div>
     <h1>🏡 家庭記帳</h1>
     <div class="hdr-sub" id="hdr-date"></div>
+    <div id="streak-chip" onclick="showStreakDetail()" style="display:none;margin-top:4px;cursor:pointer;align-items:center;gap:4px;font-size:.75rem;font-weight:900;color:#e8580a;background:linear-gradient(135deg,rgba(232,88,10,.12),rgba(245,158,11,.08));border:1px solid rgba(232,88,10,.25);border-radius:50px;padding:2px 10px;width:fit-content">
+      <span id="streak-fire">🔥</span><span id="streak-text">連續記帳第 0 天</span>
+    </div>
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <a href="./memo.html" id="memo-btn" style="display:none" class="hdr-btn" title="備忘錄">📝</a>
@@ -86,6 +89,16 @@
 </div>
 
 <!-- ══ 通知收件夾 Modal ══ -->
+<!-- ══ 🔥 連續紀錄 Modal ══ -->
+<div class="ov" id="streak-modal">
+  <div class="sheet" style="max-height:88dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st" style="margin-bottom:8px">🔥 記帳連續紀錄</div>
+    <div id="streak-detail-body"></div>
+    <button class="btn btn-s" style="margin-top:14px" onclick="closeModal('streak-modal')">關閉</button>
+  </div>
+</div>
+
 <div class="ov" id="inbox-modal">
   <div class="sheet" style="max-height:88dvh;overflow-y:auto">
     <div class="sh"></div>
@@ -819,10 +832,71 @@ function _checkReportEditJump() {
 // 第一次嘗試（資料已在 localStorage）
 _checkReportEditJump();
 
+// ── 🔥 連續打卡顯示 ──────────────────────────────────
+function doDailyCheckIn() {
+  if (typeof checkInToday !== 'function') return;
+  const r = checkInToday();
+  renderStreakChip(r);
+  // 達成里程碑時給個慶祝 toast（不打擾，只在新簽到當天）
+  if (r._changed && typeof toast === 'function') {
+    const milestones = { 3:'🌱 連續 3 天！習慣正在萌芽', 7:'🔥 連續一週！你是一週戰士', 30:'💎 連續 30 天！堅持達人達成', 100:'👑 連續 100 天！記帳之王！' };
+    if (milestones[r.current]) {
+      setTimeout(()=>toast(milestones[r.current]), 600);
+    }
+  }
+}
+
+function renderStreakChip(s) {
+  const chip = document.getElementById('streak-chip');
+  const txt  = document.getElementById('streak-text');
+  const fire = document.getElementById('streak-fire');
+  if (!chip) return;
+  const data = s || (typeof getStreak === 'function' ? getStreak() : {current:0});
+  const n = data.current || 0;
+  if (n <= 0) { chip.style.display = 'none'; return; }
+  chip.style.display = 'flex';
+  txt.textContent = `連續記帳第 ${n} 天`;
+  // 天數越多火越旺
+  if (n >= 100) fire.textContent = '👑';
+  else if (n >= 30) fire.textContent = '💎';
+  else if (n >= 7) fire.textContent = '🔥🔥';
+  else fire.textContent = '🔥';
+}
+
+function showStreakDetail() {
+  const s = (typeof getStreak === 'function') ? getStreak() : {current:0,longest:0};
+  const n = s.current || 0, best = s.longest || 0;
+  let next = '', toNext = 0;
+  const tiers = [3,7,30,100];
+  for (const t of tiers) { if (n < t) { next = t; toNext = t - n; break; } }
+  const nextMsg = next
+    ? `<div style="margin-top:10px;font-size:.85rem;color:var(--t2)">再 <b style="color:#e8580a">${toNext}</b> 天就達成 <b>${next} 天</b> 里程碑！</div>`
+    : `<div style="margin-top:10px;font-size:.85rem;color:#e8580a;font-weight:900">👑 你已是記帳之王，繼續保持！</div>`;
+  const body = document.getElementById('streak-detail-body');
+  if (body) {
+    body.innerHTML = `
+    <div style="text-align:center;padding:8px 4px">
+      <div style="font-size:3rem;margin-bottom:4px">${n>=100?'👑':n>=30?'💎':'🔥'}</div>
+      <div style="font-size:1.6rem;font-weight:900;color:#e8580a">連續第 ${n} 天</div>
+      <div style="font-size:.8rem;color:var(--t3);margin-top:4px">歷史最長紀錄：${best} 天</div>
+      ${nextMsg}
+      <div style="margin-top:14px;font-size:.78rem;color:var(--t3);line-height:1.6">
+        每天打開 App 關心一下財務，連續紀錄就會 +1。<br>別讓火焰熄滅囉！
+      </div>
+    </div>`;
+  }
+  if (typeof showModal === 'function') showModal('streak-modal');
+}
+
 fbPullAll().then(async ()=>{
   render();
   // 同步完再嘗試一次（萬一第一次跑時資料還沒拉到）
   _checkReportEditJump();
+  // 🔥 連續打卡：先拉雲端 streak，再執行今日打卡
+  try {
+    if (typeof fbPullStreak === 'function') await fbPullStreak();
+    if (typeof doDailyCheckIn === 'function') doDailyCheckIn();
+  } catch(e) { console.warn('[streak]', e); }
   // 拉取共用固定支出清單
   try {
     const doc = await getDb().collection('shared').doc('recurring').get();

@@ -1,4 +1,4 @@
-const V = 'fb-v2026.06.13-0706';
+const V = 'fb-v2026.06.14-0642';
 const A = [
   './login.html','./index.html','./add.html','./report.html',
   './invest.html','./wallet.html','./shopping.html','./settings.html',

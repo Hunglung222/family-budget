@@ -54,6 +54,24 @@
 
 <div class="w">
 
+  <!-- 真實/模擬 模式切換（所有分頁頂端常駐）-->
+  <div id="trade-mode-switch" style="display:flex;gap:0;margin-bottom:12px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:3px">
+    <button id="mode-real"  onclick="switchTradeMode('real')"  style="flex:1;border:none;border-radius:9px;padding:8px;font-size:.82rem;font-weight:900;cursor:pointer;font-family:inherit;transition:.2s">💰 真實交易</button>
+    <button id="mode-paper" onclick="switchTradeMode('paper')" style="flex:1;border:none;border-radius:9px;padding:8px;font-size:.82rem;font-weight:900;cursor:pointer;font-family:inherit;transition:.2s">🧪 模擬練習</button>
+  </div>
+
+  <!-- 模擬模式提示橫幅 -->
+  <div id="paper-banner" style="display:none;background:rgba(167,139,250,.12);border:1.5px solid #a78bfa;border-radius:var(--r);padding:12px 14px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:1.3rem">🧪</span>
+      <div style="flex:1">
+        <div style="font-size:.84rem;font-weight:900;color:#a78bfa">模擬練習模式</div>
+        <div style="font-size:.74rem;color:var(--t2);line-height:1.4;margin-top:2px">這裡記的是練習單，不花真錢、不影響淨資產。練滿 30 筆鐵衛會幫你評估能否上實盤。</div>
+      </div>
+      <button onclick="showPaperGraduation()" style="background:#a78bfa;color:#1a1a2e;border:none;border-radius:8px;padding:6px 10px;font-size:.74rem;font-weight:900;cursor:pointer;font-family:inherit;white-space:nowrap">📋 評估</button>
+    </div>
+  </div>
+
   <!-- 紀律守門 Banner（所有分頁頂端常駐）-->
   <div id="guard-banner"></div>
 
@@ -361,12 +379,46 @@
 
     <div class="fg">
       <span class="flbl">🛑 停損點（可略）</span>
-      <input type="number" class="fc" id="tm-stop" inputmode="decimal" step="any" placeholder="設定的停損價位" oninput="renderPreOrderCheck()">
+      <input type="number" class="fc" id="tm-stop" inputmode="decimal" step="any" placeholder="設定的停損價位" oninput="renderPreOrderCheck();syncSimFromStop()">
+    </div>
+
+    <!-- 🎯 停損停利情境模擬器 -->
+    <div class="fg">
+      <button type="button" onclick="toggleSim()" id="sim-toggle" style="width:100%;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:700;color:var(--t2);cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:space-between">
+        <span>🎯 停損停利情境試算</span><span id="sim-arrow">▾</span>
+      </button>
+      <div id="sim-panel" style="display:none;margin-top:10px;background:var(--card2);border-radius:12px;padding:14px">
+        <div style="font-size:.72rem;color:var(--t3);margin-bottom:12px;line-height:1.5">輸入進場價與張數後，調整停損／停利百分比，看這筆的風險報酬比划不划算。進場前先想清楚出場。</div>
+
+        <!-- 停損% -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:.8rem;color:#ef4444;font-weight:700">🛑 停損 -<span id="sim-sl-val">3</span>%</span>
+            <span style="font-size:.74rem;color:var(--t3)">停損價 <b id="sim-sl-price" style="color:var(--t2)">—</b></span>
+          </div>
+          <input type="range" id="sim-sl" min="1" max="15" step="0.5" value="3" oninput="calcSim()" style="width:100%;accent-color:#ef4444">
+        </div>
+
+        <!-- 停利% -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:.8rem;color:#22c55e;font-weight:700">🎯 停利 +<span id="sim-tp-val">6</span>%</span>
+            <span style="font-size:.74rem;color:var(--t3)">停利價 <b id="sim-tp-price" style="color:var(--t2)">—</b></span>
+          </div>
+          <input type="range" id="sim-tp" min="1" max="30" step="0.5" value="6" oninput="calcSim()" style="width:100%;accent-color:#22c55e">
+        </div>
+
+        <div id="sim-result"></div>
+      </div>
     </div>
 
     <div class="fg" id="tm-fg-reason">
-      <span class="flbl">進場理由</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span class="flbl" style="margin-bottom:0">進場理由</span>
+        <button type="button" id="ai-reason-btn" onclick="genTradeReason()" style="background:var(--pdim);border:1px solid var(--p);border-radius:8px;padding:4px 10px;font-size:.72rem;font-weight:700;color:var(--p);cursor:pointer;font-family:inherit;white-space:nowrap">🤖 鐵衛幫我整理</button>
+      </div>
       <textarea class="fc" id="tm-reason" rows="2" placeholder="例：突破前波高點，成交量放大" style="resize:none"></textarea>
+      <div style="font-size:.68rem;color:var(--t3);margin-top:4px">填好代號、型態、價格後按上方按鈕，鐵衛會把你的設定整理成一段結構化的交易論述</div>
     </div>
 
     <div class="fg" id="tm-fg-emo">
@@ -405,6 +457,15 @@
 </div>
 
 <!-- 刪除確認 -->
+<!-- ══ 模擬畢業評估 Modal ══ -->
+<div class="ov" id="paper-grad-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st">🧪 模擬交易畢業評估</div>
+    <div id="paper-grad-body"></div>
+    <button class="btn btn-s" style="margin-top:14px" onclick="closeModal('paper-grad-modal')">關閉</button>
+  </div>
+</div>
+
 <div class="ov" id="trade-del-modal">
   <div class="sheet"><div class="sh"></div>
     <div class="st">🗑️ 刪除交易記錄</div>
@@ -561,6 +622,62 @@ let _tradeYear   = new Date().getFullYear();
 let _tradeMonth  = new Date().getMonth() + 1;
 
 // ══ 分頁切換 ══════════════════════════════════════════
+// ══ 真實 / 模擬 模式切換 ═══════════════════════════════
+function switchTradeMode(mode) {
+  if (typeof setTradeViewMode === 'function') setTradeViewMode(mode);
+  renderModeSwitch();
+  // 重繪所有跟資料相關的視圖
+  if (typeof renderJournal === 'function')     renderJournal();
+  if (typeof renderGuardBanner === 'function') renderGuardBanner();
+  // 若正在覆盤頁，也重繪
+  const rv = document.getElementById('panel-review');
+  if (rv && rv.style.display !== 'none' && typeof renderReview === 'function') renderReview();
+  const cur = (typeof getTradeViewMode === 'function') ? getTradeViewMode() : 'real';
+  if (typeof toast === 'function') toast(cur === 'paper' ? '已切換到模擬練習 🧪' : '已切回真實交易 💰');
+}
+
+function renderModeSwitch() {
+  const cur = (typeof getTradeViewMode === 'function') ? getTradeViewMode() : 'real';
+  const real = document.getElementById('mode-real');
+  const paper = document.getElementById('mode-paper');
+  const banner = document.getElementById('paper-banner');
+  if (!real || !paper) return;
+  if (cur === 'paper') {
+    paper.style.background = '#a78bfa'; paper.style.color = '#1a1a2e';
+    real.style.background = 'transparent'; real.style.color = 'var(--t3)';
+    if (banner) banner.style.display = 'block';
+  } else {
+    real.style.background = 'var(--p)'; real.style.color = '#06281f';
+    paper.style.background = 'transparent'; paper.style.color = 'var(--t3)';
+    if (banner) banner.style.display = 'none';
+  }
+}
+
+// 模擬畢業評估彈窗
+function showPaperGraduation() {
+  if (typeof evalPaperGraduation !== 'function') return;
+  const g = evalPaperGraduation();
+  const gradeColor = { 'A':'#22c55e','B':'#84cc16','C':'var(--warn)','D':'#ef4444','—':'var(--t3)' }[g.grade] || 'var(--t3)';
+  const body = document.getElementById('paper-grad-body');
+  if (body) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:6px 4px 14px">
+        <div style="font-size:2.6rem;font-weight:900;color:${gradeColor};line-height:1">${g.grade}</div>
+        <div style="font-size:1rem;font-weight:900;margin-top:6px;color:${gradeColor}">${g.verdict}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <div class="t-sv"><div class="v">${g.count}</div><div class="l">模擬筆數</div></div>
+        <div class="t-sv"><div class="v">${g.winRate.toFixed(0)}%</div><div class="l">勝率</div></div>
+        <div class="t-sv"><div class="v">${g.profitFactor>=99?'∞':g.profitFactor.toFixed(2)}</div><div class="l">盈虧比</div></div>
+        <div class="t-sv"><div class="v" style="color:${g.expectancy>=0?'#22c55e':'#ef4444'}">${g.expectancy>=0?'+':''}$${fmt(Math.round(g.expectancy))}</div><div class="l">每筆期望值</div></div>
+      </div>
+      <div style="background:var(--card2);border-radius:10px;padding:12px;font-size:.8rem;color:var(--t2);line-height:1.6">
+        <b style="color:${gradeColor}">鐵衛評語：</b>${g.advice}
+      </div>`;
+  }
+  if (typeof showModal === 'function') showModal('paper-grad-modal');
+}
+
 function switchTradeTab(tab, el) {
   ['journal','review','rules','coach','watch','calc'].forEach(t => {
     const p = document.getElementById('panel-' + t);
@@ -767,6 +884,180 @@ function setViolation(v, el) {
   ['tm-v-no','tm-v-yes'].forEach(id => document.getElementById(id)?.classList.remove('on'));
   el.classList.add('on');
   document.getElementById('tm-violation-note-fg').style.display = v ? 'block' : 'none';
+}
+
+// ══ 🤖 鐵衛輔助生成進出場理由 ═══════════════════════
+async function genTradeReason() {
+  const key = localStorage.getItem('claude_api_key') || '';
+  if (!key) { toast('請先在設定頁填入 API Key', 'warn'); return; }
+
+  const ticker = document.getElementById('tm-ticker')?.value.trim() || '';
+  const name   = document.getElementById('tm-name')?.value.trim() || '';
+  const entry  = parseFloat(document.getElementById('tm-entry')?.value) || 0;
+  const stop   = parseFloat(document.getElementById('tm-stop')?.value) || 0;
+  if (!ticker) { toast('請先填股票代號', 'warn'); return; }
+  if (!entry)  { toast('請先填進場價', 'warn'); return; }
+
+  const btn = document.getElementById('ai-reason-btn');
+  const orig = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '思考中…'; btn.style.opacity = '.6'; }
+
+  const patternName = PATTERNS[_selPattern] || _selPattern;
+  const dirName  = _selDir === 'short' ? '做空' : '做多';
+  const typeName = TYPE_LABEL[_selType] || _selType;
+  const emoName  = EMO_LABEL[_selEmo] || _selEmo;
+  const existing = document.getElementById('tm-reason')?.value.trim() || '';
+
+  // 風險報酬資訊（若有停損）
+  let rrLine = '';
+  if (stop > 0) {
+    const risk = _selDir === 'long' ? entry - stop : stop - entry;
+    if (risk > 0) rrLine = `停損價 ${stop}（每股風險 ${risk.toFixed(2)} 元，約 ${(risk/entry*100).toFixed(1)}%）`;
+  }
+
+  const prompt = `你是台股短線交易教練「鐵衛」。請把以下交易設定，整理成一段精簡、結構化的「進場論述」，幫助交易者把模糊的盤感轉成白紙黑字的交易計畫。
+
+交易設定：
+- 標的：${ticker}${name ? ' '+name : ''}
+- 方向：${dirName}｜類型：${typeName}
+- 技術型態：${patternName}
+- 進場價：${entry}
+${rrLine ? '- ' + rrLine : '- 尚未設定停損'}
+- 下單情緒：${emoName}
+${existing ? '- 交易者已寫的草稿：「'+existing+'」（請參考並潤飾，別完全捨棄）' : ''}
+
+要求：
+1. 80~120 字，分「進場依據／出場計畫／風險」三個面向簡述
+2. 用交易者第一人稱口吻（例：「我看到…所以進場」）
+3. 若沒設停損，務必提醒先想好出場點
+4. 若情緒是追高/貪婪/恐慌，溫和點出這可能影響判斷
+5. 不預測會漲會跌、不給目標價，只整理「為什麼做這筆 + 打算怎麼出場」的邏輯
+6. 只回傳整理好的論述本文，不要前言後語
+
+【重要】必須用台灣繁體中文，不可用簡體字。`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5',
+        max_tokens: 400,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(()=>({}));
+      toast('生成失敗：' + (err?.error?.message || ('HTTP '+res.status)), 'err');
+      return;
+    }
+    const data = await res.json();
+    const txt = (data.content?.[0]?.text || '').trim();
+    if (txt) {
+      const ta = document.getElementById('tm-reason');
+      if (ta) ta.value = txt;
+      toast('鐵衛已整理 ✓');
+    } else {
+      toast('鐵衛沒給出內容，再試一次', 'warn');
+    }
+  } catch (e) {
+    toast('連線出錯：' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = orig; btn.style.opacity = '1'; }
+  }
+}
+
+// ══ 🎯 停損停利情境模擬器 ═══════════════════════════
+function toggleSim() {
+  const panel = document.getElementById('sim-panel');
+  const arrow = document.getElementById('sim-arrow');
+  if (!panel) return;
+  const open = panel.style.display === 'none';
+  panel.style.display = open ? 'block' : 'none';
+  if (arrow) arrow.textContent = open ? '▴' : '▾';
+  if (open) calcSim();
+}
+
+// 若使用者填了停損價，反推百分比同步到滑桿
+function syncSimFromStop() {
+  const entry = parseFloat(document.getElementById('tm-entry')?.value) || 0;
+  const stop  = parseFloat(document.getElementById('tm-stop')?.value) || 0;
+  if (!entry || !stop) return;
+  const slPct = _selDir === 'long' ? (entry - stop) / entry * 100 : (stop - entry) / entry * 100;
+  if (slPct > 0 && slPct <= 15) {
+    const sl = document.getElementById('sim-sl');
+    if (sl) { sl.value = Math.round(slPct * 2) / 2; const v = document.getElementById('sim-sl-val'); if (v) v.textContent = sl.value; }
+    if (document.getElementById('sim-panel')?.style.display !== 'none') calcSim();
+  }
+}
+
+function calcSim() {
+  const entry  = parseFloat(document.getElementById('tm-entry')?.value) || 0;
+  const shares = parseInt(document.getElementById('tm-shares')?.value) || 0;
+  const slPct  = parseFloat(document.getElementById('sim-sl')?.value) || 0;
+  const tpPct  = parseFloat(document.getElementById('sim-tp')?.value) || 0;
+  document.getElementById('sim-sl-val').textContent = slPct;
+  document.getElementById('sim-tp-val').textContent = tpPct;
+
+  const result = document.getElementById('sim-result');
+  if (!entry || !shares) {
+    document.getElementById('sim-sl-price').textContent = '—';
+    document.getElementById('sim-tp-price').textContent = '—';
+    if (result) result.innerHTML = '<div style="font-size:.78rem;color:var(--t3);text-align:center;padding:8px 0">先填進場價與張數</div>';
+    return;
+  }
+
+  const isLong = _selDir === 'long';
+  // 停損價、停利價
+  const slPrice = isLong ? entry * (1 - slPct/100) : entry * (1 + slPct/100);
+  const tpPrice = isLong ? entry * (1 + tpPct/100) : entry * (1 - tpPct/100);
+  document.getElementById('sim-sl-price').textContent = slPrice.toFixed(2);
+  document.getElementById('sim-tp-price').textContent = tpPrice.toFixed(2);
+
+  // 用 calcTradeCost 算「含成本」的停損/停利淨損益（與實際一致）
+  const lossCase = calcTradeCost({ entryPrice:entry, exitPrice:slPrice, shares, type:_selType, direction:_selDir });
+  const winCase  = calcTradeCost({ entryPrice:entry, exitPrice:tpPrice, shares, type:_selType, direction:_selDir });
+  const lossAmt = lossCase.netPnl;   // 負值
+  const winAmt  = winCase.netPnl;    // 正值
+  // 風險報酬比 R:R（用含成本的淨額算，更真實）
+  const rr = Math.abs(lossAmt) > 0 ? Math.abs(winAmt / lossAmt) : 0;
+
+  // 對照單日虧損上限
+  const rules = (typeof getTradeRules === 'function') ? getTradeRules() : {};
+  const dailyLimit = Math.abs(rules.maxDailyLoss || 0);
+  const overLimit = dailyLimit > 0 && Math.abs(lossAmt) > dailyLimit;
+
+  // R:R 燈號
+  let rrColor, rrText, rrIcon;
+  if (rr >= 2)      { rrColor = '#22c55e'; rrText = '很划算'; rrIcon = '🟢'; }
+  else if (rr >= 1.5){ rrColor = '#84cc16'; rrText = '可接受'; rrIcon = '🟢'; }
+  else if (rr >= 1)  { rrColor = 'var(--warn)'; rrText = '偏低，三思'; rrIcon = '🟡'; }
+  else              { rrColor = '#ef4444'; rrText = '不划算，賺不夠賠'; rrIcon = '🔴'; }
+
+  result.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div style="background:rgba(239,68,68,.1);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:.68rem;color:var(--t3)">觸及停損</div>
+        <div style="font-size:1.05rem;font-weight:900;color:#ef4444">$${fmt(Math.round(lossAmt))}</div>
+      </div>
+      <div style="background:rgba(34,197,94,.1);border-radius:8px;padding:10px;text-align:center">
+        <div style="font-size:.68rem;color:var(--t3)">觸及停利</div>
+        <div style="font-size:1.05rem;font-weight:900;color:#22c55e">+$${fmt(Math.round(winAmt))}</div>
+      </div>
+    </div>
+    <div style="background:var(--card);border-radius:8px;padding:11px 12px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.8rem;color:var(--t2)">風險報酬比 (R:R)</span>
+        <span style="font-weight:900;color:${rrColor}">${rrIcon} 1 : ${rr.toFixed(2)} <span style="font-size:.72rem">${rrText}</span></span>
+      </div>
+      ${overLimit ? `<div style="margin-top:8px;font-size:.74rem;color:var(--danger);line-height:1.4">⛔ 這筆若停損會賠 $${fmt(Math.round(Math.abs(lossAmt)))}，超過你設的單日上限 $${fmt(dailyLimit)}。建議降低張數或縮小停損。</div>` : ''}
+      ${rr < 1 ? `<div style="margin-top:8px;font-size:.74rem;color:var(--danger);line-height:1.4">💡 賺賠比小於 1，代表這筆「賭錯賠的比賭對賺的多」。除非勝率很高，否則長期不利。</div>` : ''}
+    </div>`;
 }
 
 // 即時損益試算
@@ -1328,6 +1619,7 @@ function buildCoachSystemPrompt(snap) {
 
 個性：嚴格但關心，講話直接不囉嗦，像一位看過大風大浪的老交易員。會戳破使用者的自我安慰，但目的是保護他的本金。
 
+${(typeof getTradeViewMode==='function' && getTradeViewMode()==='paper') ? '【目前是模擬練習模式】以下數據是模擬交易（紙上練兵，沒花真錢）。你的任務是評估這套打法在模擬階段是否穩定、能否畢業上實盤。提醒他：模擬賺錢不等於實盤賺錢，真錢的心理壓力完全不同。\n' : '【目前是真實交易模式】以下是真錢交易紀錄。\n'}
 以下是 ${snap.交易總筆數} 筆交易的覆盤快照（從交易日誌即時擷取）：
 ${JSON.stringify(snap, null, 2)}
 
@@ -1799,6 +2091,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     updateTradeMonthLabel();
     await fbPullTrades();
     fbListenTrades(() => { renderJournal(); renderGuardBanner(); });
+    renderModeSwitch();
     renderJournal();
     renderGuardBanner();
   }, 100);
