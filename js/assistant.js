@@ -389,7 +389,8 @@ function classifyDataLevel(msg, preParsedRange) {
 function _formatTx(t) {
   const d = new Date(t.at);
   const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
-  return {
+  const _tags = (typeof tagLabels === 'function') ? tagLabels(t) : '';
+  const out = {
     date:   dateStr,
     cat:    typeof catName === 'function' ? catName(t.cat) : t.cat,
     subCat: t.subCat || '',
@@ -398,6 +399,9 @@ function _formatTx(t) {
     person: t.person || '',
     pay:    t.pay === 'cash' ? '現金' : t.pay === 'icard' ? '悠遊卡' : t.pay === 'acct' ? '帳戶' : '信用卡'
   };
+  // 消費心情標籤（需要/想要/衝動/犒賞/情緒...）：對分析消費習慣與默契很有價值
+  if (_tags) out.tags = _tags;
+  return out;
 }
 
 // 用 localStorage 撈資料，支援明確日期區間 dateRange = { from, to }
@@ -603,6 +607,7 @@ ${txJson}
 【明細使用規則】：
 1. 總金額、總筆數、分類加總、付款方式加總 → **只能引用上方統計數據**，**絕對不可以**自己重新加總明細
 2. 上方統計數據是 JS 精算的，跟報表頁 100% 一致
+2-1. 部分明細有 tags 欄位（如：衝動消費、情緒消費、想要、需要、犒賞自己、計畫中、社交壓力、例行支出），這是記帳的人對自己花這筆錢的心情與性質的主觀標註。做消費習慣分析時，請善用這些標籤洞察情緒性/衝動性消費的比例與模式，這比單看分類更能反映真實的消費心理
 ${isNearComplete
   ? '3. 上方明細已涵蓋此期間所有筆，可放心引用具體某一筆'
   : '3. 上方僅為樣本（非完整），若使用者問「最大筆/最貴/具體某天」這類需精確單筆的問題，要說明這是樣本、可能不是真正最大筆，建議縮小日期區間查更精準'}` : ''}

@@ -716,7 +716,7 @@ async function fbSyncTrades() {
     const u = localStorage.getItem('current_uid');
     if (!u) return;
     await getDb().collection('private_tx').doc(u)
-      .set({ trades: getTrades(), tradeRules: getTradeRules(), watchlist: getWatchlist(), tradeUpdatedAt: Date.now() }, { merge: true });
+      .set({ trades: getRealTrades(), paperTrades: getPaperTrades(), tradeRules: getTradeRules(), watchlist: getWatchlist(), tradeUpdatedAt: Date.now() }, { merge: true });
   } catch(e) { console.warn('[FB]trades', e); }
 }
 
@@ -726,9 +726,10 @@ async function fbPullTrades() {
     if (!u) return;
     const d = await getDb().collection('private_tx').doc(u).get();
     if (d.exists) {
-      if (d.data().trades)     saveTrades(d.data().trades);
-      if (d.data().tradeRules) saveTradeRules(d.data().tradeRules);
-      if (d.data().watchlist)  saveWatchlist(d.data().watchlist);
+      if (d.data().trades)      DB.set('trades', d.data().trades);
+      if (d.data().paperTrades) DB.set('paper_trades', d.data().paperTrades);
+      if (d.data().tradeRules)  saveTradeRules(d.data().tradeRules);
+      if (d.data().watchlist)   saveWatchlist(d.data().watchlist);
     }
   } catch(e) {}
 }
@@ -742,9 +743,10 @@ function fbListenTrades(cb) {
     _tradeUnsub = getDb().collection('private_tx').doc(u)
       .onSnapshot(snap => {
         if (snap.exists && snap.data().trades) {
-          saveTrades(snap.data().trades);
-          if (snap.data().tradeRules) saveTradeRules(snap.data().tradeRules);
-          if (snap.data().watchlist)  saveWatchlist(snap.data().watchlist);
+          DB.set('trades', snap.data().trades);
+          if (snap.data().paperTrades) DB.set('paper_trades', snap.data().paperTrades);
+          if (snap.data().tradeRules)  saveTradeRules(snap.data().tradeRules);
+          if (snap.data().watchlist)   saveWatchlist(snap.data().watchlist);
           if (typeof cb === 'function') cb();
         }
       });
@@ -827,4 +829,38 @@ function fbListenChatMessages(cb) {
         if (typeof cb === 'function') cb();
       });
   } catch(e) { console.warn('[FB]listenChat', e); }
+}
+
+
+// ── 連續打卡同步 🔥 ───────────────────────────────────
+// 寫入 users/{uid}/streak（與 mascotChar 同 doc，用 merge 不覆蓋）
+async function fbSyncStreak(s) {
+  try {
+    const u = uid();
+    await getDb().collection('users').doc(u).set(
+      { streak: { current: s.current, longest: s.longest, lastCheckIn: s.lastCheckIn }, updatedAt: Date.now() },
+      { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncStreak', e); }
+}
+
+// 登入時拉回雲端 streak，若雲端較新（lastCheckIn 較晚）則覆蓋本地
+// 用於換手機 / 清快取 / PWA 重裝後還原
+async function fbPullStreak() {
+  try {
+    const u = uid();
+    const d = await getDb().collection('users').doc(u).get();
+    if (!d.exists) return;
+    const cloud = d.data().streak;
+    if (!cloud || !cloud.lastCheckIn) return;
+    const local = (typeof getStreak === 'function') ? getStreak() : { lastCheckIn: '' };
+    // 雲端 lastCheckIn 比本地新（或本地沒資料）→ 採用雲端
+    if (cloud.lastCheckIn > (local.lastCheckIn || '')) {
+      if (typeof setStreak === 'function') setStreak({
+        current: cloud.current || 0,
+        longest: cloud.longest || 0,
+        lastCheckIn: cloud.lastCheckIn
+      });
+    }
+  } catch (e) { console.warn('[FB]pullStreak', e); }
 }

@@ -141,6 +141,23 @@ function getTxTagById(id) {
   return getTxTags().find(t => t.id === id) || null;
 }
 
+// 把一筆 tx 的 tags(id陣列) 轉成中文標籤字串，例如「衝動消費、情緒消費、想要」
+// 去掉 label 前面的 emoji，只留文字，給 AI prompt 用（emoji 對語意理解無益且占 token）
+function tagLabels(tx) {
+  const ids = (tx && tx.tags) || [];
+  if (!ids.length) return '';
+  const tags = getTxTags();
+  return ids
+    .map(id => {
+      const t = tags.find(x => x.id === id);
+      if (!t) return '';
+      // 移除開頭 emoji 與空白，只保留中文
+      return t.label.replace(/^[^\u4e00-\u9fff]+/, '').trim();
+    })
+    .filter(Boolean)
+    .join('、');
+}
+
 // ── 快捷範本 CRUD（個人） ─────────────────────────────
 function getShortcuts()   { return DB.get(pKey('shortcuts')) || []; }
 function saveShortcuts(s) { DB.set(pKey('shortcuts'), s); }
@@ -1165,6 +1182,48 @@ function toLocalISO(d) {
   const day = String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
+
+// ── 每日打卡 / 連續天數 🔥 ────────────────────────────
+// 連續定義：只要打開 App 就算（重在養成每天關心財務的習慣）
+// 資料存 localStorage 'streak_data'，並由 firebase.js 同步到 users/{uid}/streak
+function getStreak() {
+  try {
+    const s = JSON.parse(localStorage.getItem('streak_data') || 'null');
+    if (s && typeof s.current === 'number') return s;
+  } catch (e) {}
+  return { current: 0, longest: 0, lastCheckIn: '' };
+}
+
+function setStreak(s) {
+  localStorage.setItem('streak_data', JSON.stringify(s));
+}
+
+// 每天首次開 App 呼叫；回傳更新後的 streak 物件
+// 回傳物件多帶 _changed（今天是否為新簽到）與 _broken（是否曾中斷重新開始）
+function checkInToday() {
+  const today = toLocalISO();              // YYYY-MM-DD（台灣本地）
+  const s = getStreak();
+  if (s.lastCheckIn === today) {
+    return { ...s, _changed: false, _broken: false };  // 今天已簽過
+  }
+  // 計算昨天日期字串
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  const yesterday = toLocalISO(y);
+  let broken = false;
+  if (s.lastCheckIn === yesterday) {
+    s.current = (s.current || 0) + 1;       // 昨天有簽 → 連續+1
+  } else {
+    if (s.current > 1) broken = true;       // 中斷過
+    s.current = 1;                          // 重新開始
+  }
+  s.lastCheckIn = today;
+  if (s.current > (s.longest || 0)) s.longest = s.current;
+  setStreak(s);
+  // 同步到 Firebase（若函數存在）
+  if (typeof fbSyncStreak === 'function') fbSyncStreak(s);
+  return { ...s, _changed: true, _broken: broken };
+}
 function fmt(n)  { return Number(n||0).toLocaleString('zh-TW'); }
 function fmtT(s) { const d=new Date(s); return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); }
 function fmtD(s) {
@@ -1290,8 +1349,71 @@ function delInvestment(id) {
 
 
 // ── 台股交易日誌（宏龍私密）──────────────────────────
-function getTrades()      { return DB.get('trades') || []; }
-function saveTrades(list) { DB.set('trades', list); }
+// ── 交易模式：'real'(真實) / 'paper'(模擬沙盒) ─────────
+// 模式分流讓 getTrades/saveTrades 自動讀寫不同 key，
+// 現有的 renderReview/calcTradeCost/renderJournal 等全部無需修改即可支援模擬交易
+let _tradeMode = (typeof localStorage !== 'undefined' && localStorage.getItem('trade_mode') === 'paper') ? 'paper' : 'real';
+function getTradeViewMode() { return _tradeMode; }
+function setTradeViewMode(m) {
+  _tradeMode = (m === 'paper') ? 'paper' : 'real';
+  try { localStorage.setItem('trade_mode', _tradeMode); } catch(e) {}
+}
+function _tradeKey() { return _tradeMode === 'paper' ? 'paper_trades' : 'trades'; }
+
+function getTrades()      { return DB.get(_tradeKey()) || []; }
+function saveTrades(list) { DB.set(_tradeKey(), list); }
+
+// 真實交易專用讀取（守門員、淨資產等永遠看真錢，不受模擬模式影響）
+function getRealTrades()  { return DB.get('trades') || []; }
+function getPaperTrades() { return DB.get('paper_trades') || []; }
+
+// 模擬交易畢業評估：判斷模擬績效是否夠格上實盤
+// 回傳 {count, winRate, profitFactor, expectancy, verdict, grade, advice}
+function evalPaperGraduation() {
+  const closed = getPaperTrades().filter(t => t.status === 'closed');
+  const n = closed.length;
+  let net = 0, wins = 0, losses = 0, winSum = 0, lossSum = 0, violations = 0;
+  closed.forEach(t => {
+    const { netPnl } = calcTradeCost(t);
+    net += netPnl;
+    if (netPnl > 0) { wins++; winSum += netPnl; }
+    else if (netPnl < 0) { losses++; lossSum += Math.abs(netPnl); }
+    if (t.disciplineViolation) violations++;
+  });
+  const winRate = n ? wins / n * 100 : 0;
+  const profitFactor = lossSum ? winSum / lossSum : (winSum > 0 ? 99 : 0);
+  const expectancy = n ? net / n : 0;
+  const vioRate = n ? violations / n * 100 : 0;
+
+  // 評級邏輯：要同時看勝率、盈虧比、期望值、紀律
+  let grade = 'D', verdict = '樣本不足', advice = '';
+  if (n < 30) {
+    grade = '—'; verdict = `還需累積（${n}/30 筆）`;
+    advice = `先在沙盒練到至少 30 筆才有統計意義，目前還剩 ${Math.max(0, 30 - n)} 筆。`;
+  } else {
+    // 期望值為正是上實盤的最低門檻
+    const posExp = expectancy > 0;
+    const goodPF = profitFactor >= 1.5;
+    const okPF   = profitFactor >= 1.2;
+    const goodWR = winRate >= 45;
+    const lowVio = vioRate <= 15;
+    if (posExp && goodPF && goodWR && lowVio) {
+      grade = 'A'; verdict = '✅ 夠格上實盤';
+      advice = '期望值為正、盈虧比與紀律都健康。建議先用「最小部位」上實盤，因為真錢的心理壓力和模擬完全不同，要重新驗證心態。';
+    } else if (posExp && okPF) {
+      grade = 'B'; verdict = '⚠️ 接近但還不穩';
+      advice = (vioRate > 15 ? `違紀率偏高（${vioRate.toFixed(0)}%），先把紀律練穩。` : '') +
+               '期望值為正但盈虧比不夠扎實，建議再練 30 筆觀察一致性，別急著上實盤。';
+    } else if (!posExp) {
+      grade = 'D'; verdict = '🔴 還不能上實盤';
+      advice = `期望值為負（每筆平均 ${expectancy>=0?'+':''}$${Math.round(expectancy)}），代表這套策略長期會賠錢。先檢討為什麼賠：是停損太慢、還是進場點不對？`;
+    } else {
+      grade = 'C'; verdict = '⚠️ 需要調整';
+      advice = '勝率或盈虧比偏低。回顧覆盤頁的型態/情緒勝率，砍掉勝率最低的那種打法。';
+    }
+  }
+  return { count: n, winRate, profitFactor, expectancy, vioRate, net, grade, verdict, advice };
+}
 
 function addTrade(data) {
   const list = getTrades();
@@ -1359,7 +1481,8 @@ function calcTradeCost(t) {
 // 今日交易統計（給紀律守門員用）
 function getTodayTradeStats() {
   const today = toLocalISO();
-  const todayTrades = getTrades().filter(t => t.date === today && t.status === 'closed');
+  // 守門員永遠看真實交易（模擬交易不該觸發真錢虧損上限）
+  const todayTrades = getRealTrades().filter(t => t.date === today && t.status === 'closed');
   let netSum = 0, count = todayTrades.length, consecutiveLoss = 0, maxConsec = 0;
   // 依時間排序算連虧
   const sorted = [...todayTrades].sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
