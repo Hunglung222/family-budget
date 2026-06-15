@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<link rel="manifest" href="./manifest.json">
+<title>我的花園</title>
+<link rel="stylesheet" href="./css/style.css">
+<style>
+.garden-hero {
+  background: linear-gradient(180deg, rgba(34,197,94,.08), transparent);
+  border-radius: var(--r);
+  padding: 24px 16px;
+  text-align: center;
+  margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.plant-pot {
+  font-size: 5.5rem;
+  line-height: 1;
+  margin: 8px 0;
+  transition: .4s;
+  display: inline-block;
+}
+.plant-pot.wilted { filter: grayscale(.7) brightness(.8); transform: rotate(-4deg); }
+@keyframes sway { 0%,100%{transform:rotate(-2deg)} 50%{transform:rotate(2deg)} }
+.plant-pot.healthy { animation: sway 3s ease-in-out infinite; }
+.growth-bar {
+  height: 10px; border-radius: 50px; background: var(--card2);
+  overflow: hidden; margin: 12px 0 6px;
+}
+.growth-fill { height: 100%; border-radius: 50px; background: linear-gradient(90deg,#22c55e,#84cc16); transition: width .6s; }
+.plant-card {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 12px; text-align: center; cursor: pointer; transition: .18s;
+}
+.plant-card.active { border-color: #22c55e; background: rgba(34,197,94,.06); }
+.shop-item {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 14px 10px; text-align: center;
+}
+.tab-g { flex:1; padding:9px 0; border:none; border-radius:9px; font-size:.82rem; font-weight:700; cursor:pointer; font-family:inherit; background:none; color:var(--t3); transition:.18s; }
+.tab-g.on { background: var(--card); color: var(--p); }
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div><h1>🌱 我的花園</h1><div class="hdr-sub" id="garden-sub"></div></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div style="font-size:.8rem;font-weight:900;color:#fbbf24">🪙 <span id="coin-count">0</span></div>
+  </div>
+</header>
+
+<div class="w">
+  <!-- 大分頁：花園 / 寵物 -->
+  <div style="display:flex;gap:6px;margin-bottom:16px">
+    <button id="big-garden" onclick="switchBig('garden')" style="flex:1;padding:11px;border:none;border-radius:12px;font-size:.86rem;font-weight:900;cursor:pointer;font-family:inherit;background:#22c55e;color:#06281f">🌱 我的花園</button>
+    <button id="big-pet" onclick="switchBig('pet')" style="flex:1;padding:11px;border:none;border-radius:12px;font-size:.86rem;font-weight:900;cursor:pointer;font-family:inherit;background:var(--card2);color:var(--t3)">🐾 家庭寵物</button>
+  </div>
+
+  <!-- ══════════ 花園區 ══════════ -->
+  <div id="section-garden">
+  <!-- 分頁 -->
+  <div style="display:flex;gap:4px;background:var(--card2);border-radius:12px;padding:3px;margin-bottom:16px">
+    <button class="tab-g on" id="tab-grow"    onclick="switchGardenTab('grow')">🌿 養成</button>
+    <button class="tab-g"    id="tab-shop"    onclick="switchGardenTab('shop')">🛒 種子店</button>
+    <button class="tab-g"    id="tab-dex"     onclick="switchGardenTab('dex')">📖 圖鑑</button>
+  </div>
+
+  <!-- 養成分頁 -->
+  <div id="panel-grow">
+    <div class="garden-hero">
+      <div id="plant-display" class="plant-pot">🌰</div>
+      <div id="plant-name" style="font-size:1.1rem;font-weight:900;color:var(--t1)">仙人掌・種子</div>
+      <div id="plant-status" style="font-size:.78rem;color:var(--t3);margin-top:2px">尚未澆水</div>
+      <div class="growth-bar"><div class="growth-fill" id="growth-fill" style="width:0%"></div></div>
+      <div style="font-size:.72rem;color:var(--t3)">成長度 <span id="growth-pct">0</span>%</div>
+      <div id="water-hint" style="margin-top:12px;font-size:.82rem"></div>
+    </div>
+
+    <div id="bloom-action" style="display:none;margin-bottom:16px">
+      <button onclick="doHarvest()" style="width:100%;background:linear-gradient(135deg,#22c55e,#84cc16);color:#06281f;border:none;border-radius:12px;padding:14px;font-size:.9rem;font-weight:900;cursor:pointer;font-family:inherit">🌼 收成！（+30🪙 +1 種子）</button>
+    </div>
+
+    <div class="sec-t" style="font-size:.82rem;color:var(--t2);margin:8px 0">🪴 我的植物</div>
+    <div id="my-plants" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px"></div>
+  </div>
+
+  <!-- 種子店分頁 -->
+  <div id="panel-shop" style="display:none">
+    <div style="font-size:.76rem;color:var(--t3);line-height:1.5;margin-bottom:14px">
+      🪙 金幣來自你的<b style="color:#fbbf24">儲蓄率</b>——存越多錢，能買的種子越多。種新植物鼓勵你持續記帳。
+    </div>
+    <div id="seed-shop" style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px"></div>
+  </div>
+
+  <!-- 圖鑑分頁 -->
+  <div id="panel-dex" style="display:none">
+    <div style="font-size:.76rem;color:var(--t3);margin-bottom:14px">收成過的植物會記錄在這裡 📖</div>
+    <div id="plant-dex" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+  </div>
+  </div><!-- end section-garden -->
+
+  <!-- ══════════ 寵物區 ══════════ -->
+  <div id="section-pet" style="display:none">
+    <div class="garden-hero" style="background:linear-gradient(180deg,rgba(167,139,250,.1),transparent)">
+      <div id="pet-display" class="plant-pot">🥚</div>
+      <div id="pet-name" style="font-size:1.1rem;font-weight:900;color:var(--t1)">狐狸・蛋</div>
+      <div id="pet-mood" style="font-size:.78rem;color:var(--t3);margin-top:2px"></div>
+      <!-- 狀態列 -->
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:14px">
+        <div style="text-align:center">
+          <div style="font-size:.66rem;color:var(--t3)">飽食</div>
+          <div id="pet-hunger" style="font-size:.9rem">🍚🍚🍚</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:.66rem;color:var(--t3)">健康</div>
+          <div id="pet-health" style="font-size:.86rem;font-weight:900;color:#22c55e">100</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:.66rem;color:var(--t3)">連續餵養</div>
+          <div id="pet-streak" style="font-size:.86rem;font-weight:900;color:#e8580a">0 天</div>
+        </div>
+      </div>
+      <div id="pet-hint" style="margin-top:14px;font-size:.82rem"></div>
+      <div id="pet-fed-by" style="margin-top:6px;font-size:.7rem;color:var(--t3)"></div>
+    </div>
+
+    <!-- 寵物的家 -->
+    <div style="background:var(--card);border:1.5px solid var(--border);border-radius:14px;padding:14px;display:flex;align-items:center;gap:12px;margin-bottom:14px">
+      <div id="pet-house-emoji" style="font-size:2rem">⛺</div>
+      <div style="flex:1">
+        <div style="font-size:.8rem;font-weight:700;color:var(--t2)">寵物的家：<span id="pet-house-name">帳篷</span></div>
+        <div style="font-size:.68rem;color:var(--t3);margin-top:2px">達成更多儲蓄目標，升級寵物的家 🏠→🏰</div>
+      </div>
+    </div>
+
+    <!-- 換寵物 -->
+    <div class="sec-t" style="font-size:.82rem;color:var(--t2);margin:8px 0">🐾 選擇寵物（保留進度）</div>
+    <div id="pet-picker" style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:14px"></div>
+
+    <!-- 誰餵的記錄 -->
+    <div class="sec-t" style="font-size:.82rem;color:var(--t2);margin:8px 0">📋 最近餵養記錄</div>
+    <div id="pet-feedlog" style="font-size:.76rem;color:var(--t3);line-height:1.8"></div>
+  </div>
+</div>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
+  <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
+</nav>
+<div class="toast" id="toast"></div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script src="./js/garden.js"></script>
+<script src="./js/pet.js"></script>
+<script>
+let _tt;
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show'+(type?' '+type:'');clearTimeout(_tt);_tt=setTimeout(()=>el.classList.remove('show'),2400);}
+
+// 大分頁切換：花園 / 寵物
+function switchBig(which) {
+  const isGarden = which === 'garden';
+  document.getElementById('section-garden').style.display = isGarden ? 'block' : 'none';
+  document.getElementById('section-pet').style.display = isGarden ? 'none' : 'block';
+  const bg = document.getElementById('big-garden'), bp = document.getElementById('big-pet');
+  if (isGarden) {
+    bg.style.background = '#22c55e'; bg.style.color = '#06281f';
+    bp.style.background = 'var(--card2)'; bp.style.color = 'var(--t3)';
+    renderGarden();
+  } else {
+    bp.style.background = '#a78bfa'; bp.style.color = '#1a1a2e';
+    bg.style.background = 'var(--card2)'; bg.style.color = 'var(--t3)';
+    renderPet();
+  }
+}
+
+function renderPet() {
+  if (typeof tickPet !== 'function') return;
+  const r = tickPet();
+  const pet = r.pet;
+  if (!pet) return;
+  const info = PET_TYPES[pet.type];
+  const stage = getPetStage(pet);
+
+  const disp = document.getElementById('pet-display');
+  // 蛋階段顯示蛋，破殼後顯示動物 emoji + 心情
+  disp.textContent = stage.key === 'egg' ? '🥚' : info.emoji;
+  disp.className = 'plant-pot ' + (pet.mood === 'sad' || pet.mood === 'sick' ? 'wilted' : 'healthy');
+
+  document.getElementById('pet-name').textContent = `${info.name}・${stage.name}`;
+  document.getElementById('pet-mood').textContent = getPetMoodFace(pet.mood) + ' ' + info.personality;
+  document.getElementById('pet-hunger').textContent = '🍚'.repeat(pet.hunger) + '·'.repeat(Math.max(0,3-pet.hunger));
+  const hEl = document.getElementById('pet-health');
+  hEl.textContent = pet.health;
+  hEl.style.color = pet.health >= 70 ? '#22c55e' : pet.health >= 50 ? 'var(--warn)' : 'var(--danger)';
+  document.getElementById('pet-streak').textContent = (pet.feedStreak||0) + ' 天';
+
+  // 提示
+  const hint = document.getElementById('pet-hint');
+  if (r.fed) {
+    hint.innerHTML = r.justFed ? '<span style="color:#22c55e">🍚 今天餵食成功！</span>' : '<span style="color:var(--t3)">今天家裡已經餵過牠了</span>';
+  } else if (pet.hunger <= 0) {
+    hint.innerHTML = '<span style="color:var(--danger)">主人…我餓了…快記一筆帳餵餵我 🥺</span>';
+  } else {
+    hint.innerHTML = '<span style="color:var(--p)">🍚 今天記一筆帳就能餵牠</span>';
+  }
+  // 誰餵的
+  const fb = document.getElementById('pet-fed-by');
+  fb.textContent = pet.lastFedBy ? `最後由 ${pet.lastFedBy} 於 ${pet.lastFedDate} 餵食` : '';
+
+  // 寵物的家
+  const house = getPetHouse();
+  document.getElementById('pet-house-emoji').textContent = house.emoji;
+  document.getElementById('pet-house-name').textContent = house.name;
+
+  // 換寵物選擇器
+  const picker = document.getElementById('pet-picker');
+  picker.innerHTML = Object.entries(PET_TYPES).map(([key, pi]) => {
+    const sel = key === pet.type;
+    return `<div onclick="pickPet('${key}')" style="cursor:pointer;text-align:center;padding:8px 2px;border-radius:10px;border:1.5px solid ${sel?'#a78bfa':'var(--border)'};background:${sel?'rgba(167,139,250,.1)':'var(--card)'}">
+      <div style="font-size:1.5rem">${pi.emoji}</div>
+      <div style="font-size:.6rem;color:${sel?'#a78bfa':'var(--t3)'};font-weight:700;margin-top:2px">${pi.name}</div>
+    </div>`;
+  }).join('');
+
+  // 餵養記錄
+  const log = document.getElementById('pet-feedlog');
+  const recent = (pet.feedLog || []).slice(-5).reverse();
+  log.innerHTML = recent.length
+    ? recent.map(f => `🍚 ${f.date}　${f.by}`).join('<br>')
+    : '<span style="color:var(--t3)">還沒有餵養記錄，去記一筆帳吧！</span>';
+
+  // 金幣
+  syncPetCoins();
+  document.getElementById('coin-count').textContent = getPet().coins || 0;
+}
+
+function pickPet(type) {
+  if (typeof changePetType === 'function' && changePetType(type)) {
+    toast(`已換成${PET_TYPES[type].name} ${PET_TYPES[type].emoji}`);
+    renderPet();
+  }
+}
+
+function switchGardenTab(tab) {
+  ['grow','shop','dex'].forEach(t => {
+    document.getElementById('panel-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('tab-'+t).classList.toggle('on', t===tab);
+  });
+  if (tab==='shop') renderSeedShop();
+  if (tab==='dex') renderDex();
+}
+
+function renderGarden() {
+  const r = tickGarden();
+  const g = getGarden();
+  const plant = r.plant;
+  if (!plant) return;
+  const info = PLANT_TYPES[plant.type];
+  const stage = getPlantStage(plant.growth);
+  const wilted = isPlantWilted(plant);
+
+  const disp = document.getElementById('plant-display');
+  // 種子/發芽用通用 emoji，成熟後用該植物 emoji
+  disp.textContent = plant.growth >= 70 ? info.emoji : stage.emoji;
+  disp.className = 'plant-pot ' + (wilted ? 'wilted' : 'healthy');
+
+  document.getElementById('plant-name').textContent = `${info.name}・${stage.name}`;
+  document.getElementById('growth-fill').style.width = plant.growth + '%';
+  document.getElementById('growth-pct').textContent = plant.growth;
+
+  const statusEl = document.getElementById('plant-status');
+  const hintEl = document.getElementById('water-hint');
+  if (r.watered) {
+    statusEl.textContent = '今天已澆水 💧';
+    statusEl.style.color = '#22c55e';
+    hintEl.innerHTML = r.grew ? '<span style="color:#22c55e">🌱 今天長大了一點！</span>' : '<span style="color:var(--t3)">今天已照顧過囉</span>';
+  } else if (wilted) {
+    statusEl.textContent = '缺水中…需要記帳澆水 🥀';
+    statusEl.style.color = 'var(--danger)';
+    hintEl.innerHTML = '<span style="color:var(--danger)">去記一筆帳，植物就會恢復精神！</span>';
+  } else {
+    statusEl.textContent = '今天還沒澆水';
+    statusEl.style.color = 'var(--t3)';
+    hintEl.innerHTML = '<span style="color:var(--p)">💧 今天記一筆帳就會自動澆水</span>';
+  }
+
+  // 開花可收成
+  document.getElementById('bloom-action').style.display = plant.bloomed ? 'block' : 'none';
+
+  // 我的植物列表
+  const mp = document.getElementById('my-plants');
+  mp.innerHTML = g.plants.map(p => {
+    const pi = PLANT_TYPES[p.type];
+    const ps = getPlantStage(p.growth);
+    const active = p.id === g.activePlantId;
+    return `<div class="plant-card ${active?'active':''}" onclick="pickPlant('${p.id}')">
+      <div style="font-size:2rem">${p.growth>=70?pi.emoji:ps.emoji}</div>
+      <div style="font-size:.7rem;font-weight:700;color:var(--t2);margin-top:3px">${pi.name}</div>
+      <div style="font-size:.62rem;color:var(--t3)">${p.growth}%</div>
+    </div>`;
+  }).join('');
+
+  // 金幣
+  syncGardenCoins();
+  document.getElementById('coin-count').textContent = getGarden().coins || 0;
+
+  // 副標
+  const sub = document.getElementById('garden-sub');
+  const me = (typeof currentUser==='function') ? currentUser() : '';
+  if (sub) sub.textContent = me ? `${me}的花園` : '';
+}
+
+function pickPlant(id) { setActivePlant(id); renderGarden(); }
+
+function doHarvest() {
+  const g = getGarden();
+  const r = harvestPlant(g.activePlantId);
+  if (r.ok) { toast(`🌼 收成成功！+${r.coins}🪙`); renderGarden(); }
+  else toast(r.msg || '無法收成', 'warn');
+}
+
+function renderSeedShop() {
+  syncGardenCoins();
+  const g = getGarden();
+  document.getElementById('coin-count').textContent = g.coins || 0;
+  const el = document.getElementById('seed-shop');
+  el.innerHTML = Object.entries(PLANT_TYPES).map(([key, info]) => {
+    const affordable = (g.coins||0) >= info.cost;
+    return `<div class="shop-item">
+      <div style="font-size:2.4rem">${info.emoji}</div>
+      <div style="font-size:.84rem;font-weight:900;color:var(--t1);margin-top:4px">${info.name}</div>
+      <div style="font-size:.64rem;color:var(--t3);margin:2px 0">${info.difficulty}・耐旱${info.droughtDays}天</div>
+      <div style="font-size:.64rem;color:var(--t3);line-height:1.3;min-height:2.4em;margin-bottom:8px">${info.desc}</div>
+      <button onclick="buyPlant('${key}')" ${!affordable&&info.cost>0?'disabled':''}
+        style="width:100%;padding:7px;border:none;border-radius:8px;font-size:.74rem;font-weight:700;cursor:pointer;font-family:inherit;${info.cost===0?'background:var(--card2);color:var(--t3)':affordable?'background:#22c55e;color:#06281f':'background:var(--card2);color:var(--t3);opacity:.5'}">
+        ${info.cost===0?'🌱 免費種植':'🪙 '+info.cost}
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function buyPlant(type) {
+  const r = plantNew(type);
+  if (r.ok) { toast(`🌱 種下${PLANT_TYPES[type].name}了！記帳來澆水吧`); switchGardenTab('grow'); renderGarden(); }
+  else toast(r.msg || '無法種植', 'warn');
+}
+
+function renderDex() {
+  const g = getGarden();
+  const el = document.getElementById('plant-dex');
+  el.innerHTML = Object.entries(PLANT_TYPES).map(([key, info]) => {
+    const got = g.collected.includes(key);
+    return `<div class="shop-item" style="${got?'':'opacity:.4'}">
+      <div style="font-size:2.2rem;${got?'':'filter:grayscale(1)'}">${got?info.emoji:'❔'}</div>
+      <div style="font-size:.7rem;font-weight:700;color:${got?'var(--t2)':'var(--t3)'};margin-top:3px">${got?info.name:'???'}</div>
+    </div>`;
+  }).join('');
+}
+
+// 初始化
+if (typeof fbPullAll === 'function') {
+  fbPullAll().then(async ()=>{
+    if (typeof fbPullGarden === 'function') await fbPullGarden();
+    if (typeof fbPullPet === 'function') await fbPullPet();
+    renderGarden();
+    // 即時監聽家庭寵物變化（另一半餵食時同步更新）
+    if (typeof fbListenPet === 'function') fbListenPet(()=>{ if(document.getElementById('section-pet').style.display!=='none') renderPet(); });
+  }).catch(()=>renderGarden());
+} else {
+  renderGarden();
+}
+</script>
+</body>
+</html>

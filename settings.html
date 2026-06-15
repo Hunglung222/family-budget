@@ -110,6 +110,16 @@
     </div>
   </div>
 
+  <!-- 🏅 徽章成就牆 -->
+  <div class="sec-t">🏅 成就徽章</div>
+  <div class="data-card" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:.84rem;color:var(--t2)">已解鎖 <b id="badge-count" style="color:var(--p);font-size:1.1rem">0</b> / <span id="badge-total">0</span> 枚</div>
+      <div id="badge-progress-pct" style="font-size:.72rem;padding:3px 10px;border-radius:50px;background:var(--pdim);color:var(--p);font-weight:700">0%</div>
+    </div>
+    <div id="badge-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+  </div>
+
   <!-- 登入帳號 -->
   <div class="sec-t">👤 目前登入帳號</div>
   <div class="data-card" style="padding:14px 16px">
@@ -772,6 +782,13 @@
   </div>
 </div>
 
+<div class="ov" id="badge-detail-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div id="badge-detail-body"></div>
+    <button class="btn btn-s" style="margin-top:14px;width:100%" onclick="closeModal('badge-detail-modal')">關閉</button>
+  </div>
+</div>
+
 <div class="ov" id="confirm-modal">
   <div class="sheet"><div class="sh"></div><div class="st" id="cm-title"></div>
     <p id="cm-msg" style="color:var(--t2);font-size:.9rem;margin-bottom:18px;line-height:1.6"></p>
@@ -819,6 +836,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/badges.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
 // ── 資料健康檢查 ──────────────────────────────────────
@@ -988,12 +1006,67 @@ function init(){
   renderStat();
   renderCats();
   renderSubCatSel();
+  renderBadgeWall();
+  // 拉雲端徽章後再渲染一次
+  if (typeof fbPullBadges === 'function') fbPullBadges().then(()=>renderBadgeWall()).catch(()=>{});
+  // 進設定頁時也檢查一次有沒有新達成的徽章
+  if (typeof checkBadges === 'function') { try { checkBadges(); renderBadgeWall(); } catch(e){} }
+}
+
+// ══ 🏅 徽章牆 ═══════════════════════════════════════════
+function renderBadgeWall() {
+  if (typeof getBadgeWall !== 'function') return;
+  const wall = getBadgeWall();
+  const cntEl = document.getElementById('badge-count');
+  const totEl = document.getElementById('badge-total');
+  const pctEl = document.getElementById('badge-progress-pct');
+  const grid  = document.getElementById('badge-grid');
+  if (!grid) return;
+  if (cntEl) cntEl.textContent = wall.earned;
+  if (totEl) totEl.textContent = wall.total;
+  if (pctEl) pctEl.textContent = Math.round(wall.earned / wall.total * 100) + '%';
+
+  grid.innerHTML = wall.badges.map(b => {
+    const ri = b.rarityInfo;
+    if (b.unlocked) {
+      return `<div onclick="showBadgeDetail('${b.id}')" style="cursor:pointer;text-align:center;padding:10px 4px;border-radius:12px;background:${ri.glow};border:1.5px solid ${ri.color}">
+        <div style="font-size:1.7rem;filter:drop-shadow(0 0 6px ${ri.glow})">${b.icon}</div>
+        <div style="font-size:.62rem;font-weight:700;color:${ri.color};margin-top:3px;line-height:1.2">${b.name}</div>
+      </div>`;
+    } else {
+      return `<div onclick="showBadgeDetail('${b.id}')" style="cursor:pointer;text-align:center;padding:10px 4px;border-radius:12px;background:var(--card2);border:1.5px solid var(--border);opacity:.55">
+        <div style="font-size:1.7rem;filter:grayscale(1)">🔒</div>
+        <div style="font-size:.62rem;font-weight:700;color:var(--t3);margin-top:3px;line-height:1.2">${b.name}</div>
+      </div>`;
+    }
+  }).join('');
+}
+
+function showBadgeDetail(id) {
+  const wall = getBadgeWall();
+  const b = wall.badges.find(x => x.id === id);
+  if (!b) return;
+  const ri = b.rarityInfo;
+  const body = document.getElementById('badge-detail-body');
+  if (body) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:6px 4px 12px">
+        <div style="font-size:3.4rem;margin-bottom:6px;filter:${b.unlocked?`drop-shadow(0 0 12px ${ri.glow})`:'grayscale(1)'};${b.unlocked?'':'opacity:.5'}">${b.unlocked?b.icon:'🔒'}</div>
+        <div style="font-size:1.15rem;font-weight:900;color:${b.unlocked?ri.color:'var(--t2)'}">${b.name}</div>
+        <span style="display:inline-block;margin-top:6px;font-size:.68rem;padding:2px 10px;border-radius:50px;background:${ri.glow};color:${ri.color};font-weight:700">${ri.name}級</span>
+      </div>
+      <div style="background:var(--card2);border-radius:10px;padding:12px 14px;font-size:.82rem;color:var(--t2);line-height:1.6;text-align:center">
+        ${b.desc}
+        ${b.unlocked ? `<div style="margin-top:8px;font-size:.72rem;color:var(--ok)">✅ 已於 ${b.date} 解鎖</div>` : `<div style="margin-top:8px;font-size:.72rem;color:var(--t3)">🔒 尚未解鎖，繼續努力！</div>`}
+      </div>`;
+  }
+  showModal('badge-detail-modal');
 }
 
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.06.14 06:42';
+const APP_VERSION = 'v2026.06.14 15:06';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;

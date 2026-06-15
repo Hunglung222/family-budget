@@ -22,6 +22,9 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <a href="./memo.html" id="memo-btn" style="display:none" class="hdr-btn" title="備忘錄">📝</a>
+    <!-- 🌱 花園按鈕 -->
+    <a href="./grow.html" title="我的花園"
+      style="width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;text-decoration:none">🌱</a>
     <!-- 💬 簡訊按鈕 -->
     <button onclick="openChat()" id="chat-btn"
       style="position:relative;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem">
@@ -331,6 +334,9 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/badges.js"></script>
+<script src="./js/garden.js"></script>
+<script src="./js/pet.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
 const CAT_IC={food:'🍜',transport:'🚌',shopping:'🛍️',home:'🏠',medical:'💊',entertain:'🎬',education:'📚',child:'👶',other:'📦'};
@@ -843,6 +849,13 @@ function doDailyCheckIn() {
     if (milestones[r.current]) {
       setTimeout(()=>toast(milestones[r.current]), 600);
     }
+  }
+  // 打卡後檢查連續天數類徽章（不用等到下次記帳）
+  if (typeof checkBadges === 'function') {
+    try {
+      const newly = checkBadges();
+      newly.forEach((b, i) => setTimeout(()=>toast(`🏅 解鎖徽章「${b.name}」！`), 1200 + i*1500));
+    } catch(e) {}
   }
 }
 

@@ -536,6 +536,9 @@ if ('serviceWorker' in navigator) {
 </script>
 <script src="./js/db.js"></script>
 <script src="./js/firebase.js"></script>
+<script src="./js/badges.js"></script>
+<script src="./js/garden.js"></script>
+<script src="./js/pet.js"></script>
 <script src="./js/assistant.js"></script>
 <script src="./js/inbox.js"></script>
 
@@ -849,6 +852,23 @@ function startVoiceInput(sourceBtn) {
   recognition.start();
 }
 
+
+// ── 養成系統統一觸發（記帳後呼叫，徽章/盆栽/寵物）──────
+// showToast=true 時顯示提示（單筆用）；多筆批次用 false 避免洗版
+function triggerGrowth(showToast) {
+  if (typeof checkBadges === 'function') {
+    try {
+      const newly = checkBadges();
+      newly.forEach((b, i) => setTimeout(() => toast(`🏅 解鎖徽章「${b.name}」！`, 'ok'), 1800 + i * 1500));
+    } catch(e) {}
+  }
+  if (typeof tickGarden === 'function') {
+    try { const gr = tickGarden(); if (showToast && gr.grew) setTimeout(()=>toast('🌱 你的植物澆水長大了！'), 2400); } catch(e) {}
+  }
+  if (typeof tickPet === 'function') {
+    try { const pr = tickPet(); if (showToast && pr.justFed) setTimeout(()=>toast('🍚 家庭寵物吃飽飽了！'), 3000); } catch(e) {}
+  }
+}
 
 // ── 批次貼入模式切換 ──────────────────────────────────
 let _aiMode = 'single';
@@ -1882,6 +1902,7 @@ function submit() {
     const r1 = addTx(txHL); fbAddTx(r1 || txHL);
     const r2 = addTx(txYH); fbAddTx(r2 || txYH);
     toast(`⚖️ AA 分帳完成：宏龍 $${fmt(_aaHlAmt)}、盈慧 $${fmt(_aaYhAmt)}`);
+    triggerGrowth(true);
     resetAddons();
     resetForm();
     return;
@@ -1952,6 +1973,7 @@ function submit() {
   const sov = document.getElementById('sov');
   sov.classList.add('show'); setTimeout(()=>sov.classList.remove('show'),1300);
   toast(`記帳 $${fmt(amt)} 成功！`);
+  triggerGrowth(true);
   resetForm();
 }
 
@@ -2226,6 +2248,9 @@ async function confirmMultiTx() {
     }
     saved++;
   }
+
+  // 批次記帳完成後觸發一次養成（不逐筆洗版）
+  if (saved > 0) triggerGrowth(false);
 
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
   // 若有子分類同步需求（confirmNewSubCat 會在需要時呼叫 fbSyncCats）
