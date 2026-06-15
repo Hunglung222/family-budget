@@ -864,3 +864,93 @@ async function fbPullStreak() {
     }
   } catch (e) { console.warn('[FB]pullStreak', e); }
 }
+
+
+// ── 徽章解鎖記錄同步 🏅 ───────────────────────────────
+async function fbSyncBadges(obj) {
+  try {
+    const u = uid();
+    await getDb().collection('users').doc(u).set(
+      { badges: obj, badgesUpdatedAt: Date.now() }, { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncBadges', e); }
+}
+async function fbPullBadges() {
+  try {
+    const u = uid();
+    const d = await getDb().collection('users').doc(u).get();
+    if (!d.exists || !d.data().badges) return;
+    const cloud = d.data().badges;
+    const local = (typeof getUnlockedBadges === 'function') ? getUnlockedBadges() : {};
+    // 合併：雲端與本地聯集（徽章只增不減，取較早解鎖日）
+    const merged = { ...cloud };
+    Object.keys(local).forEach(k => {
+      if (!merged[k] || local[k] < merged[k]) merged[k] = local[k];
+    });
+    if (typeof localStorage !== 'undefined') localStorage.setItem('badges_unlocked', JSON.stringify(merged));
+  } catch (e) { console.warn('[FB]pullBadges', e); }
+}
+
+
+// ── 個人盆栽同步 🌱 ───────────────────────────────────
+async function fbSyncGarden(g) {
+  try {
+    const u = uid();
+    await getDb().collection('users').doc(u).set(
+      { garden: g, gardenUpdatedAt: Date.now() }, { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncGarden', e); }
+}
+async function fbPullGarden() {
+  try {
+    const u = uid();
+    const d = await getDb().collection('users').doc(u).get();
+    if (!d.exists || !d.data().garden) return;
+    const cloud = d.data().garden;
+    // 雲端較新就採用（用 gardenUpdatedAt 比對較複雜，簡化為雲端有就拉，本地之後 tick 會再更新）
+    if (cloud.plants) localStorage.setItem('garden_data', JSON.stringify(cloud));
+  } catch (e) { console.warn('[FB]pullGarden', e); }
+}
+
+
+// ── 家庭共養寵物同步 🐾（shared/pet 兩人共用）──────────
+async function fbSyncPet(p) {
+  try {
+    await getDb().collection('shared').doc('pet').set(
+      { ...p, updatedAt: Date.now() }, { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncPet', e); }
+}
+async function fbPullPet() {
+  try {
+    const d = await getDb().collection('shared').doc('pet').get();
+    if (!d.exists) return;
+    const cloud = d.data();
+    if (!cloud || !cloud.type) return;
+    const local = (typeof getPet === 'function') ? getPet() : null;
+    // 合併策略：以「餵食較多 / 餵食日較新」的版本為主，避免兩人各自 tick 互相覆蓋退步
+    if (!local || (cloud.lastFedDate || '') >= (local.lastFedDate || '') || (cloud.feedTotal||0) > (local.feedTotal||0)) {
+      if (typeof localStorage !== 'undefined') {
+        // 移除 firestore 的 updatedAt 再存
+        const clean = { ...cloud }; delete clean.updatedAt;
+        localStorage.setItem('pet_data', JSON.stringify(clean));
+      }
+    }
+  } catch (e) { console.warn('[FB]pullPet', e); }
+}
+function fbListenPet(cb) {
+  try {
+    return getDb().collection('shared').doc('pet').onSnapshot(snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (snap.exists && snap.data().type) {
+        const clean = { ...snap.data() }; delete clean.updatedAt;
+        const local = (typeof getPet === 'function') ? getPet() : null;
+        // 只在雲端較新時覆蓋本地（避免把自己剛餵的蓋掉）
+        if (!local || (clean.lastFedDate||'') >= (local.lastFedDate||'') || (clean.feedTotal||0) > (local.feedTotal||0)) {
+          localStorage.setItem('pet_data', JSON.stringify(clean));
+          if (typeof cb === 'function') cb();
+        }
+      }
+    });
+  } catch(e) { console.warn('[FB]listenPet', e); }
+}

@@ -2112,6 +2112,57 @@ function getWantNeedHistory(periodsBack = 4) {
 function getGoals()        { return DB.get('savings_goals') || []; }
 function saveGoals(list)   { DB.set('savings_goals', list); }
 
+// ── 徽章系統用的數據函數（安全、獨立、不影響既有計算）──────
+// 最佳單月儲蓄率（掃近 12 個自然月，取最高）
+function getBestSavingsRate() {
+  const incomes = (typeof getIncomes === 'function') ? getIncomes() : [];
+  if (!incomes.length) return 0;
+  const now = new Date();
+  let best = 0;
+  for (let i = 0; i < 12; i++) {
+    const y = now.getFullYear(), m = now.getMonth() - i;
+    const d = new Date(y, m, 1);
+    const yy = d.getFullYear(), mm = d.getMonth() + 1;
+    const inc = incomes.filter(x => { const dt=new Date(x.at||''); return dt.getFullYear()===yy && dt.getMonth()+1===mm; })
+                       .reduce((s,x)=>s+(x.amount||0),0);
+    if (inc <= 0) continue;
+    const spent = txByMonth(yy, mm).reduce((s,t)=>s+t.amount,0);
+    const rate = Math.round((inc - spent) / inc * 100);
+    if (rate > best) best = rate;
+  }
+  return best;
+}
+
+// 想買清單冷靜後放棄的次數（衝動消費的勝利）
+function getCooldownGiveUpCount() {
+  try {
+    const list = JSON.parse(localStorage.getItem('wish_list') || '[]');
+    return list.filter(w => w.decision === 'skip').length;
+  } catch(e) { return 0; }
+}
+
+// 單月「需要」金額 > 「想要」金額 的月數（近 12 月，理性消費）
+function getNeedOverWantMonths() {
+  const tx = getTx();
+  if (!tx.length) return 0;
+  const now = new Date();
+  let cnt = 0;
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const yy = d.getFullYear(), mm = d.getMonth() + 1;
+    const mtx = tx.filter(t => { const dt=new Date(t.at); return dt.getFullYear()===yy && dt.getMonth()+1===mm; });
+    if (!mtx.length) continue;
+    let need=0, want=0;
+    mtx.forEach(t => {
+      const tags = t.tags || [];
+      if (tags.includes('need')) need += t.amount;
+      if (tags.includes('want')) want += t.amount;
+    });
+    if (need > 0 && need > want) cnt++;
+  }
+  return cnt;
+}
+
 function addGoal(goal) {
   const list = getGoals();
   goal.id        = 'goal_' + Date.now();
