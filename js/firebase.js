@@ -867,27 +867,49 @@ async function fbPullStreak() {
 
 
 // ── 徽章解鎖記錄同步 🏅 ───────────────────────────────
-async function fbSyncBadges(obj) {
+// 個人徽章（各自累積）→ users/{uid}/badges
+async function fbSyncBadgesPersonal(obj) {
   try {
     const u = uid();
     await getDb().collection('users').doc(u).set(
       { badges: obj, badgesUpdatedAt: Date.now() }, { merge: true }
     );
-  } catch (e) { console.warn('[FB]syncBadges', e); }
+  } catch (e) { console.warn('[FB]syncBadgesP', e); }
+}
+// 共用徽章（家庭一起努力）→ shared/badges
+async function fbSyncBadgesShared(obj) {
+  try {
+    await getDb().collection('shared').doc('badges').set(
+      { list: obj, updatedAt: Date.now() }, { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncBadgesS', e); }
+}
+function _mergeBadges(local, cloud) {
+  const merged = { ...cloud };
+  Object.keys(local || {}).forEach(k => {
+    if (!merged[k] || local[k] < merged[k]) merged[k] = local[k];   // 取較早解鎖日
+  });
+  return merged;
 }
 async function fbPullBadges() {
   try {
+    // 個人
     const u = uid();
-    const d = await getDb().collection('users').doc(u).get();
-    if (!d.exists || !d.data().badges) return;
-    const cloud = d.data().badges;
-    const local = (typeof getUnlockedBadges === 'function') ? getUnlockedBadges() : {};
-    // 合併：雲端與本地聯集（徽章只增不減，取較早解鎖日）
-    const merged = { ...cloud };
-    Object.keys(local).forEach(k => {
-      if (!merged[k] || local[k] < merged[k]) merged[k] = local[k];
-    });
-    if (typeof localStorage !== 'undefined') localStorage.setItem('badges_unlocked', JSON.stringify(merged));
+    const dp = await getDb().collection('users').doc(u).get();
+    if (dp.exists && dp.data().badges) {
+      let localP = {};
+      try { localP = JSON.parse(localStorage.getItem('badges_personal') || '{}'); } catch(e) {}
+      const mergedP = _mergeBadges(localP, dp.data().badges);
+      localStorage.setItem('badges_personal', JSON.stringify(mergedP));
+    }
+    // 共用
+    const ds = await getDb().collection('shared').doc('badges').get();
+    if (ds.exists && ds.data().list) {
+      let localS = {};
+      try { localS = JSON.parse(localStorage.getItem('badges_shared') || '{}'); } catch(e) {}
+      const mergedS = _mergeBadges(localS, ds.data().list);
+      localStorage.setItem('badges_shared', JSON.stringify(mergedS));
+    }
   } catch (e) { console.warn('[FB]pullBadges', e); }
 }
 
