@@ -1130,10 +1130,11 @@ function showAddTrade() {
 }
 
 // 記錄模式：quick（只顯示必要）/ full（全部展開）
-let _tradeMode = 'quick';
+// 注意：變數名用 _formMode，避免與 db.js 的 _tradeMode（交易檢視 real/paper）衝突
+let _formMode = 'quick';
 const TM_ADVANCED_IDS = ['tm-fg-type','tm-fg-status','tm-fg-date','tm-fg-pattern','tm-fg-reason','tm-fg-emo','tm-fg-violation','tm-fg-note'];
 function setTradeMode(mode, el) {
-  _tradeMode = mode;
+  _formMode = mode;
   ['tm-mode-quick','tm-mode-full'].forEach(id => document.getElementById(id)?.classList.remove('on'));
   if (el) el.classList.add('on');
 
