@@ -60,6 +60,17 @@
     <button id="big-pet" onclick="switchBig('pet')" style="flex:1;padding:11px;border:none;border-radius:12px;font-size:.86rem;font-weight:900;cursor:pointer;font-family:inherit;background:var(--card2);color:var(--t3)">🐾 家庭寵物</button>
   </div>
 
+  <!-- 💰 阿錢旁白：把寵物/盆栽定位為財務習慣的縮影（點擊進阿錢深聊）-->
+  <div onclick="location.href='./advisor.html'"
+    style="display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding:11px 13px;background:linear-gradient(135deg,rgba(0,229,180,.08),transparent);border:1px solid var(--border);border-radius:12px;cursor:pointer">
+    <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#2a3550,#1a2235);border:1.5px solid rgba(0,229,180,.4);display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0">💰</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.62rem;font-weight:900;color:var(--p);letter-spacing:.05em;margin-bottom:2px">阿錢</div>
+      <div id="advisor-grow-note" style="font-size:.78rem;color:var(--t2);line-height:1.5">這隻寵物和這盆植物，是你們記帳習慣的縮影——每天記一筆，牠們就長大一點。養得好，代表你們把錢看住了。</div>
+    </div>
+    <span style="color:var(--t3);font-size:.95rem;flex-shrink:0">›</span>
+  </div>
+
   <!-- ══════════ 花園區 ══════════ -->
   <div id="section-garden">
   <!-- 分頁 -->
@@ -246,6 +257,26 @@ function renderPet() {
   // 金幣
   syncPetCoins();
   document.getElementById('coin-count').textContent = getPet().coins || 0;
+  renderAdvisorGrowNote();
+}
+
+// 💰 阿錢旁白：依寵物狀態給一句（純靜態，無 AI 成本）
+function renderAdvisorGrowNote() {
+  try {
+    const el = document.getElementById('advisor-grow-note');
+    if (!el) return;
+    const pet = (typeof getPet === 'function') ? getPet() : null;
+    if (!pet) return;
+    const streak = pet.feedStreak || 0;
+    const health = (pet.health != null) ? pet.health : 100;
+    let msg;
+    if (streak >= 14)      msg = `連續餵養 ${streak} 天！你們的記帳習慣已經很穩了，這隻寵物就是最好的證明。繼續保持，我替你們高興 🌟`;
+    else if (streak >= 7)  msg = `連續 ${streak} 天有記帳，牠養得不錯喔。習慣正在成形，這是財務翻身最重要的第一步。`;
+    else if (streak >= 1)  msg = `已經連續記了 ${streak} 天 🐾 別小看每天一筆，這隻寵物和你們的存款，都是這樣一點一點長大的。`;
+    else if (health < 50)  msg = `牠最近有點餓了——好幾天沒記帳了吧？沒關係，今天重新記一筆，我們再一起養起來。`;
+    else                   msg = `這隻寵物和這盆植物，是你們記帳習慣的縮影——每天記一筆，牠們就長大一點。`;
+    el.textContent = msg;
+  } catch(e) {}
 }
 
 function pickPet(type) {

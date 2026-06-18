@@ -127,6 +127,7 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <button onclick="clearAdvChat()" class="mbtn" title="清空對話" style="font-size:.95rem">🧹</button>
+    <button onclick="goSettingsWithSnapshot()" class="mbtn" title="設定" style="font-size:.95rem">⚙️</button>
   </div>
 </header>
 
@@ -313,6 +314,101 @@ async function advAsk(text) {
   if (sendBtn) sendBtn.disabled = false;
 }
 
+// ── ⚙️ 設定回拋：阿錢替設定把關 ──────────────────────
+const ADV_SETTINGS_SNAP = 'advisor_settings_snapshot';
+
+// 進設定前：偷偷記下目前設定快照（之後回來比對差異）
+function goSettingsWithSnapshot() {
+  try {
+    const snap = _captureSettings();
+    sessionStorage.setItem(ADV_SETTINGS_SNAP, JSON.stringify({ at: Date.now(), data: snap }));
+  } catch(e) {}
+  location.href = './settings.html';
+}
+
+// 擷取可比對的設定（預算/卡片上限/通知）— 全部重用 db.js getter，不碰 settings.html
+function _captureSettings() {
+  const bcfg = (typeof getBudgetConfig === 'function') ? getBudgetConfig() : { items:{}, startDay:1 };
+  const disc = (typeof getDiscord === 'function') ? getDiscord() : {};
+  const budgets = {};
+  const items = bcfg.items || {};
+  Object.keys(items).forEach(k => { budgets[k] = (items[k] && items[k].limit) || 0; });
+  return {
+    budgets,
+    startDay: bcfg.startDay || 1,
+    notify: {
+      onAdd: disc.onAdd, onDaily: disc.onDaily, dailyHour: disc.dailyHour,
+      onBudget: disc.onBudget, budgetPct: disc.budgetPct,
+      onWeekly: disc.onWeekly, onMonthly: disc.onMonthly, monthlyDay: disc.monthlyDay,
+    },
+  };
+}
+
+// 回到阿錢時：比對前後差異，整理成人類看得懂的變更清單
+function _diffSettings(before, after) {
+  const changes = [];
+  const bKeys = new Set([...Object.keys(before.budgets || {}), ...Object.keys(after.budgets || {})]);
+  bKeys.forEach(k => {
+    const ov = (before.budgets || {})[k] || 0;
+    const nv = (after.budgets || {})[k] || 0;
+    if (ov === nv) return;
+    const label = (typeof catName === 'function') ? catName(k) : k;
+    if (ov === 0 && nv > 0) changes.push(`新增了「${label}」預算上限 $${nv.toLocaleString()}`);
+    else if (nv === 0 && ov > 0) changes.push(`取消了「${label}」的預算上限`);
+    else changes.push(`把「${label}」預算從 $${ov.toLocaleString()} 調整為 $${nv.toLocaleString()}`);
+  });
+  if ((before.startDay||1) !== (after.startDay||1)) changes.push(`把預算週期起算日改為每月 ${after.startDay} 號`);
+  const nb = before.notify || {}, na = after.notify || {};
+  if (nb.onDaily !== na.onDaily) changes.push(na.onDaily ? '開啟了每日結算通知' : '關閉了每日結算通知');
+  if (nb.dailyHour !== na.dailyHour && na.dailyHour != null) changes.push(`把每日結算時間改為 ${na.dailyHour} 點`);
+  if (nb.onBudget !== na.onBudget) changes.push(na.onBudget ? '開啟了預算超支警示' : '關閉了預算超支警示');
+  if (nb.budgetPct !== na.budgetPct && na.budgetPct != null) changes.push(`把預算警示門檻改為 ${na.budgetPct}%`);
+  if (nb.onWeekly !== na.onWeekly) changes.push(na.onWeekly ? '開啟了每週報表' : '關閉了每週報表');
+  if (nb.onMonthly !== na.onMonthly) changes.push(na.onMonthly ? '開啟了每月報表' : '關閉了每月報表');
+  return changes;
+}
+
+// 阿錢針對這次設定變更給回應（有 API key 用 AI，沒有則靜態鼓勵）
+async function advisorRespondToSettings(changes) {
+  if (!changes.length) return;
+  const summary = changes.join('、');
+  appendBub('assistant', `我看到你剛剛在設定裡${summary}。`);
+  _advHistory.push({ role:'assistant', content:`我看到你剛剛在設定裡${summary}。` });
+  if (typeof getKey === 'function' && getKey() && typeof askAdvisor === 'function') {
+    showTyping();
+    try {
+      const ask = `使用者剛剛在設定裡做了這些調整：${summary}。請你以阿錢的身份，針對這次調整給一句簡短、貼心、具體的回應或鼓勵（不要重複條列他改了什麼，而是回應這個調整背後的用意、給一點支持或小提醒）。60～100 字。`;
+      const r = await askAdvisor(ask, _advHistory.slice(0, -1));
+      hideTyping();
+      if (r && r.ok && r.text) {
+        appendBub('assistant', r.text);
+        _advHistory.push({ role:'assistant', content: r.text });
+      }
+    } catch(e) { hideTyping(); }
+  } else {
+    appendBub('assistant', '願意花時間調整設定，就是把財務拿回自己手裡的開始 👍 我會幫你盯著。');
+  }
+  saveAdvSession();
+}
+
+// 載入時檢查：剛從設定回來且有變更 → 阿錢開口
+async function checkSettingsChange() {
+  let snapRaw;
+  try { snapRaw = sessionStorage.getItem(ADV_SETTINGS_SNAP); } catch(e) { return; }
+  if (!snapRaw) return;
+  sessionStorage.removeItem(ADV_SETTINGS_SNAP);
+  try {
+    const before = JSON.parse(snapRaw).data;
+    const after = _captureSettings();
+    const changes = _diffSettings(before, after);
+    if (changes.length) {
+      const q = document.getElementById('adv-quick');
+      if (q) q.style.display = 'none';
+      await advisorRespondToSettings(changes);
+    }
+  } catch(e) {}
+}
+
 function clearAdvChat() {
   if (!confirm('要清空和阿錢的這次對話嗎？（他對你們的長期記憶會保留）')) return;
   _advHistory = [];
@@ -440,6 +536,8 @@ function bootAdvisor() {
     greet();
   }
   renderDaily();
+  // ⚙️ 剛從設定回來且有變更 → 阿錢開口把關
+  checkSettingsChange();
 }
 
 if (typeof fbPullAll === 'function') {
