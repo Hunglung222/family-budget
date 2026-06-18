@@ -1025,6 +1025,8 @@ fbPullAll().then(async ()=>{
   renderAdvisorDailyStrip();
   // 💰 阿錢 · 成長里程碑偵測（跨階段才慶祝）
   checkAndCelebrateMilestone();
+  // 💰 寫入財務快照到共用 doc，讓 GAS 每日推送讀同一份正確數字
+  try { if (typeof fbSaveAdvisorSnapshot === 'function') fbSaveAdvisorSnapshot(); } catch(e) {}
 });
 fbListenTx(()=>{render(); updateInboxBadge();});
 fbListenWal(()=>render());

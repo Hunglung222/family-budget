@@ -474,6 +474,8 @@ async function askAdvisor(userText, history) {
 
 // 每日主動建議：產生一句「懂你們」的話（GAS 端也可呼叫同套 prompt 邏輯）
 async function generateDailyAdvice() {
+  // 順便把正確快照寫到共用 doc，讓 GAS 端讀同一份（GAS 看不到個人錢包/帳單/目標）
+  try { if (typeof fbSaveAdvisorSnapshot === 'function') fbSaveAdvisorSnapshot(); } catch (e) {}
   const sys = buildAdvisorSystemPrompt({ daily: true });
   const messages = [{ role: 'user', content: '（系統觸發每日關心，請主動對他們說今天的話）' }];
   const r = await _advCallClaude(sys, messages, 400);

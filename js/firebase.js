@@ -1054,3 +1054,26 @@ async function fbPullDailyAdvice() {
   } catch (e) {}
   return null;
 }
+
+/* ── 阿錢財務快照（shared/advisor_snapshot）────────────────
+ * App 端擁有全部資料（含個人錢包/帳單/目標），由 App 計算正確快照寫入；
+ * GAS 端結構上看不到個人資料，改讀這份共用快照，確保兩端數字一致正確。
+ * 結構：{ date, snapshot:{...buildAdvisorSnapshot 去掉 _raw}, stage, updatedAt }
+ */
+async function fbSaveAdvisorSnapshot() {
+  try {
+    if (typeof buildAdvisorSnapshot !== 'function') return;
+    const snap = buildAdvisorSnapshot();
+    const stage = (typeof getAdvisorStage === 'function') ? getAdvisorStage(snap) : null;
+    const clean = { ...snap }; delete clean._raw;
+    const today = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
+    await getDb().collection('shared').doc('advisor_snapshot').set({
+      date: today,
+      snapshot: JSON.stringify(clean),
+      stageName: stage ? stage.name : '',
+      stageKey: stage ? stage.key : '',
+      stageDesc: stage ? stage.desc : '',
+      updatedAt: Date.now(),
+    }, { merge: true });
+  } catch (e) { console.warn('[FB]saveAdvisorSnapshot', e); }
+}
