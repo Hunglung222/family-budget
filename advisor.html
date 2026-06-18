@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f1e">
+<link rel="manifest" href="./manifest.json">
+<title>阿錢 · 你的財務夥伴</title>
+<link rel="stylesheet" href="./css/style.css">
+<style>
+/* ── 阿錢專屬頁：沉穩、人類顧問質感，與全 App 暗色系一致 ── */
+body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
+
+/* 顧問形象區（hero）：阿錢頭像 + 階段 + 今日一句話 */
+.adv-hero {
+  background: linear-gradient(155deg, rgba(0,229,180,.10), rgba(0,180,142,.04) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 16px 16px;
+  margin: 14px 0 12px;
+}
+.adv-top { display:flex; align-items:center; gap:13px; }
+.adv-ava {
+  width:52px; height:52px; border-radius:50%; flex-shrink:0;
+  background: linear-gradient(135deg, #2a3550, #1a2235);
+  border:1.5px solid rgba(0,229,180,.4);
+  display:flex; align-items:center; justify-content:center; font-size:1.7rem;
+  box-shadow: 0 3px 14px rgba(0,0,0,.3);
+}
+.adv-name { font-size:1.08rem; font-weight:900; color:var(--t); }
+.adv-role { font-size:.7rem; color:var(--t2); margin-top:2px; }
+.adv-stage {
+  display:inline-flex; align-items:center; gap:5px;
+  margin-top:7px; padding:4px 11px; border-radius:50px;
+  background: var(--card2); border:1px solid var(--border);
+  font-size:.68rem; font-weight:800; color:var(--p);
+}
+/* 今日一句話 */
+.adv-daily {
+  margin-top:14px; padding:12px 14px;
+  background: var(--card); border:1px solid var(--border);
+  border-radius: 14px 14px 14px 4px;
+  font-size:.86rem; line-height:1.6; color:var(--t);
+  position:relative;
+}
+.adv-daily-lbl { font-size:.62rem; font-weight:900; color:var(--p); letter-spacing:.08em; text-transform:uppercase; margin-bottom:5px; }
+.adv-daily.loading { color:var(--t2); font-style:italic; }
+
+/* 對話區 */
+.chat-scroll { padding: 4px 2px 8px; }
+.bub-row { display:flex; align-items:flex-end; gap:8px; margin-bottom:12px; }
+.bub-row.me { flex-direction: row-reverse; }
+.bub-ava {
+  width:32px; height:32px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:1.05rem;
+  background: linear-gradient(135deg, #2a3550, #1a2235); border:1px solid rgba(0,229,180,.35);
+}
+.bub-row.me .bub-ava { background:var(--card2); border:1px solid var(--border); }
+.bub {
+  max-width: calc(100% - 52px);
+  padding:10px 14px; font-size:.88rem; line-height:1.6;
+  border-radius:16px 16px 16px 4px;
+  background:var(--card); border:1.5px solid var(--border); color:var(--t);
+  white-space:pre-wrap; word-break:break-word;
+}
+.bub-row.me .bub {
+  border-radius:16px 16px 4px 16px;
+  background: var(--pdim); border-color: rgba(0,229,180,.35); color:var(--t);
+}
+.bub.typing { color:var(--t2); }
+.dots span { display:inline-block; animation: blink 1.4s infinite both; }
+.dots span:nth-child(2){animation-delay:.2s} .dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink { 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+
+/* 快速提問 chips */
+.quick-wrap { display:flex; gap:7px; overflow-x:auto; padding:2px 0 10px; -webkit-overflow-scrolling:touch; }
+.quick-wrap::-webkit-scrollbar { display:none; }
+.quick {
+  flex-shrink:0; padding:7px 13px; border-radius:50px;
+  background:var(--card); border:1.5px solid var(--border); color:var(--t2);
+  font-size:.76rem; font-weight:700; cursor:pointer; font-family:inherit; white-space:nowrap;
+}
+.quick:active { background:var(--card2); }
+
+/* 轉介卡（老余 / 鐵衛） */
+.handoff { display:flex; gap:8px; margin:2px 0 12px; }
+.handoff a {
+  flex:1; text-decoration:none; padding:10px; border-radius:12px;
+  background:var(--card); border:1px solid var(--border); text-align:center;
+}
+.handoff .ho-emoji { font-size:1.3rem; }
+.handoff .ho-name { font-size:.72rem; font-weight:800; color:var(--t); margin-top:2px; }
+.handoff .ho-desc { font-size:.6rem; color:var(--t3); margin-top:1px; }
+
+/* 輸入列（固定在 nav 上方） */
+.adv-input-bar {
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px));
+  width:100%; max-width:480px; z-index:120;
+  display:flex; gap:8px; align-items:flex-end;
+  padding:10px 12px; background:var(--bg2); border-top:1px solid var(--border);
+}
+.adv-input-bar textarea {
+  flex:1; resize:none; max-height:96px; min-height:42px;
+  padding:11px 14px; border-radius:14px;
+  background:var(--card); border:1.5px solid var(--border); color:var(--t);
+  font-size:.9rem; font-family:inherit; line-height:1.4;
+}
+.adv-input-bar textarea:focus { outline:none; border-color:var(--p); }
+.adv-send {
+  flex-shrink:0; width:42px; height:42px; border-radius:50%;
+  background:linear-gradient(135deg,var(--p),var(--p2)); border:none; color:#06281f;
+  font-size:1.15rem; cursor:pointer; font-family:inherit;
+}
+.adv-send:disabled { opacity:.45; }
+.no-key-tip {
+  background: rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.4);
+  color:var(--warn); border-radius:12px; padding:11px 13px; font-size:.78rem; line-height:1.5; margin:8px 0;
+}
+</style>
+</head>
+<body>
+<header class="hdr">
+  <div>
+    <h1 style="font-size:1.1rem;margin:0">💰 阿錢</h1>
+    <div class="hdr-sub">你的財務夥伴</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button onclick="clearAdvChat()" class="mbtn" title="清空對話" style="font-size:.95rem">🧹</button>
+  </div>
+</header>
+
+<div class="w">
+  <!-- 顧問形象 + 今日一句話 -->
+  <div class="adv-hero">
+    <div class="adv-top">
+      <div class="adv-ava">💰</div>
+      <div style="flex:1">
+        <div class="adv-name">阿錢</div>
+        <div class="adv-role">家庭專屬財務顧問 · 知心好友</div>
+        <div class="adv-stage" id="adv-stage">📍 載入中…</div>
+      </div>
+    </div>
+    <div class="adv-daily loading" id="adv-daily" onclick="gotoDailyDetail()">
+      <div class="adv-daily-lbl">💬 阿錢今日的話</div>
+      <span id="adv-daily-text">阿錢正在看你們最近的記帳…</span>
+    </div>
+  </div>
+
+  <!-- 轉介專家 -->
+  <div class="handoff">
+    <a href="./invest.html"><div class="ho-emoji">🦁</div><div class="ho-name">老余</div><div class="ho-desc">投資配置</div></a>
+    <a href="./trade.html"><div class="ho-emoji">🤖</div><div class="ho-name">鐵衛</div><div class="ho-desc">交易紀律</div></a>
+    <a href="./report.html"><div class="ho-emoji">📊</div><div class="ho-name">報表</div><div class="ho-desc">收支圖表</div></a>
+  </div>
+
+  <!-- 成長軌跡（里程碑時間軸）-->
+  <div id="adv-journey" style="display:none;margin-bottom:14px">
+    <div onclick="toggleJourney()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:2px 2px 8px">
+      <div style="font-size:.82rem;font-weight:900;color:var(--t)">🌱 我們走過的路</div>
+      <span id="journey-caret" style="color:var(--t3);font-size:.85rem">展開 ▾</span>
+    </div>
+    <div id="journey-body" style="display:none"></div>
+  </div>
+
+  <!-- 對話區 -->
+  <div class="chat-scroll" id="adv-msgs"></div>
+
+  <!-- 給輸入列墊高，避免最後一則被蓋住 -->
+  <div style="height:64px"></div>
+</div>
+
+<!-- 快速提問 + 輸入列 -->
+<div class="adv-input-bar">
+  <div style="position:absolute;left:12px;right:12px;top:-44px">
+    <div class="quick-wrap" id="adv-quick">
+      <button class="quick" onclick="advAsk('幫我看一下整體財務狀況')">整體財務</button>
+      <button class="quick" onclick="advAsk('這個月還好嗎？')">這個月還好嗎</button>
+      <button class="quick" onclick="advAsk('我想加快存到緊急備用金，怎麼做？')">加快存錢</button>
+      <button class="quick" onclick="advAsk('我最近有點累，記帳好像沒什麼用')">我有點累</button>
+      <button class="quick" onclick="advAsk('我們離財務目標還有多遠？')">離目標多遠</button>
+    </div>
+  </div>
+  <textarea id="adv-text" rows="1" placeholder="跟阿錢說說話…" oninput="advAutogrow(this)"></textarea>
+  <button class="adv-send" id="adv-send" onclick="advSend()">↑</button>
+</div>
+
+<nav class="nav">
+  <a class="ni" href="./index.html"><span class="ic">📋</span><span>列表</span></a>
+  <a class="ni" href="./report.html"><span class="ic">📊</span><span>報表</span></a>
+  <a class="ni" href="./invest.html"><span class="ic">📈</span><span>投資</span></a>
+  <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
+  <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
+  <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
+  <a class="ni on" href="./advisor.html"><span class="ic">💰</span><span>阿錢</span></a>
+</nav>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="./js/auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="./js/db.js"></script>
+<script src="./js/firebase.js"></script>
+<script src="./js/badges.js"></script>
+<script src="./js/garden.js"></script>
+<script src="./js/pet.js"></script>
+<script src="./js/advisor.js"></script>
+<script>
+// ── 對話狀態 ──────────────────────────────────────────
+let _advHistory = [];   // [{role, content}] 本次 session 對話
+let _advBusy = false;
+
+const ADV_HISTORY_KEY = 'advisor_chat_session';  // 本次 session 對話快取（同 uid 前綴）
+
+function _advKey() { return (typeof pKey === 'function') ? pKey(ADV_HISTORY_KEY) : ADV_HISTORY_KEY; }
+
+function loadAdvSession() {
+  try {
+    const raw = localStorage.getItem(_advKey());
+    const j = raw ? JSON.parse(raw) : null;
+    if (j && Array.isArray(j.turns)) _advHistory = j.turns;
+  } catch(e) {}
+}
+function saveAdvSession() {
+  try { localStorage.setItem(_advKey(), JSON.stringify({ turns: _advHistory.slice(-20), at: Date.now() })); } catch(e) {}
+}
+
+// ── 渲染對話 ──────────────────────────────────────────
+function appendBub(role, text) {
+  const msgs = document.getElementById('adv-msgs');
+  const row = document.createElement('div');
+  row.className = 'bub-row' + (role === 'user' ? ' me' : '');
+  const ava = document.createElement('div');
+  ava.className = 'bub-ava';
+  ava.textContent = role === 'user' ? '🙂' : '💰';
+  const bub = document.createElement('div');
+  bub.className = 'bub';
+  bub.textContent = text;
+  row.appendChild(ava);
+  row.appendChild(bub);
+  msgs.appendChild(row);
+  scrollBottom();
+  return bub;
+}
+
+function showTyping() {
+  const msgs = document.getElementById('adv-msgs');
+  const row = document.createElement('div');
+  row.className = 'bub-row';
+  row.id = 'adv-typing';
+  row.innerHTML = '<div class="bub-ava">💰</div><div class="bub typing"><span class="dots"><span>●</span><span>●</span><span>●</span></span></div>';
+  msgs.appendChild(row);
+  scrollBottom();
+}
+function hideTyping() {
+  const t = document.getElementById('adv-typing');
+  if (t) t.remove();
+}
+function scrollBottom() {
+  setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 60);
+}
+
+// ── 發送 ──────────────────────────────────────────────
+function advAutogrow(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(96, el.scrollHeight) + 'px';
+}
+
+function advSend() {
+  const el = document.getElementById('adv-text');
+  const text = (el.value || '').trim();
+  if (!text) return;
+  el.value = '';
+  el.style.height = 'auto';
+  advAsk(text);
+}
+
+async function advAsk(text) {
+  if (_advBusy) return;
+  // 第一次提問後，把快速提問收起（保留輸入體驗乾淨）
+  const q = document.getElementById('adv-quick');
+  if (q) q.style.display = 'none';
+
+  appendBub('user', text);
+  _advHistory.push({ role: 'user', content: text });
+  saveAdvSession();
+
+  _advBusy = true;
+  const sendBtn = document.getElementById('adv-send');
+  if (sendBtn) sendBtn.disabled = true;
+  showTyping();
+
+  let r;
+  try {
+    r = await askAdvisor(text, _advHistory.slice(0, -1));
+  } catch (e) {
+    r = { ok: false, text: '連線出了點問題，等一下再試試。' };
+  }
+  hideTyping();
+
+  const replyText = (r && r.text) ? r.text : '阿錢一時語塞，再說一次好嗎？';
+  appendBub('assistant', replyText);
+  if (r && r.ok) {
+    _advHistory.push({ role: 'assistant', content: replyText });
+    saveAdvSession();
+    // 聊到一個段落（每 3 輪）就把記憶壓縮寫回，讓阿錢「記得」
+    if (_advHistory.filter(m => m.role === 'user').length % 3 === 0) {
+      try { if (typeof summarizeAndRemember === 'function') summarizeAndRemember(_advHistory); } catch(e) {}
+    }
+  }
+
+  _advBusy = false;
+  if (sendBtn) sendBtn.disabled = false;
+}
+
+function clearAdvChat() {
+  if (!confirm('要清空和阿錢的這次對話嗎？（他對你們的長期記憶會保留）')) return;
+  _advHistory = [];
+  saveAdvSession();
+  document.getElementById('adv-msgs').innerHTML = '';
+  const q = document.getElementById('adv-quick');
+  if (q) q.style.display = 'flex';
+  greet();
+}
+
+function gotoDailyDetail() {
+  const txt = document.getElementById('adv-daily-text').textContent;
+  if (txt && !document.getElementById('adv-daily').classList.contains('loading')) {
+    advAsk('關於你今天說的「' + txt.slice(0, 30) + '…」，可以多講一點嗎？');
+  }
+}
+
+// ── 開場白 + 階段 + 今日一句話 ─────────────────────────
+function greet() {
+  // 沒有 API Key 的提醒
+  if (typeof getKey === 'function' && !getKey()) {
+    const msgs = document.getElementById('adv-msgs');
+    const tip = document.createElement('div');
+    tip.className = 'no-key-tip';
+    tip.innerHTML = '⚠️ 還沒設定 Claude API Key，阿錢沒辦法開口。請到「設定 → API 設定」填入後，回來找他聊聊。';
+    msgs.appendChild(tip);
+  }
+  const me = (typeof currentUser === 'function') ? currentUser() : '';
+  appendBub('assistant', `嗨${me ? '，' + me : ''}，我是阿錢 💰\n你的家庭財務全局我都看著——收支、存錢、目標，甚至你今天累不累。有什麼想聊的，數字的、心情的，都可以跟我說。\n錢的事，慢慢來，但要一直走。`);
+}
+
+function renderStage() {
+  try {
+    const stage = getAdvisorStage();
+    document.getElementById('adv-stage').textContent = '📍 目前：' + stage.name;
+  } catch(e) {
+    document.getElementById('adv-stage').textContent = '📍 財務階段';
+  }
+}
+
+// 成長軌跡（里程碑時間軸）
+function renderJourney() {
+  try {
+    const mem = (typeof getAdvisorMemory === 'function') ? getAdvisorMemory() : null;
+    const ms = (mem && Array.isArray(mem.milestones)) ? mem.milestones : [];
+    const wrap = document.getElementById('adv-journey');
+    const body = document.getElementById('journey-body');
+    if (!wrap || !body) return;
+    // 至少有 2 個里程碑（起點 + 一次前進）才顯示，否則沒有「路」可看
+    if (ms.length < 2) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    const curOrder = (() => { try { return getAdvisorStage().order; } catch(e){ return 0; } })();
+    // 依日期排序
+    const sorted = ms.slice().sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    body.innerHTML = sorted.map((m, i) => {
+      const isLast = i === sorted.length - 1;
+      const dot = isLast ? '#00e5b4' : 'var(--t3)';
+      const line = i < sorted.length - 1
+        ? '<div style="position:absolute;left:6px;top:16px;bottom:-10px;width:2px;background:var(--border)"></div>' : '';
+      return `<div style="position:relative;padding-left:24px;padding-bottom:${isLast?'2':'14'}px">
+        ${line}
+        <div style="position:absolute;left:0;top:3px;width:14px;height:14px;border-radius:50%;background:${dot};border:2px solid var(--bg)"></div>
+        <div style="font-size:.7rem;color:var(--t3)">${m.date||''}</div>
+        <div style="font-size:.86rem;font-weight:800;color:var(--t);margin-top:1px">${m.title||''}</div>
+        ${m.context?`<div style="font-size:.72rem;color:var(--t2);margin-top:2px;line-height:1.5">${m.context}</div>`:''}
+      </div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+function toggleJourney() {
+  const body = document.getElementById('journey-body');
+  const caret = document.getElementById('journey-caret');
+  if (!body) return;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  if (caret) caret.textContent = open ? '展開 ▾' : '收起 ▴';
+}
+
+// 今日一句話：讀共用快取，沒有今天的就（有 key 時）生成並存，與 Discord 推送共用同一份
+async function renderDaily() {
+  const el = document.getElementById('adv-daily');
+  const txt = document.getElementById('adv-daily-text');
+  try {
+    let daily = null;
+    if (typeof fbPullDailyAdvice === 'function') {
+      daily = await fbPullDailyAdvice();
+    }
+    const today = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
+    if (daily && daily.date === today && daily.text) {
+      el.classList.remove('loading');
+      txt.textContent = daily.text;
+      return;
+    }
+    // 今天還沒有 → 有 API key 才生成（省 token：一天只生成一次，存雲端兩人共用）
+    if (typeof getKey === 'function' && getKey() && typeof generateDailyAdvice === 'function') {
+      const r = await generateDailyAdvice();
+      if (r && r.ok && r.text) {
+        el.classList.remove('loading');
+        txt.textContent = r.text;
+        if (typeof fbSaveDailyAdvice === 'function') fbSaveDailyAdvice(today, r.text);
+        return;
+      }
+    }
+    // 沒 key 或生成失敗 → 給一句靜態問候，不空白
+    el.classList.remove('loading');
+    txt.textContent = '今天也記得記一筆帳喔，我在這裡看著你們的每一步。';
+  } catch(e) {
+    el.classList.remove('loading');
+    txt.textContent = '今天也一起加油，有事隨時找我。';
+  }
+}
+
+// ── 初始化 ────────────────────────────────────────────
+loadAdvSession();
+function bootAdvisor() {
+  renderStage();
+  renderJourney();
+  // 還原本次 session 對話；沒有就開場白
+  if (_advHistory.length) {
+    const q = document.getElementById('adv-quick');
+    if (q) q.style.display = 'none';
+    _advHistory.forEach(m => appendBub(m.role, typeof m.content === 'string' ? m.content : ''));
+  } else {
+    greet();
+  }
+  renderDaily();
+}
+
+if (typeof fbPullAll === 'function') {
+  fbPullAll().then(async () => {
+    if (typeof fbPullAdvisorMemory === 'function') { try { await fbPullAdvisorMemory(); } catch(e){} }
+    renderStage();
+    renderJourney();
+    renderDaily();
+  }).catch(()=>{});
+}
+bootAdvisor();
+</script>
+</body>
+</html>

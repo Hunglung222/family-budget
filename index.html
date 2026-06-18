@@ -22,6 +22,9 @@
   </div>
   <div style="display:flex;gap:8px;align-items:center">
     <a href="./memo.html" id="memo-btn" style="display:none" class="hdr-btn" title="備忘錄">📝</a>
+    <!-- ⚙️ 設定（從底部導覽列移來，阿錢取代其位置）-->
+    <a href="./settings.html" title="設定"
+      style="width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;text-decoration:none">⚙️</a>
     <!-- 🌱 花園按鈕 -->
     <a href="./grow.html" title="我的花園"
       style="width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem;text-decoration:none">🌱</a>
@@ -59,6 +62,16 @@
     <div class="sc g"><div class="sc-lbl">👛 錢包</div><div class="sc-val"><span class="u">$</span><span id="s-w">0</span></div></div>
     <div class="sc b"><div class="sc-lbl">🙋 宏龍</div><div class="sc-val"><span class="u">$</span><span id="s-1">0</span></div></div>
     <div class="sc w"><div class="sc-lbl">🙋‍♀️ 盈慧</div><div class="sc-val"><span class="u">$</span><span id="s-2">0</span></div></div>
+  </div>
+  <!-- 💰 阿錢今日的話（點擊進阿錢專屬頁深聊）-->
+  <div id="advisor-daily-strip" onclick="location.href='./advisor.html'"
+    style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:10px 13px;background:linear-gradient(135deg,rgba(0,229,180,.08),transparent);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
+    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2a3550,#1a2235);border:1.5px solid rgba(0,229,180,.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">💰</div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.6rem;font-weight:900;color:var(--p);letter-spacing:.06em">阿錢今日的話</div>
+      <div id="advisor-daily-strip-text" style="font-size:.8rem;color:var(--t);line-height:1.45;margin-top:1px"></div>
+    </div>
+    <span style="color:var(--t3);font-size:1rem;flex-shrink:0">›</span>
   </div>
   <!-- 週期切換 -->
   <div id="cycle-toggle-bar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:var(--card);border-radius:var(--rs);padding:8px 12px;border:1.5px solid var(--border)">
@@ -99,6 +112,25 @@
     <div class="st" style="margin-bottom:8px">🔥 記帳連續紀錄</div>
     <div id="streak-detail-body"></div>
     <button class="btn btn-s" style="margin-top:14px" onclick="closeModal('streak-modal')">關閉</button>
+  </div>
+</div>
+
+<!-- 💰 阿錢 · 成長里程碑慶祝 -->
+<div class="ov" id="milestone-modal">
+  <div class="sheet" style="max-height:90dvh;overflow-y:auto;text-align:center">
+    <div class="sh"></div>
+    <div style="font-size:3.4rem;line-height:1;margin:6px 0 2px">🎉</div>
+    <div style="font-size:.72rem;font-weight:900;letter-spacing:.12em;color:var(--p);text-transform:uppercase">財務里程碑</div>
+    <div id="ms-stage-name" style="font-size:1.5rem;font-weight:900;color:var(--t);margin:4px 0 2px">—</div>
+    <div id="ms-stage-from" style="font-size:.78rem;color:var(--t3);margin-bottom:14px"></div>
+    <div style="display:flex;align-items:flex-start;gap:10px;text-align:left;background:var(--card);border:1px solid var(--border);border-radius:14px 14px 14px 4px;padding:13px 15px;margin-bottom:16px">
+      <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#2a3550,#1a2235);border:1.5px solid rgba(0,229,180,.4);display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0">💰</div>
+      <div id="ms-message" style="flex:1;font-size:.88rem;line-height:1.65;color:var(--t)">阿錢正在看你們走過的路…</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-s" style="flex:1" onclick="closeModal('milestone-modal')">謝謝阿錢</button>
+      <button class="btn btn-p" style="flex:1" onclick="closeModal('milestone-modal');location.href='./advisor.html'">去聊聊 →</button>
+    </div>
   </div>
 </div>
 
@@ -205,7 +237,7 @@
   <a class="ni ni-add" href="./add.html"><div class="fab">➕</div></a>
   <a class="ni" href="./wallet.html"><span class="ic">👛</span><span>錢包</span></a>
   <a class="ni" href="./shopping.html"><span class="ic">🛒</span><span>購物</span></a>
-  <a class="ni" href="./settings.html"><span class="ic">⚙️</span><span>設定</span></a>
+  <a class="ni" href="./advisor.html"><span class="ic">💰</span><span>阿錢</span></a>
 </nav>
 <div class="toast" id="toast"></div>
 <!-- 分期付款提醒 Sheet -->
@@ -339,6 +371,7 @@
 <script src="./js/badges.js"></script>
 <script src="./js/garden.js"></script>
 <script src="./js/pet.js"></script>
+<script src="./js/advisor.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
 const CAT_IC={food:'🍜',transport:'🚌',shopping:'🛍️',home:'🏠',medical:'💊',entertain:'🎬',education:'📚',child:'👶',other:'📦'};
@@ -822,6 +855,59 @@ render();
   window.scrollTo({top:0, behavior:'smooth'});
 })();
 
+// ── 💰 阿錢 · 成長里程碑偵測與慶祝 ─────────────────────
+async function checkAndCelebrateMilestone() {
+  try {
+    if (typeof checkAdvisorMilestone !== 'function') return;
+    const res = checkAdvisorMilestone();
+    if (!res || !res.crossed) return; // 基準點或無前進 → 不慶祝
+    // 立刻用靜態祝賀開窗（不等 AI，秒回饋）
+    document.getElementById('ms-stage-name').textContent = res.stage.name;
+    document.getElementById('ms-stage-from').textContent =
+      res.prevStage ? `從「${res.prevStage.name}」一路走到這裡` : '';
+    const msgEl = document.getElementById('ms-message');
+    msgEl.textContent = (typeof _advStaticMilestoneMsg === 'function')
+      ? _advStaticMilestoneMsg(res.stage, res.prevStage)
+      : '你們又往前跨了一步，我都看在眼裡。';
+    showModal('milestone-modal');
+    // 有 API key 再請阿錢生成回顧式祝賀，好了就替換進去
+    if (typeof getKey === 'function' && getKey() && typeof generateMilestoneMessage === 'function') {
+      try {
+        const r = await generateMilestoneMessage(res.stage, res.prevStage);
+        if (r && r.ok && r.text) msgEl.textContent = r.text;
+      } catch(e) {}
+    }
+  } catch(e) {}
+}
+
+// ── 💰 阿錢今日的話（首頁 slim strip）──────────────────
+async function renderAdvisorDailyStrip() {
+  const strip = document.getElementById('advisor-daily-strip');
+  const txtEl = document.getElementById('advisor-daily-strip-text');
+  if (!strip || !txtEl) return;
+  try {
+    const today = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
+    let daily = null;
+    if (typeof fbPullDailyAdvice === 'function') daily = await fbPullDailyAdvice();
+    if (daily && daily.date === today && daily.text) {
+      txtEl.textContent = daily.text;
+      strip.style.display = 'flex';
+      return;
+    }
+    // 今天還沒生成 → 有 API key 才生成一次並存雲端（Discord 與 App 共用）
+    if (typeof getKey === 'function' && getKey() && typeof generateDailyAdvice === 'function') {
+      const r = await generateDailyAdvice();
+      if (r && r.ok && r.text) {
+        txtEl.textContent = r.text;
+        strip.style.display = 'flex';
+        if (typeof fbSaveDailyAdvice === 'function') fbSaveDailyAdvice(today, r.text);
+        return;
+      }
+    }
+    // 沒 key / 生成失敗：不顯示 strip（避免空殼），使用者仍可點底部阿錢進去
+  } catch(e) {}
+}
+
 // ── 從報表頁跳轉過來編輯：偵測 sessionStorage 並自動展開編輯 modal ──
 function _checkReportEditJump() {
   const txId = sessionStorage.getItem('report_edit_tx');
@@ -931,6 +1017,14 @@ fbPullAll().then(async ()=>{
     await fbPullPendingRequests();
     updateInboxBadge();
   }
+  // 💰 拉取阿錢的記憶（兩人共用，跨裝置同步）
+  if (typeof fbPullAdvisorMemory === 'function') {
+    try { await fbPullAdvisorMemory(); } catch(e) {}
+  }
+  // 💰 阿錢今日的話（首頁 strip）
+  renderAdvisorDailyStrip();
+  // 💰 阿錢 · 成長里程碑偵測（跨階段才慶祝）
+  checkAndCelebrateMilestone();
 });
 fbListenTx(()=>{render(); updateInboxBadge();});
 fbListenWal(()=>render());

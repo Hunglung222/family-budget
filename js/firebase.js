@@ -976,3 +976,81 @@ function fbListenPet(cb) {
     });
   } catch(e) { console.warn('[FB]listenPet', e); }
 }
+
+/* ══════════════════════════════════════════════════════
+ * 💰 阿錢 記憶層同步（shared/advisor，兩人共用）
+ * 記憶結構：{ profile, milestones, recent }（見 js/advisor.js）
+ * 合併策略：以 updatedAt 較新者為主，避免兩人各自寫互相覆蓋
+ * ══════════════════════════════════════════════════════ */
+async function fbSyncAdvisorMemory(mem) {
+  try {
+    await getDb().collection('shared').doc('advisor').set(
+      { ...mem, updatedAt: Date.now() }, { merge: true }
+    );
+  } catch (e) { console.warn('[FB]syncAdvisor', e); }
+}
+
+async function fbPullAdvisorMemory() {
+  try {
+    const d = await getDb().collection('shared').doc('advisor').get();
+    if (!d.exists) return;
+    const cloud = d.data();
+    if (!cloud || !cloud.profile) return;
+    // 以雲端 updatedAt 較新者為主
+    let localUpdated = 0;
+    try {
+      const lm = JSON.parse(localStorage.getItem('advisor_memory') || 'null');
+      localUpdated = (lm && lm._updatedAt) ? lm._updatedAt : 0;
+    } catch (e) {}
+    if ((cloud.updatedAt || 0) >= localUpdated) {
+      const clean = { profile: cloud.profile, milestones: cloud.milestones || [], recent: cloud.recent || {} };
+      localStorage.setItem('advisor_memory', JSON.stringify(clean));
+    }
+  } catch (e) { console.warn('[FB]pullAdvisor', e); }
+}
+
+function fbListenAdvisorMemory(cb) {
+  try {
+    return getDb().collection('shared').doc('advisor').onSnapshot(snap => {
+      if (snap.metadata.hasPendingWrites) return;
+      if (snap.exists && snap.data().profile) {
+        const c = snap.data();
+        const clean = { profile: c.profile, milestones: c.milestones || [], recent: c.recent || {} };
+        localStorage.setItem('advisor_memory', JSON.stringify(clean));
+        if (typeof cb === 'function') cb();
+      }
+    });
+  } catch (e) { console.warn('[FB]listenAdvisor', e); }
+}
+
+/* ── 阿錢每日一句話（shared/advisor_daily，兩人 + Discord 共用一份）──
+ * 一天只生成一次，存雲端，Discord 推送與進 App 都讀同一份，內容一致。
+ * 結構：{ date:'YYYY-MM-DD', text:'...', updatedAt }
+ */
+async function fbSaveDailyAdvice(date, text) {
+  try {
+    await getDb().collection('shared').doc('advisor_daily').set(
+      { date, text, updatedAt: Date.now() }, { merge: true }
+    );
+    try { localStorage.setItem('advisor_daily', JSON.stringify({ date, text })); } catch(e) {}
+  } catch (e) { console.warn('[FB]saveDaily', e); }
+}
+
+async function fbPullDailyAdvice() {
+  try {
+    const d = await getDb().collection('shared').doc('advisor_daily').get();
+    if (d.exists) {
+      const c = d.data();
+      if (c && c.date && c.text) {
+        try { localStorage.setItem('advisor_daily', JSON.stringify({ date: c.date, text: c.text })); } catch(e) {}
+        return { date: c.date, text: c.text };
+      }
+    }
+  } catch (e) { console.warn('[FB]pullDaily', e); }
+  // 離線退回本地快取
+  try {
+    const lm = JSON.parse(localStorage.getItem('advisor_daily') || 'null');
+    if (lm && lm.date) return lm;
+  } catch (e) {}
+  return null;
+}
