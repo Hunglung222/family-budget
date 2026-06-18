@@ -409,6 +409,72 @@ async function checkSettingsChange() {
   } catch(e) {}
 }
 
+// ── 🏅 徽章達標：阿錢的恭喜（與設定回拋同philosophy，不碰 add.html）──
+// 比對「目前已解鎖徽章」vs「阿錢已恭喜過的」，新達成的就由阿錢開口恭喜。
+const ADV_ACKED_BADGES = 'advisor_acked_badges';
+function _advAckedKey() { return (typeof pKey === 'function') ? pKey(ADV_ACKED_BADGES) : ADV_ACKED_BADGES; }
+
+async function checkBadgeUnlocks(opts) {
+  if (typeof getUnlockedBadges !== 'function' || typeof BADGES === 'undefined') return;
+  let unlocked = {};
+  try { unlocked = getUnlockedBadges() || {}; } catch(e) { return; }
+  const unlockedIds = Object.keys(unlocked);
+
+  let acked = {};
+  try { acked = JSON.parse(localStorage.getItem(_advAckedKey()) || '{}'); } catch(e) {}
+
+  // 第一次使用（從沒記錄過 acked）→ 把現有全部標記為已知，不補恭喜舊徽章
+  const firstRun = Object.keys(acked).length === 0 && !localStorage.getItem(_advAckedKey());
+  if (firstRun) {
+    const seed = {}; unlockedIds.forEach(id => seed[id] = 1);
+    try { localStorage.setItem(_advAckedKey(), JSON.stringify(seed)); } catch(e) {}
+    return;
+  }
+
+  const newIds = unlockedIds.filter(id => !acked[id]);
+  if (!newIds.length) return;
+
+  // 找出徽章物件（取 icon/name/desc/rarity）
+  const newBadges = newIds.map(id => BADGES.find(b => b.id === id)).filter(Boolean);
+  if (!newBadges.length) {
+    // 仍標記已知，避免卡住
+    newIds.forEach(id => acked[id] = 1);
+    try { localStorage.setItem(_advAckedKey(), JSON.stringify(acked)); } catch(e) {}
+    return;
+  }
+
+  const q = document.getElementById('adv-quick');
+  if (q) q.style.display = 'none';
+
+  // 即時恭喜泡泡
+  const listText = newBadges.map(b => `${b.icon} ${b.name}`).join('、');
+  const rarityName = (id) => { const b = BADGES.find(x=>x.id===id); const r = b && (typeof BADGE_RARITY!=='undefined') && BADGE_RARITY[b.rarity]; return r ? r.name : ''; };
+  appendBub('assistant', `🎉 恭喜！你們解鎖了新徽章：${listText}`);
+  _advHistory.push({ role:'assistant', content:`🎉 恭喜！你們解鎖了新徽章：${listText}` });
+
+  // 有 API key → 阿錢針對徽章意義說一句鼓勵
+  if (typeof getKey === 'function' && getKey() && typeof askAdvisor === 'function') {
+    showTyping();
+    try {
+      const detail = newBadges.map(b => `${b.name}（${b.desc}）`).join('、');
+      const ask = `使用者剛剛達成了這些記帳成就徽章：${detail}。請你以阿錢的身份，針對這個成就給一句簡短、真誠、有溫度的恭喜與肯定，連結到這代表他們在財務習慣上的進步。不要條列、不要說教，50～90 字。`;
+      const r = await askAdvisor(ask, _advHistory.slice(0, -1));
+      hideTyping();
+      if (r && r.ok && r.text) {
+        appendBub('assistant', r.text);
+        _advHistory.push({ role:'assistant', content: r.text });
+      }
+    } catch(e) { hideTyping(); }
+  } else {
+    appendBub('assistant', '這些成就不是運氣，是你們一筆一筆記出來的。為你們高興，繼續保持 💪');
+  }
+  saveAdvSession();
+
+  // 標記為已恭喜
+  newIds.forEach(id => acked[id] = 1);
+  try { localStorage.setItem(_advAckedKey(), JSON.stringify(acked)); } catch(e) {}
+}
+
 function clearAdvChat() {
   if (!confirm('要清空和阿錢的這次對話嗎？（他對你們的長期記憶會保留）')) return;
   _advHistory = [];
@@ -536,8 +602,11 @@ function bootAdvisor() {
     greet();
   }
   renderDaily();
-  // ⚙️ 剛從設定回來且有變更 → 阿錢開口把關
-  checkSettingsChange();
+  // ⚙️ 剛從設定回來且有變更 → 阿錢開口把關；🏅 有新徽章 → 阿錢恭喜
+  (async () => {
+    await checkSettingsChange();
+    await checkBadgeUnlocks();
+  })();
 }
 
 if (typeof fbPullAll === 'function') {

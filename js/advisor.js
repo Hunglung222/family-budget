@@ -73,7 +73,6 @@ function _advDefaultMemory() {
       mood: '',           // 最近情緒狀態（如「焦慮」「平穩」「有動力」）
       concerns: [],       // 最近提過的煩惱（最多保留數則）
       lastTalkedAt: '',   // 最後一次深聊日期
-      turns: [],          // 最近 N 輪原始對話（給同一次 session 追問用，會修剪）
     },
   };
 }
@@ -116,7 +115,9 @@ function updateAdvisorRecent(patch = {}) {
     r.concerns.push({ date: _advToday(), text: String(patch.addConcern).slice(0, 200) });
     r.concerns = r.concerns.slice(-5); // 最多保留最近 5 則煩惱
   }
-  if (Array.isArray(patch.turns)) r.turns = patch.turns.slice(-10); // 同 session 追問用，最多 10 輪
+  // 隱私：原始逐字對話只留本機（advisor_chat_session），不寫進共用記憶。
+  // 共用記憶只保留「濃縮後的理解」（摘要/情緒/在意的事）。清除任何 legacy turns。
+  if (r.turns) delete r.turns;
   r.lastTalkedAt = _advToday();
   return saveAdvisorMemory(mem);
 }
@@ -497,7 +498,6 @@ async function summarizeAndRemember(history) {
       summary: j.summary || '',
       mood: j.mood || '',
       addConcern: j.concern || '',
-      turns: hist.slice(-10),
     });
     return { ok: true, memory: j };
   } catch (e) {
