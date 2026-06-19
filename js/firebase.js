@@ -1029,10 +1029,16 @@ function fbListenAdvisorMemory(cb) {
  */
 async function fbSaveDailyAdvice(date, text) {
   try {
+    // startDate 只設定一次（阿錢開始服務的第一天），之後保留，用來算「第幾天」
+    let startDate = date;
+    try {
+      const ex = await getDb().collection('shared').doc('advisor_daily').get();
+      if (ex.exists && ex.data() && ex.data().startDate) startDate = ex.data().startDate;
+    } catch(e) {}
     await getDb().collection('shared').doc('advisor_daily').set(
-      { date, text, updatedAt: Date.now() }, { merge: true }
+      { date, text, startDate, updatedAt: Date.now() }, { merge: true }
     );
-    try { localStorage.setItem('advisor_daily', JSON.stringify({ date, text })); } catch(e) {}
+    try { localStorage.setItem('advisor_daily', JSON.stringify({ date, text, startDate })); } catch(e) {}
   } catch (e) { console.warn('[FB]saveDaily', e); }
 }
 
@@ -1042,8 +1048,9 @@ async function fbPullDailyAdvice() {
     if (d.exists) {
       const c = d.data();
       if (c && c.date && c.text) {
-        try { localStorage.setItem('advisor_daily', JSON.stringify({ date: c.date, text: c.text })); } catch(e) {}
-        return { date: c.date, text: c.text };
+        const out = { date: c.date, text: c.text, startDate: c.startDate || c.date };
+        try { localStorage.setItem('advisor_daily', JSON.stringify(out)); } catch(e) {}
+        return out;
       }
     }
   } catch (e) { console.warn('[FB]pullDaily', e); }
@@ -1053,6 +1060,20 @@ async function fbPullDailyAdvice() {
     if (lm && lm.date) return lm;
   } catch (e) {}
   return null;
+}
+
+// 阿錢「第幾天」：以 startDate 為基準（共用），回傳天數（從 1 開始）
+function advisorDayNumber() {
+  try {
+    const lm = JSON.parse(localStorage.getItem('advisor_daily') || 'null');
+    const today = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
+    const start = (lm && lm.startDate) ? lm.startDate : today;
+    // 以本地日期計算天數差（避免時區問題，用 YYYY-MM-DD 直接建 Date）
+    const s = new Date(start + 'T00:00:00');
+    const t = new Date(today + 'T00:00:00');
+    const diff = Math.floor((t - s) / 86400000);
+    return Math.max(1, diff + 1);
+  } catch(e) { return 1; }
 }
 
 /* ── 阿錢財務快照（shared/advisor_snapshot）────────────────

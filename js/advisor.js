@@ -41,7 +41,7 @@ const ADVISOR_PROFILE = {
     '【你和其他角色的關係——你是統一窗口，認識他們但不取代他們】',
     '・12 隻記帳小夥伴（可可、寶寶、小智、歐比…）：每次記帳時陪伴用戶的可愛角色。你看得到他們今天選了誰，可以自然提起。',
     '・家庭寵物（狐狸/狗狗等，兩人共養）+ 個人盆栽：是「財務健康」的視覺化進度，由你來旁白。寵物不會自己說話。',
-    '・老余（🦁 投資顧問）：投資配置、ETF、定期定額的專家。遇到投資「怎麼配、買什麼」的細節，引導使用者去投資頁找老余，你負責看整體財務全局。',
+    '・老余（🦁 投資顧問）：投資配置、ETF、定期定額的專家，個性務實穩重、重長期複利。你「看得到」他們的投資持有明細（在財務快照的「投資.持有明細」），所以談投資時可以講出具體的標的、損益、佔比，給一個高層次的整體觀察（例如部位是否過度集中、緊急備用金沒滿就別急著加碼）。但「要買什麼、怎麼配、進出場時機」這種細節，請引導他們去投資頁找老余，不要自己給明確的買賣指令。',
     '・鐵衛（🤖 台股交易紀律教練）：負責短線交易的紀律與覆盤。遇到交易紀律問題，提醒去找鐵衛。',
     '你管的是「整個家的財務全局」（收支、負債、儲蓄、情緒、目標、陪伴），這是你和老余最大的不同——老余只管投資那一塊。',
     '',
@@ -138,6 +138,39 @@ function addAdvisorFact(text) {
   mem.profile.facts = mem.profile.facts.slice(-20);
   mem.profile.updatedAt = _advToday();
   return saveAdvisorMemory(mem);
+}
+
+// 新增單一目標（記憶面板用）
+function addAdvisorGoal(title, note) {
+  const mem = getAdvisorMemory();
+  mem.profile.goals = (mem.profile.goals || []);
+  if (title && String(title).trim()) {
+    mem.profile.goals.push({ title: String(title).trim().slice(0, 60), note: (note || '').slice(0, 100) });
+    mem.profile.goals = mem.profile.goals.slice(0, 10);
+    mem.profile.updatedAt = _advToday();
+    saveAdvisorMemory(mem);
+  }
+  return mem;
+}
+// 刪除第 i 個目標
+function removeAdvisorGoal(i) {
+  const mem = getAdvisorMemory();
+  if (Array.isArray(mem.profile.goals) && i >= 0 && i < mem.profile.goals.length) {
+    mem.profile.goals.splice(i, 1);
+    mem.profile.updatedAt = _advToday();
+    saveAdvisorMemory(mem);
+  }
+  return mem;
+}
+// 刪除第 i 個事實
+function removeAdvisorFact(i) {
+  const mem = getAdvisorMemory();
+  if (Array.isArray(mem.profile.facts) && i >= 0 && i < mem.profile.facts.length) {
+    mem.profile.facts.splice(i, 1);
+    mem.profile.updatedAt = _advToday();
+    saveAdvisorMemory(mem);
+  }
+  return mem;
 }
 
 // 新增一個里程碑（成長見證，階段三會自動偵測呼叫）
@@ -317,6 +350,19 @@ function buildAdvisorSnapshot() {
   const invList = (typeof getInvestments === 'function') ? getInvestments() : [];
   const invCost = invList.reduce((s, i) => s + (i.costAmt || 0), 0);
   const invCur = invList.reduce((s, i) => s + (i.currentAmt ?? i.costAmt ?? 0), 0);
+  // 逐檔明細（讓阿錢談投資時講得出具體標的，再轉介老余處理配置）
+  const invHoldings = invList.slice(0, 12).map(i => {
+    const cost = i.costAmt || 0;
+    const cur = (i.currentAmt ?? i.costAmt ?? 0);
+    return {
+      標的: i.name || i.fullName || '未命名',
+      成本: Math.round(cost),
+      現值: Math.round(cur),
+      損益: Math.round(cur - cost),
+      報酬率: cost > 0 ? (((cur - cost) / cost) * 100).toFixed(1) + '%' : '—',
+      佔比: invCur > 0 ? Math.round(cur / invCur * 100) + '%' : '—',
+    };
+  });
 
   const streak = (typeof getStreak === 'function') ? getStreak() : { current: 0, longest: 0 };
   const goals = (typeof getGoals === 'function') ? getGoals() : [];
@@ -342,7 +388,7 @@ function buildAdvisorSnapshot() {
       分期剩餘: Math.round(instRem),
       負債收入比: avgInc > 0 ? ((pendingBills + instRem) / avgInc * 100).toFixed(1) + '%' : '無資料',
     },
-    投資: { 總成本: Math.round(invCost), 現值: Math.round(invCur), 損益: Math.round(invCur - invCost) },
+    投資: { 總成本: Math.round(invCost), 現值: Math.round(invCur), 損益: Math.round(invCur - invCost), 持有明細: invHoldings },
     記帳習慣: { 連續打卡天數: streak.current || 0, 最長連續: streak.longest || 0 },
     儲蓄目標: goals.map(g => ({
       目標: g.title || g.name || '',
@@ -416,13 +462,18 @@ function buildAdvisorSystemPrompt(opts = {}) {
   } catch (e) {}
 
   const modeHint = opts.daily
-    ? '\n【本次任務】這是「每日主動關心」。根據昨天到今天的真實記帳與財務快照，主動對他們說一句有溫度又具體的話：先「看見」他們做對的事或值得在意的變化，再給一個小小的、今天就能做的建議。像一個記得他們、每天惦記他們的朋友，不是冷冰冰的報表。控制在 80～150 字。'
+    ? '\n【本次任務】這是「每日主動關心」，會「同時」顯示給宏龍和盈慧兩個人看（共用同一則）。根據昨天到今天的真實記帳與財務快照，主動說一段有溫度又具體的話：先「看見」他們做對的事或值得在意的變化，再給一個小小的、今天就能做的建議。\n【稱呼規則｜很重要】這則訊息是給「兩個人」的，所以一律用「你們」稱呼，或同時提到兩人（例如「宏龍、盈慧早安」）。絕對不要只對其中一個人說話、不要用單一姓名當開頭問候（例如不要「嗨，宏龍」這種）。像一個記得這個家、每天惦記他們兩人的朋友，不是冷冰冰的報表。控制在 80～150 字。'
     : '';
+
+  // 每日訊息是兩人共看的，不綁定單一登入者；對話模式才標明目前是誰在跟阿錢說話
+  const whoLine = opts.daily
+    ? '這則每日訊息同時給宏龍和盈慧兩人共看'
+    : `目前登入者：${me}`;
 
   return `${adv.persona}
 
 現在時間：${nowStr}
-目前登入者：${me}
+${whoLine}
 ${companionLine}
 ${petLine}
 
@@ -434,12 +485,14 @@ ${modeHint}`;
 }
 
 // ── 呼叫 Claude（沿用 assistant.js 的瀏覽器直連方式）────────
-async function _advCallClaude(systemPrompt, messages, maxTokens) {
+async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
   const key = (typeof getKey === 'function') ? getKey() : (localStorage.getItem('claude_api_key') || '');
   if (!key) return { ok: false, error: 'NO_KEY', text: '還沒設定 Claude API Key，請到「設定 → API 設定」填入，阿錢才能開口說話。' };
 
-  // 深聊用 Sonnet（若使用者開啟），每日建議用 Haiku 省 token
-  const model = (typeof getSonnetMode === 'function' && getSonnetMode()) ? 'claude-sonnet-4-6' : 'claude-haiku-4-5';
+  // 深聊用 Sonnet（若使用者開啟），每日建議用 Haiku 省 token；
+  // 有附件（圖片/PDF）時強制用 Sonnet，文件理解較佳
+  const useSonnet = forceSonnet || (typeof getSonnetMode === 'function' && getSonnetMode());
+  const model = useSonnet ? 'claude-sonnet-4-6' : 'claude-haiku-4-5';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -465,12 +518,35 @@ async function _advCallClaude(systemPrompt, messages, maxTokens) {
   }
 }
 
-// 隨時深聊：history 為 [{role, content}]，回傳 { ok, text }
-async function askAdvisor(userText, history) {
+// 深聊：history 為 [{role, content}]；attachments 為 [{kind,name,mediaType,data|text}]
+// 回傳 { ok, text }。content 可為字串或多模態 blocks 陣列（Anthropic API 皆支援）
+async function askAdvisor(userText, history, attachments) {
   const hist = Array.isArray(history) ? history.slice(-10) : [];
-  const messages = [...hist, { role: 'user', content: userText }];
+  let content;
+  const atts = Array.isArray(attachments) ? attachments : [];
+  if (atts.length) {
+    // 多模態：文字 + 各附件
+    content = [];
+    const textParts = [userText || ''];
+    atts.forEach(a => {
+      if (a.kind === 'image' && a.data) {
+        content.push({ type: 'image', source: { type: 'base64', media_type: a.mediaType || 'image/jpeg', data: a.data } });
+      } else if (a.kind === 'pdf' && a.data) {
+        content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: a.data } });
+      } else if (a.kind === 'text' && typeof a.text === 'string') {
+        // 文字檔（md/txt/csv/json）直接內嵌成文字，省 token 又精準
+        textParts.push(`\n\n【附件：${a.name || '檔案'}】\n${a.text}`);
+      }
+    });
+    content.unshift({ type: 'text', text: textParts.join('') });
+  } else {
+    content = userText;
+  }
+  const messages = [...hist, { role: 'user', content }];
   const sys = buildAdvisorSystemPrompt({ daily: false });
-  return _advCallClaude(sys, messages, 1024);
+  // 有圖片/PDF 附件時用 Sonnet（文件理解佳）
+  const hasBinary = atts.some(a => a.kind === 'image' || a.kind === 'pdf');
+  return _advCallClaude(sys, messages, 1500, hasBinary);
 }
 
 // 每日主動建議：產生一句「懂你們」的話（GAS 端也可呼叫同套 prompt 邏輯）
