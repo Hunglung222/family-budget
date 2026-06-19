@@ -110,17 +110,6 @@
     </div>
   </div>
 
-  <!-- 🏅 徽章成就牆 -->
-  <div class="sec-t">🏅 成就徽章</div>
-  <div class="data-card" style="padding:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <div style="font-size:.84rem;color:var(--t2)">已解鎖 <b id="badge-count" style="color:var(--p);font-size:1.1rem">0</b> / <span id="badge-total">0</span> 枚</div>
-      <div id="badge-progress-pct" style="font-size:.72rem;padding:3px 10px;border-radius:50px;background:var(--pdim);color:var(--p);font-weight:700">0%</div>
-    </div>
-    <div id="badge-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
-    <div style="font-size:.68rem;color:var(--t3);margin-top:10px;line-height:1.5">🤝 家庭共享徽章：兩人一起達成（記帳量・預算・儲蓄・消費覺察）<br>👤 個人徽章：各自累積（連續打卡・記帳時段・投資交易）</div>
-  </div>
-
   <!-- 登入帳號 -->
   <div class="sec-t">👤 目前登入帳號</div>
   <div class="data-card" style="padding:14px 16px">
@@ -131,6 +120,17 @@
       </div>
       <button onclick="doLogout()" style="background:rgba(244,63,94,.14);color:var(--danger);border:1.5px solid rgba(244,63,94,.28);border-radius:var(--rs);padding:9px 16px;font-size:.85rem;font-weight:700;cursor:pointer;font-family:inherit">登出</button>
     </div>
+  </div>
+
+  <!-- 🏅 徽章成就牆 -->
+  <div class="sec-t">🏅 成就徽章</div>
+  <div class="data-card" style="padding:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <div style="font-size:.84rem;color:var(--t2)">已解鎖 <b id="badge-count" style="color:var(--p);font-size:1.1rem">0</b> / <span id="badge-total">0</span> 枚</div>
+      <div id="badge-progress-pct" style="font-size:.72rem;padding:3px 10px;border-radius:50px;background:var(--pdim);color:var(--p);font-weight:700">0%</div>
+    </div>
+    <div id="badge-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px"></div>
+    <div style="font-size:.68rem;color:var(--t3);margin-top:10px;line-height:1.5">🤝 家庭共享徽章：兩人一起達成（記帳量・預算・儲蓄・消費覺察）<br>👤 個人徽章：各自累積（連續打卡・記帳時段・投資交易）</div>
   </div>
 
   <div id="sec-theme" style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;scroll-margin-top:8px">
@@ -1068,7 +1068,7 @@ function showBadgeDetail(id) {
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.06.18 11:35';
+const APP_VERSION = 'v2026.06.19 11:05';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;

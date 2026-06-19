@@ -60,15 +60,22 @@
     <div class="sc b"><div class="sc-lbl">🙋 宏龍</div><div class="sc-val"><span class="u">$</span><span id="s-1">0</span></div></div>
     <div class="sc w"><div class="sc-lbl">🙋‍♀️ 盈慧</div><div class="sc-val"><span class="u">$</span><span id="s-2">0</span></div></div>
   </div>
-  <!-- 💰 阿錢今日的話（點擊進阿錢專屬頁深聊）-->
-  <div id="advisor-daily-strip" onclick="location.href='./advisor.html'"
-    style="display:none;align-items:center;gap:10px;margin-bottom:10px;padding:10px 13px;background:linear-gradient(135deg,rgba(0,229,180,.08),transparent);border:1px solid var(--border);border-radius:var(--r);cursor:pointer">
-    <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2a3550,#1a2235);border:1.5px solid rgba(0,229,180,.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">💰</div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:.6rem;font-weight:900;color:var(--p);letter-spacing:.06em">阿錢今日的話</div>
-      <div id="advisor-daily-strip-text" style="font-size:.8rem;color:var(--t);line-height:1.45;margin-top:1px"></div>
+  <!-- 💰 阿錢今日的話（折疊式，預設折疊、有天數編號、點擊展開才載入內容）-->
+  <div id="advisor-daily-strip" style="margin-bottom:10px;background:linear-gradient(135deg,rgba(0,229,180,.08),transparent);border:1px solid var(--border);border-radius:var(--r);overflow:hidden">
+    <!-- 折疊列（永遠在，隨頁面即時出現，不會突兀跳出）-->
+    <div onclick="toggleAdvisorDaily()" style="display:flex;align-items:center;gap:10px;padding:10px 13px;cursor:pointer">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#2a3550,#1a2235);border:1.5px solid rgba(0,229,180,.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0">💰</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:.6rem;font-weight:900;color:var(--p);letter-spacing:.06em">阿錢今日的話 <span id="advisor-daily-num" style="color:var(--t3)">#0001</span></div>
+        <div id="advisor-daily-hint" style="font-size:.75rem;color:var(--t3);margin-top:1px">點一下展開今天的話</div>
+      </div>
+      <span id="advisor-daily-caret" style="color:var(--t3);font-size:.9rem;flex-shrink:0">▾</span>
     </div>
-    <span style="color:var(--t3);font-size:1rem;flex-shrink:0">›</span>
+    <!-- 展開內容（點了才載入）-->
+    <div id="advisor-daily-content" style="display:none;padding:0 13px 12px 57px">
+      <div id="advisor-daily-strip-text" style="font-size:.85rem;color:var(--t);line-height:1.55"></div>
+      <div onclick="location.href='./advisor.html'" style="margin-top:8px;font-size:.72rem;color:var(--p);font-weight:700;cursor:pointer">跟阿錢聊聊 ›</div>
+    </div>
   </div>
   <!-- 週期切換 -->
   <div id="cycle-toggle-bar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:var(--card);border-radius:var(--rs);padding:8px 12px;border:1.5px solid var(--border)">
@@ -878,31 +885,73 @@ async function checkAndCelebrateMilestone() {
 }
 
 // ── 💰 阿錢今日的話（首頁 slim strip）──────────────────
+// 載入時：只設定「第幾天」編號（即時、不打 API、不載內容），維持折疊
+let _advDailyLoaded = false;
 async function renderAdvisorDailyStrip() {
-  const strip = document.getElementById('advisor-daily-strip');
+  const numEl = document.getElementById('advisor-daily-num');
+  if (numEl && typeof advisorDayNumber === 'function') {
+    numEl.textContent = '#' + String(advisorDayNumber()).padStart(4, '0');
+  }
+  // 背景輕量同步 startDate / 日期（只更新編號，不顯示內容、不生成）
+  try {
+    if (typeof fbPullDailyAdvice === 'function') {
+      await fbPullDailyAdvice();               // 只為了拿到/快取 startDate
+      if (numEl && typeof advisorDayNumber === 'function') {
+        numEl.textContent = '#' + String(advisorDayNumber()).padStart(4, '0');
+      }
+    }
+  } catch(e) {}
+}
+
+// 點折疊列：展開/收合。第一次展開才載入今天的內容（從共用快取讀，沒有才生成）
+async function toggleAdvisorDaily() {
+  const content = document.getElementById('advisor-daily-content');
+  const caret = document.getElementById('advisor-daily-caret');
+  const hint = document.getElementById('advisor-daily-hint');
+  if (!content) return;
+  const isOpen = content.style.display !== 'none';
+  if (isOpen) {
+    content.style.display = 'none';
+    if (caret) caret.textContent = '▾';
+    return;
+  }
+  // 展開
+  content.style.display = 'block';
+  if (caret) caret.textContent = '▴';
+  if (_advDailyLoaded) return;   // 已載過就不重載
+  _advDailyLoaded = true;
+
   const txtEl = document.getElementById('advisor-daily-strip-text');
-  if (!strip || !txtEl) return;
+  if (!txtEl) return;
+  txtEl.textContent = '阿錢正在看你們最近的記帳…';
   try {
     const today = (typeof toLocalISO === 'function') ? toLocalISO() : new Date().toISOString().slice(0,10);
     let daily = null;
     if (typeof fbPullDailyAdvice === 'function') daily = await fbPullDailyAdvice();
     if (daily && daily.date === today && daily.text) {
       txtEl.textContent = daily.text;
-      strip.style.display = 'flex';
+      if (hint) hint.textContent = '今天的話，已展開';
       return;
     }
-    // 今天還沒生成 → 有 API key 才生成一次並存雲端（Discord 與 App 共用）
+    // 今天還沒生成（過了 00:00 是新的一天）→ 有 API key 才生成一次並存雲端（與 Discord 共用）
     if (typeof getKey === 'function' && getKey() && typeof generateDailyAdvice === 'function') {
       const r = await generateDailyAdvice();
       if (r && r.ok && r.text) {
         txtEl.textContent = r.text;
-        strip.style.display = 'flex';
-        if (typeof fbSaveDailyAdvice === 'function') fbSaveDailyAdvice(today, r.text);
+        if (hint) hint.textContent = '今天的話，已展開';
+        if (typeof fbSaveDailyAdvice === 'function') await fbSaveDailyAdvice(today, r.text);
+        // 生成後重算編號（startDate 可能剛被設定）
+        const numEl = document.getElementById('advisor-daily-num');
+        if (numEl && typeof advisorDayNumber === 'function') numEl.textContent = '#' + String(advisorDayNumber()).padStart(4, '0');
         return;
       }
     }
-    // 沒 key / 生成失敗：不顯示 strip（避免空殼），使用者仍可點底部阿錢進去
-  } catch(e) {}
+    // 沒 key / 生成失敗：給一句靜態問候，不空白
+    txtEl.textContent = '今天也記得記一筆帳喔，我在這裡看著你們的每一步。要聊聊隨時找我。';
+    if (hint) hint.textContent = '今天的話，已展開';
+  } catch(e) {
+    txtEl.textContent = '今天也一起加油，有事隨時找我。';
+  }
 }
 
 // ── 從報表頁跳轉過來編輯：偵測 sessionStorage 並自動展開編輯 modal ──

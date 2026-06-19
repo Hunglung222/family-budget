@@ -58,7 +58,7 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
 .bub-row.me .bub-ava { background:var(--card2); border:1px solid var(--border); }
 .bub {
   max-width: calc(100% - 52px);
-  padding:10px 14px; font-size:.88rem; line-height:1.6;
+  padding:10px 14px; font-size:.94rem; line-height:1.66;
   border-radius:16px 16px 16px 4px;
   background:var(--card); border:1.5px solid var(--border); color:var(--t);
   white-space:pre-wrap; word-break:break-word;
@@ -113,6 +113,29 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
   font-size:1.15rem; cursor:pointer; font-family:inherit;
 }
 .adv-send:disabled { opacity:.45; }
+/* 附件按鈕 + 預覽 */
+.adv-attach-btn {
+  flex-shrink:0; width:42px; height:42px; border-radius:50%;
+  background:var(--card); border:1.5px solid var(--border); color:var(--t2);
+  font-size:1.15rem; cursor:pointer; font-family:inherit;
+}
+.adv-attach-btn:active { background:var(--card2); }
+.adv-attach-preview {
+  position:absolute; left:12px; right:12px; top:-52px;
+  display:flex; gap:8px; overflow-x:auto; padding:2px 0; -webkit-overflow-scrolling:touch;
+}
+.adv-attach-preview::-webkit-scrollbar { display:none; }
+.att-chip {
+  display:flex; align-items:center; gap:7px; flex-shrink:0;
+  background:var(--card); border:1.5px solid var(--p); border-radius:10px;
+  padding:6px 9px; font-size:.74rem; color:var(--t); max-width:200px;
+}
+.att-chip img { width:26px; height:26px; border-radius:5px; object-fit:cover; flex-shrink:0; }
+.att-chip .att-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.att-chip .att-x { cursor:pointer; color:var(--t3); font-weight:900; flex-shrink:0; padding:0 2px; }
+/* 使用者泡泡裡的附件呈現 */
+.bub .bub-att { margin-top:6px; font-size:.78rem; opacity:.85; display:flex; align-items:center; gap:6px; }
+.bub .bub-att img { max-width:160px; max-height:160px; border-radius:8px; display:block; margin-top:4px; }
 .no-key-tip {
   background: rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.4);
   color:var(--warn); border-radius:12px; padding:11px 13px; font-size:.78rem; line-height:1.5; margin:8px 0;
@@ -126,7 +149,8 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
     <div class="hdr-sub">你的財務夥伴</div>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
-    <button onclick="clearAdvChat()" class="mbtn" title="清空對話" style="font-size:.95rem">🧹</button>
+    <button onclick="openHistoryPanel()" class="mbtn" title="對話歷史" style="font-size:.95rem">📜</button>
+    <button onclick="openMemoryPanel()" class="mbtn" title="阿錢記得什麼" style="font-size:.95rem">🧠</button>
     <button onclick="goSettingsWithSnapshot()" class="mbtn" title="設定" style="font-size:.95rem">⚙️</button>
   </div>
 </header>
@@ -171,6 +195,55 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
   <div style="height:64px"></div>
 </div>
 
+<!-- 🧠 阿錢記得什麼（可查看/編輯）-->
+<div class="ov" id="memory-modal">
+  <div class="sheet" style="max-height:90dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div class="st" style="margin-bottom:4px">🧠 阿錢記得什麼</div>
+    <div style="font-size:.74rem;color:var(--t3);margin-bottom:14px;line-height:1.5">你可以親口告訴阿錢你們的財務目標和重要的事，他會記住、並在每天的建議和對話裡用上。這些是<b>兩人共用</b>的記憶。</div>
+
+    <!-- 財務目標 -->
+    <div style="font-size:.82rem;font-weight:900;color:var(--t);margin-bottom:8px">🎯 我們的財務目標</div>
+    <div id="mem-goals" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:18px">
+      <input id="mem-goal-input" type="text" placeholder="例如：年底還清卡債"
+        style="flex:1;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
+      <button onclick="memAddGoal()" class="btn btn-p" style="flex-shrink:0;padding:9px 14px">加入</button>
+    </div>
+
+    <!-- 想讓阿錢記得的事 -->
+    <div style="font-size:.82rem;font-weight:900;color:var(--t);margin-bottom:8px">📌 想讓阿錢記得的事</div>
+    <div id="mem-facts" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
+    <div style="display:flex;gap:6px;margin-bottom:18px">
+      <input id="mem-fact-input" type="text" placeholder="例如：我們在存日本旅遊基金"
+        style="flex:1;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
+      <button onclick="memAddFact()" class="btn btn-p" style="flex-shrink:0;padding:9px 14px">加入</button>
+    </div>
+
+    <!-- 阿錢觀察到的（唯讀）-->
+    <div id="mem-observed" style="display:none">
+      <div style="font-size:.82rem;font-weight:900;color:var(--t);margin-bottom:8px">👀 阿錢觀察到的</div>
+      <div id="mem-observed-body" style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px 14px;font-size:.8rem;color:var(--t2);line-height:1.6;margin-bottom:18px"></div>
+    </div>
+
+    <button class="btn btn-s" onclick="closeModal('memory-modal')">關閉</button>
+  </div>
+</div>
+
+<!-- 📜 對話歷史（按日期分組，本機）-->
+<div class="ov" id="history-modal">
+  <div class="sheet" style="max-height:90dvh;overflow-y:auto">
+    <div class="sh"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+      <div class="st" style="margin:0">📜 對話歷史</div>
+      <button onclick="confirmClearHistory()" style="background:rgba(244,63,94,.12);color:var(--danger);border:1px solid rgba(244,63,94,.28);border-radius:8px;padding:5px 10px;font-size:.72rem;font-weight:700;cursor:pointer;font-family:inherit">清空全部</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--t3);margin-bottom:14px;line-height:1.5">你和阿錢的對話只存在這台裝置上（不上雲、不與另一半共看）。點日期可展開／收合。</div>
+    <div id="history-body"></div>
+    <button class="btn btn-s" style="margin-top:14px" onclick="closeModal('history-modal')">關閉</button>
+  </div>
+</div>
+
 <!-- 快速提問 + 輸入列 -->
 <div class="adv-input-bar">
   <div style="position:absolute;left:12px;right:12px;top:-44px">
@@ -182,6 +255,11 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
       <button class="quick" onclick="advAsk('我們離財務目標還有多遠？')">離目標多遠</button>
     </div>
   </div>
+  <!-- 附件預覽（已選但未送出的檔案）-->
+  <div class="adv-attach-preview" id="adv-attach-preview" style="display:none"></div>
+  <input type="file" id="adv-file-input" multiple accept="image/*,application/pdf,.md,.txt,.csv,.json,.markdown,text/*" style="display:none" onchange="onAdvFilePicked(event)">
+  <button class="adv-attach-btn" id="adv-attach-btn" onclick="document.getElementById('adv-file-input').click()" title="附加檔案（圖片／PDF／文字）">📎</button>
+  <button class="adv-attach-btn" id="adv-voice-btn" onclick="startAdvVoice(this)" title="語音輸入">🎤</button>
   <textarea id="adv-text" rows="1" placeholder="跟阿錢說說話…" oninput="advAutogrow(this)"></textarea>
   <button class="adv-send" id="adv-send" onclick="advSend()">↑</button>
 </div>
@@ -207,11 +285,17 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
 <script src="./js/pet.js"></script>
 <script src="./js/advisor.js"></script>
 <script>
+// 套用使用者偏好（主題/配色/字體大小）— 與其他頁一致，讓設定的字體大小對阿錢頁生效
+if (typeof applyTheme === 'function') applyTheme();
+
 // ── 對話狀態 ──────────────────────────────────────────
 let _advHistory = [];   // [{role, content}] 本次 session 對話
 let _advBusy = false;
 
-const ADV_HISTORY_KEY = 'advisor_chat_session';  // 本次 session 對話快取（同 uid 前綴）
+// 完整對話歷史（本機、uid 前綴，維持隱私一致；不上雲）
+const ADV_HISTORY_KEY = 'advisor_chat_log';
+const ADV_LOG_MAX = 800;       // 全部歷史上限（超過修剪最舊）
+const ADV_VIEW_TAIL = 30;      // 進頁時畫面只渲染最近幾則
 
 function _advKey() { return (typeof pKey === 'function') ? pKey(ADV_HISTORY_KEY) : ADV_HISTORY_KEY; }
 
@@ -220,14 +304,26 @@ function loadAdvSession() {
     const raw = localStorage.getItem(_advKey());
     const j = raw ? JSON.parse(raw) : null;
     if (j && Array.isArray(j.turns)) _advHistory = j.turns;
+    // 相容舊版 key（advisor_chat_session）：搬過來一次
+    if (!_advHistory.length && typeof pKey === 'function') {
+      const oldRaw = localStorage.getItem(pKey('advisor_chat_session'));
+      if (oldRaw) { const o = JSON.parse(oldRaw); if (o && Array.isArray(o.turns)) _advHistory = o.turns; }
+    }
   } catch(e) {}
 }
 function saveAdvSession() {
-  try { localStorage.setItem(_advKey(), JSON.stringify({ turns: _advHistory.slice(-20), at: Date.now() })); } catch(e) {}
+  try {
+    // 補上時間戳（剛 push 的那筆若沒有 ts 就補 now），並修剪到上限
+    const now = Date.now();
+    _advHistory.forEach(t => { if (t && !t.ts) t.ts = now; });
+    if (_advHistory.length > ADV_LOG_MAX) _advHistory = _advHistory.slice(-ADV_LOG_MAX);
+    localStorage.setItem(_advKey(), JSON.stringify({ turns: _advHistory, at: now }));
+  } catch(e) {}
 }
 
 // ── 渲染對話 ──────────────────────────────────────────
-function appendBub(role, text) {
+// atts（可選）：[{kind,name,preview}] 用於在使用者泡泡顯示附件
+function appendBub(role, text, atts) {
   const msgs = document.getElementById('adv-msgs');
   const row = document.createElement('div');
   row.className = 'bub-row' + (role === 'user' ? ' me' : '');
@@ -236,7 +332,22 @@ function appendBub(role, text) {
   ava.textContent = role === 'user' ? '🙂' : '💰';
   const bub = document.createElement('div');
   bub.className = 'bub';
-  bub.textContent = text;
+  if (text) bub.textContent = text;
+  // 附件呈現
+  if (Array.isArray(atts) && atts.length) {
+    atts.forEach(a => {
+      if (a.kind === 'image' && a.preview) {
+        const im = document.createElement('img');
+        im.src = a.preview;
+        bub.appendChild(im);
+      } else {
+        const d = document.createElement('div');
+        d.className = 'bub-att';
+        d.textContent = (a.kind === 'pdf' ? '📄 ' : '📑 ') + (a.name || '檔案');
+        bub.appendChild(d);
+      }
+    });
+  }
   row.appendChild(ava);
   row.appendChild(bub);
   msgs.appendChild(row);
@@ -261,16 +372,155 @@ function scrollBottom() {
   setTimeout(() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }), 60);
 }
 
+// ── 🎤 語音輸入（重用 App 既有模式；填入輸入框，讓使用者檢視後再送）──
+let _advVoiceRec = null;
+function startAdvVoice(btn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    appendBub('assistant', '這個裝置或瀏覽器不支援語音輸入，直接打字也可以喔。iOS 的話建議用 Safari 開啟。');
+    document.getElementById('adv-text').focus();
+    return;
+  }
+  // 正在錄音 → 再按一下停止
+  if (_advVoiceRec) { try { _advVoiceRec.stop(); } catch(e) {} _advVoiceRec = null; return; }
+
+  const rec = new SR();
+  rec.lang = 'zh-TW';
+  rec.interimResults = true;   // 即時顯示，講話過程就看得到
+  rec.continuous = false;
+  const el = document.getElementById('adv-text');
+  const baseText = el.value ? el.value + ' ' : '';
+
+  rec.onstart = () => {
+    _advVoiceRec = rec;
+    btn.textContent = '🔴';
+    btn.style.background = 'rgba(244,63,94,.15)';
+    btn.style.borderColor = 'var(--danger)';
+  };
+  rec.onresult = (e) => {
+    let txt = '';
+    for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript;
+    el.value = baseText + txt;
+    advAutogrow(el);
+  };
+  rec.onerror = (e) => {
+    _advVoiceRec = null;
+    _restoreAdvVoiceBtn(btn);
+    if (e.error === 'aborted') return;
+    const map = {
+      'not-allowed': '請允許麥克風權限再試一次',
+      'no-speech': '沒聽到聲音，再說一次好嗎？',
+      'network': '網路問題，確認連線後再試',
+      'audio-capture': '麥克風無法使用，檢查一下權限',
+      'service-not-allowed': 'iOS 請改用 Safari 開啟',
+    };
+    appendBub('assistant', map[e.error] || ('語音辨識失敗（' + e.error + '），直接打字也行。'));
+  };
+  rec.onend = () => {
+    _advVoiceRec = null;
+    _restoreAdvVoiceBtn(btn);
+    el.focus();   // 講完聚焦輸入框，方便檢視/修改後送出
+  };
+  // iOS 關鍵：直接呼叫 start()，不包在 try/catch（須視為直接的使用者手勢）
+  rec.start();
+}
+function _restoreAdvVoiceBtn(btn) {
+  if (!btn) btn = document.getElementById('adv-voice-btn');
+  if (!btn) return;
+  btn.textContent = '🎤';
+  btn.style.background = '';
+  btn.style.borderColor = '';
+}
+
 // ── 發送 ──────────────────────────────────────────────
 function advAutogrow(el) {
   el.style.height = 'auto';
   el.style.height = Math.min(96, el.scrollHeight) + 'px';
 }
 
+// 待送出的附件：[{kind:'image'|'pdf'|'text', name, mediaType, data(base64)|text, preview}]
+let _advAttachments = [];
+const ADV_MAX_FILE_MB = 12;
+
+function onAdvFilePicked(ev) {
+  const files = Array.from(ev.target.files || []);
+  ev.target.value = ''; // 允許重選同檔
+  files.forEach(readAdvFile);
+}
+
+function readAdvFile(file) {
+  if (!file) return;
+  const sizeMB = file.size / (1024 * 1024);
+  if (sizeMB > ADV_MAX_FILE_MB) {
+    appendBub('assistant', `「${file.name}」有 ${sizeMB.toFixed(1)}MB，超過 ${ADV_MAX_FILE_MB}MB 上限了。圖片可以先截小一點，或 PDF 拆開再給我。`);
+    return;
+  }
+  const name = file.name || '檔案';
+  const type = (file.type || '').toLowerCase();
+  const lower = name.toLowerCase();
+  const isImage = type.startsWith('image/');
+  const isPdf = type === 'application/pdf' || lower.endsWith('.pdf');
+  const isText = type.startsWith('text/') || /\.(md|markdown|txt|csv|json)$/.test(lower);
+
+  if (isImage) {
+    const r = new FileReader();
+    r.onload = () => {
+      const dataUrl = r.result;
+      const base64 = String(dataUrl).split(',')[1] || '';
+      _advAttachments.push({ kind: 'image', name, mediaType: type || 'image/jpeg', data: base64, preview: dataUrl });
+      renderAttachPreview();
+    };
+    r.readAsDataURL(file);
+  } else if (isPdf) {
+    const r = new FileReader();
+    r.onload = () => {
+      const base64 = String(r.result).split(',')[1] || '';
+      _advAttachments.push({ kind: 'pdf', name, mediaType: 'application/pdf', data: base64 });
+      renderAttachPreview();
+    };
+    r.readAsDataURL(file);
+  } else if (isText) {
+    const r = new FileReader();
+    r.onload = () => {
+      let txt = String(r.result || '');
+      if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n…(檔案過長，已截斷)';
+      _advAttachments.push({ kind: 'text', name, text: txt });
+      renderAttachPreview();
+    };
+    r.readAsText(file);
+  } else {
+    appendBub('assistant', `「${name}」這個格式我暫時讀不了。我看得懂圖片、PDF，還有文字類的 md／txt／csv／json。`);
+  }
+}
+
+function renderAttachPreview() {
+  const box = document.getElementById('adv-attach-preview');
+  if (!box) return;
+  if (!_advAttachments.length) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'flex';
+  box.innerHTML = '';
+  _advAttachments.forEach((a, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'att-chip';
+    const icon = a.kind === 'image' ? '' : (a.kind === 'pdf' ? '📄' : '📑');
+    if (a.kind === 'image' && a.preview) {
+      const im = document.createElement('img'); im.src = a.preview; chip.appendChild(im);
+    } else {
+      const sp = document.createElement('span'); sp.textContent = icon; chip.appendChild(sp);
+    }
+    const nm = document.createElement('span'); nm.className = 'att-name'; nm.textContent = a.name; chip.appendChild(nm);
+    const x = document.createElement('span'); x.className = 'att-x'; x.textContent = '✕';
+    x.onclick = () => { _advAttachments.splice(i, 1); renderAttachPreview(); };
+    chip.appendChild(x);
+    box.appendChild(chip);
+  });
+}
+
 function advSend() {
   const el = document.getElementById('adv-text');
   const text = (el.value || '').trim();
-  if (!text) return;
+  // 有文字或有附件就能送
+  if (!text && !_advAttachments.length) return;
   el.value = '';
   el.style.height = 'auto';
   advAsk(text);
@@ -278,12 +528,22 @@ function advSend() {
 
 async function advAsk(text) {
   if (_advBusy) return;
-  // 第一次提問後，把快速提問收起（保留輸入體驗乾淨）
   const q = document.getElementById('adv-quick');
   if (q) q.style.display = 'none';
 
-  appendBub('user', text);
-  _advHistory.push({ role: 'user', content: text });
+  // 取出本次附件（送出後清空預覽）
+  const atts = _advAttachments.slice();
+  _advAttachments = [];
+  renderAttachPreview();
+
+  // 沒打字但有附件時，給一句預設提示語
+  const userText = text || (atts.length ? '這是我想給你看的資料，幫我看看。' : '');
+
+  // 顯示使用者泡泡（含附件縮圖/檔名）
+  appendBub('user', userText, atts);
+  // 存進 session 歷史時，只存文字佔位，不存 base64（省空間、避免後續重送大檔）
+  const attNote = atts.length ? '（附件：' + atts.map(a => a.name).join('、') + '）' : '';
+  _advHistory.push({ role: 'user', content: userText + attNote });
   saveAdvSession();
 
   _advBusy = true;
@@ -293,7 +553,8 @@ async function advAsk(text) {
 
   let r;
   try {
-    r = await askAdvisor(text, _advHistory.slice(0, -1));
+    // 注意：傳給 API 的 history 不含本次附件佔位那筆，附件走 atts 參數帶當前檔案
+    r = await askAdvisor(userText, _advHistory.slice(0, -1), atts);
   } catch (e) {
     r = { ok: false, text: '連線出了點問題，等一下再試試。' };
   }
@@ -304,7 +565,6 @@ async function advAsk(text) {
   if (r && r.ok) {
     _advHistory.push({ role: 'assistant', content: replyText });
     saveAdvSession();
-    // 聊到一個段落（每 3 輪）就把記憶壓縮寫回，讓阿錢「記得」
     if (_advHistory.filter(m => m.role === 'user').length % 3 === 0) {
       try { if (typeof summarizeAndRemember === 'function') summarizeAndRemember(_advHistory); } catch(e) {}
     }
@@ -485,6 +745,163 @@ function clearAdvChat() {
   greet();
 }
 
+// ── 🧠 阿錢記得什麼（查看/編輯）──────────────────────
+function openMemoryPanel() {
+  renderMemoryPanel();
+  if (typeof showModal === 'function') showModal('memory-modal');
+}
+function renderMemoryPanel() {
+  const mem = (typeof getAdvisorMemory === 'function') ? getAdvisorMemory() : { profile:{goals:[],facts:[]}, milestones:[], recent:{} };
+  const prof = mem.profile || {};
+  // 目標
+  const goalsBox = document.getElementById('mem-goals');
+  const goals = prof.goals || [];
+  if (goalsBox) {
+    if (!goals.length) {
+      goalsBox.innerHTML = '<div style="font-size:.78rem;color:var(--t3)">還沒設定目標。告訴阿錢你們想達成什麼吧 👇</div>';
+    } else {
+      goalsBox.innerHTML = goals.map((g, i) => `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.85rem;color:var(--t);font-weight:700">🎯 ${_memEsc(g.title || '')}</div>
+            ${g.note ? `<div style="font-size:.72rem;color:var(--t3);margin-top:2px">${_memEsc(g.note)}</div>` : ''}
+          </div>
+          <span onclick="memDelGoal(${i})" style="cursor:pointer;color:var(--t3);font-weight:900;padding:2px 6px">✕</span>
+        </div>`).join('');
+    }
+  }
+  // 事實
+  const factsBox = document.getElementById('mem-facts');
+  const facts = prof.facts || [];
+  if (factsBox) {
+    if (!facts.length) {
+      factsBox.innerHTML = '<div style="font-size:.78rem;color:var(--t3)">還沒有。任何想讓阿錢記住的事都可以加。</div>';
+    } else {
+      factsBox.innerHTML = facts.map((f, i) => `
+        <div style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:9px 12px">
+          <div style="flex:1;min-width:0;font-size:.83rem;color:var(--t);line-height:1.45">📌 ${_memEsc(f)}</div>
+          <span onclick="memDelFact(${i})" style="cursor:pointer;color:var(--t3);font-weight:900;padding:2px 6px">✕</span>
+        </div>`).join('');
+    }
+  }
+  // 阿錢觀察到的（唯讀）：里程碑數、近期摘要/情緒
+  const obsWrap = document.getElementById('mem-observed');
+  const obsBody = document.getElementById('mem-observed-body');
+  const rec = mem.recent || {};
+  const parts = [];
+  if ((mem.milestones || []).length) parts.push(`走過 <b>${mem.milestones.length}</b> 個財務里程碑`);
+  if (rec.summary) parts.push('最近聊到：' + _memEsc(rec.summary));
+  if (rec.mood) parts.push('最近狀態：' + _memEsc(rec.mood));
+  if (obsWrap && obsBody) {
+    if (parts.length) { obsBody.innerHTML = parts.join('<br>'); obsWrap.style.display = 'block'; }
+    else obsWrap.style.display = 'none';
+  }
+}
+function _memEsc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function memAddGoal() {
+  const inp = document.getElementById('mem-goal-input');
+  const v = (inp.value || '').trim();
+  if (!v) return;
+  if (typeof addAdvisorGoal === 'function') addAdvisorGoal(v, '');
+  inp.value = '';
+  renderMemoryPanel();
+  renderStage();
+}
+function memDelGoal(i) {
+  if (typeof removeAdvisorGoal === 'function') removeAdvisorGoal(i);
+  renderMemoryPanel();
+}
+function memAddFact() {
+  const inp = document.getElementById('mem-fact-input');
+  const v = (inp.value || '').trim();
+  if (!v) return;
+  if (typeof addAdvisorFact === 'function') addAdvisorFact(v);
+  inp.value = '';
+  renderMemoryPanel();
+}
+function memDelFact(i) {
+  if (typeof removeAdvisorFact === 'function') removeAdvisorFact(i);
+  renderMemoryPanel();
+}
+
+// ── 📜 對話歷史（按日期分組，本機）──────────────────────
+function openHistoryPanel() {
+  renderHistory();
+  if (typeof showModal === 'function') showModal('history-modal');
+}
+function _histDateLabel(ts) {
+  const d = new Date(ts || Date.now());
+  const today = new Date();
+  const y = new Date(today.getTime() - 864e5);
+  const sameDay = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  if (sameDay(d, today)) return '今天';
+  if (sameDay(d, y)) return '昨天';
+  const w = ['日','一','二','三','四','五','六'][d.getDay()];
+  return `${d.getMonth()+1}/${d.getDate()}（${w}）`;
+}
+function _histDateKey(ts) {
+  const d = new Date(ts || Date.now());
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function renderHistory() {
+  const body = document.getElementById('history-body');
+  if (!body) return;
+  if (!_advHistory.length) {
+    body.innerHTML = '<div style="font-size:.82rem;color:var(--t3);text-align:center;padding:20px 0">還沒有對話紀錄。跟阿錢聊聊吧 💰</div>';
+    return;
+  }
+  // 依日期分組（保持時間順序），最新的日期在最上面
+  const groups = [];
+  const idx = {};
+  _advHistory.forEach(t => {
+    const k = _histDateKey(t.ts);
+    if (idx[k] == null) { idx[k] = groups.length; groups.push({ key: k, ts: t.ts, turns: [] }); }
+    groups[idx[k]].turns.push(t);
+  });
+  groups.reverse(); // 最新日期在前
+  body.innerHTML = groups.map((g, gi) => {
+    const open = gi === 0; // 預設展開最新一天
+    const msgs = g.turns.map(t => {
+      const isMe = t.role === 'user';
+      const who = isMe ? '🙂 你' : '💰 阿錢';
+      const align = isMe ? 'right' : 'left';
+      const bg = isMe ? 'var(--pdim)' : 'var(--card2)';
+      const txt = _memEsc(typeof t.content === 'string' ? t.content : '');
+      return `<div style="margin-bottom:8px;text-align:${align}">
+        <div style="font-size:.6rem;color:var(--t3);margin-bottom:2px">${who}</div>
+        <div style="display:inline-block;max-width:88%;text-align:left;background:${bg};border:1px solid var(--border);border-radius:12px;padding:8px 11px;font-size:.82rem;line-height:1.55;color:var(--t);white-space:pre-wrap;word-break:break-word">${txt}</div>
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:10px">
+      <div onclick="toggleHistDay(${gi})" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 13px">
+        <span style="font-size:.8rem;font-weight:800;color:var(--t)">${_histDateLabel(g.ts)}</span>
+        <span style="font-size:.7rem;color:var(--t3)"><span id="hist-caret-${gi}">${open?'▴':'▾'}</span> ${g.turns.length} 則</span>
+      </div>
+      <div id="hist-day-${gi}" style="display:${open?'block':'none'};padding:12px 4px 4px">${msgs}</div>
+    </div>`;
+  }).join('');
+}
+function toggleHistDay(gi) {
+  const el = document.getElementById('hist-day-' + gi);
+  const caret = document.getElementById('hist-caret-' + gi);
+  if (!el) return;
+  const open = el.style.display !== 'none';
+  el.style.display = open ? 'none' : 'block';
+  if (caret) caret.textContent = open ? '▾' : '▴';
+}
+function confirmClearHistory() {
+  if (!confirm('確定要清空全部對話歷史嗎？此動作無法復原（阿錢對你們的長期記憶——目標、里程碑——會保留）。')) return;
+  _advHistory = [];
+  saveAdvSession();
+  renderHistory();
+  document.getElementById('adv-msgs').innerHTML = '';
+  const q = document.getElementById('adv-quick');
+  if (q) q.style.display = 'flex';
+  greet();
+  if (typeof closeModal === 'function') closeModal('history-modal');
+}
+
 function gotoDailyDetail() {
   const txt = document.getElementById('adv-daily-text').textContent;
   if (txt && !document.getElementById('adv-daily').classList.contains('loading')) {
@@ -593,11 +1010,18 @@ loadAdvSession();
 function bootAdvisor() {
   renderStage();
   renderJourney();
-  // 還原本次 session 對話；沒有就開場白
+  // 還原對話：畫面只顯示最近 ADV_VIEW_TAIL 則（完整歷史用 📜 翻閱）
   if (_advHistory.length) {
     const q = document.getElementById('adv-quick');
     if (q) q.style.display = 'none';
-    _advHistory.forEach(m => appendBub(m.role, typeof m.content === 'string' ? m.content : ''));
+    const tail = _advHistory.slice(-ADV_VIEW_TAIL);
+    if (_advHistory.length > tail.length) {
+      const more = document.createElement('div');
+      more.style.cssText = 'text-align:center;margin:6px 0 14px';
+      more.innerHTML = '<button onclick="openHistoryPanel()" style="background:var(--card);border:1px solid var(--border);color:var(--t2);border-radius:50px;padding:6px 14px;font-size:.74rem;cursor:pointer;font-family:inherit">📜 查看更早的對話（共 ' + _advHistory.length + ' 則）</button>';
+      document.getElementById('adv-msgs').appendChild(more);
+    }
+    tail.forEach(m => appendBub(m.role, typeof m.content === 'string' ? m.content : ''));
   } else {
     greet();
   }
