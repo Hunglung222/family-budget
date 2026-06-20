@@ -628,7 +628,31 @@ function renderOverview() {
   document.getElementById('nw-invest').textContent = '$'+fmt(nw.investTotal||0);
   document.getElementById('nw-bills').textContent  = '$'+fmt(nw.pendingBills);
   document.getElementById('nw-inst').textContent   = '$'+fmt(nw.instDebt||0);
-// ── 現金流預測 ───────────────────────────────────────
+
+  // 待繳帳單
+  const bills = getPendingBills();
+  const el = document.getElementById('pending-bills');
+  renderGoals();
+  if (!bills.length) { el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">✅ 無待繳帳單</div>'; return; }
+  el.innerHTML = bills.map(b=>{
+    const card = cardFind(b.cardId);
+    const now=new Date(), due=new Date(b.year,b.month-1,b.dueDay||15);
+    const diff=Math.ceil((due-now)/864e5);
+    const urgent = diff<=3;
+    return `<div class="bill-card">
+      <div class="bill-hdr">
+        <div><div class="bill-title">${card?.name||'信用卡'} ${b.month}月帳單</div>
+          <div class="bill-meta">截止：${b.year}/${b.month}/${b.dueDay||15} ${diff>=0?`（還有${diff}天）`:'（已逾期）'}</div>
+        </div>
+        <div class="bill-amt">$${fmt(b.total)}</div>
+      </div>
+      <button onclick="showPayBill('${b.id}')" style="width:100%;padding:10px;background:${urgent?'var(--danger)':'linear-gradient(135deg,var(--p),var(--p2))'};color:${urgent?'#fff':'#000'};border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.88rem">
+        ${urgent?'⚠️ 立即繳費':'💳 繳費'}
+      </button>
+    </div>`;
+  }).join('');
+}
+
 function renderCashFlow() {
   const el = document.getElementById('cashflow-section');
   if (!el || typeof getCashFlowForecast !== 'function') return;
@@ -789,30 +813,6 @@ function delGoalConfirm(id) {
   deleteGoal(id);
   renderGoals();
   toast('已刪除');
-}
-
-  // 待繳帳單
-  const bills = getPendingBills();
-  const el = document.getElementById('pending-bills');
-  renderGoals();
-  if (!bills.length) { el.innerHTML='<div style="color:var(--t3);font-size:.85rem;text-align:center;padding:12px">✅ 無待繳帳單</div>'; return; }
-  el.innerHTML = bills.map(b=>{
-    const card = cardFind(b.cardId);
-    const now=new Date(), due=new Date(b.year,b.month-1,b.dueDay||15);
-    const diff=Math.ceil((due-now)/864e5);
-    const urgent = diff<=3;
-    return `<div class="bill-card">
-      <div class="bill-hdr">
-        <div><div class="bill-title">${card?.name||'信用卡'} ${b.month}月帳單</div>
-          <div class="bill-meta">截止：${b.year}/${b.month}/${b.dueDay||15} ${diff>=0?`（還有${diff}天）`:'（已逾期）'}</div>
-        </div>
-        <div class="bill-amt">$${fmt(b.total)}</div>
-      </div>
-      <button onclick="showPayBill('${b.id}')" style="width:100%;padding:10px;background:${urgent?'var(--danger)':'linear-gradient(135deg,var(--p),var(--p2))'};color:${urgent?'#fff':'#000'};border:none;border-radius:var(--rs);font-weight:700;cursor:pointer;font-family:inherit;font-size:.88rem">
-        ${urgent?'⚠️ 立即繳費':'💳 繳費'}
-      </button>
-    </div>`;
-  }).join('');
 }
 
 // ── 錢包 ─────────────────────────────────────────────
