@@ -493,6 +493,9 @@ async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
   // 有附件（圖片/PDF）時強制用 Sonnet，文件理解較佳
   const useSonnet = forceSonnet || (typeof getSonnetMode === 'function' && getSonnetMode());
   const model = useSonnet ? 'claude-sonnet-4-6' : 'claude-haiku-4-5';
+  // 防禦性清洗：送給 API 的每則訊息只能有 {role, content}，
+  // 任何多餘欄位（如對話歷史的 ts）都會讓 API 報 "Extra inputs are not permitted"
+  const cleanMessages = (Array.isArray(messages) ? messages : []).map(m => ({ role: m.role, content: m.content }));
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -506,7 +509,7 @@ async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
         model,
         max_tokens: maxTokens || 1024,
         system: systemPrompt,
-        messages,
+        messages: cleanMessages,
       }),
     });
     const data = await res.json();
@@ -521,7 +524,10 @@ async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
 // 深聊：history 為 [{role, content}]；attachments 為 [{kind,name,mediaType,data|text}]
 // 回傳 { ok, text }。content 可為字串或多模態 blocks 陣列（Anthropic API 皆支援）
 async function askAdvisor(userText, history, attachments) {
-  const hist = Array.isArray(history) ? history.slice(-10) : [];
+  // 重要：送給 API 的每則訊息只能有 {role, content}，歷史裡的 ts 等欄位必須濾掉，
+  // 否則 API 會回 "messages.N.ts: Extra inputs are not permitted"
+  const hist = (Array.isArray(history) ? history.slice(-10) : [])
+    .map(m => ({ role: m.role, content: m.content }));
   let content;
   const atts = Array.isArray(attachments) ? attachments : [];
   if (atts.length) {
