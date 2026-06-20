@@ -602,7 +602,7 @@ function init() {
   applyTheme();
   document.getElementById('user-lbl').textContent = currentUser() + ' 的財務';
   render();
-  fbPullAll().then(()=>render());
+  fbPullAll().then(()=>render()).catch(()=>render());
   // 收入資料同步
   if (typeof fbPullIncomeSources === 'function') fbPullIncomeSources();
   if (typeof fbPullIncomes === 'function') fbPullIncomes().then(()=>{ if(document.getElementById('p-income')?.classList.contains('on')) renderIncome(); });
