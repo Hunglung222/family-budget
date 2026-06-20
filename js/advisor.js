@@ -51,6 +51,13 @@ const ADVISOR_PROFILE = {
     '・引用財務數字時，只引用下方「財務快照」與「統計數據」提供的數字，不要自己重算或編造。',
     '・若某項數據為 0 或空，可能是還沒記錄，溫和引導去記，不要假設。',
     '・你不是正式持牌的財務顧問或投資顧問，重大決定提醒對方自行判斷。',
+    '',
+    '【如何給出「真正有用」的建議——重要】',
+    '・財務快照裡有「消費分析」：各分類佔比與月均、本月分類、近幾個月趨勢、兩人各自花費、近期大額支出、疑似固定/經常性支出。請務必善用這些，給「具體、扣著他們實際花費」的洞察，而不是空泛的「要節省」。',
+    '・舉例：與其說「餐飲花太多」，不如說「餐飲月均約佔三成、是最大的單一支出，這個月已經到 X 元」；看到某筆大額（如註冊費、房租）要分辨是「一次性」還是「每月固定」，別把一次性支出當成常態在嚇人。',
+    '・看到趨勢變化（某月暴增/下降）要先理解原因再給建議；看到固定支出（房租、療程、訂閱）可幫他們把「固定 vs 彈性」分開看，真正能省的是彈性部分。',
+    '・兩人花費若差很多，用中性、不指責的方式呈現事實，幫他們一起看，而不是製造對立。',
+    '・優先針對「金額大又有彈性」的地方給 1～2 個具體可行的小建議，勝過列一堆。',
   ].join('\n'),
 };
 
@@ -323,6 +330,51 @@ function _advCalcAvgExpense(now) {
   return recent.reduce((s, t) => s + (t.amount || 0), 0) / 3;
 }
 
+// 深度消費分析：讓阿錢真正「看懂」錢花在哪、有什麼模式（重用 getTx，與報表同源）
+function _advSpendingAnalysis(now) {
+  const out = { byCat3m: [], byCatThis: [], trend: [], perPerson: {}, bigExpenses: [], fixedGuess: [] };
+  try {
+    if (typeof getTx !== 'function') return out;
+    const txs = getTx().filter(t => (t.amount || 0) > 0 && t.at);
+    if (!txs.length) return out;
+    const ym = (d) => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
+    const nm = (id) => (typeof catName === 'function') ? catName(id) : id;
+    const start3 = new Date(now); start3.setMonth(start3.getMonth() - 3);
+    const recent = txs.filter(t => new Date(t.at) >= start3);
+    const thisYM = ym(now);
+    const recentTotal = recent.reduce((s, t) => s + t.amount, 0) || 1;
+    // 分類佔比（近 3 個月）
+    const catSum = {};
+    recent.forEach(t => { const k = t.cat || '其他'; catSum[k] = (catSum[k] || 0) + t.amount; });
+    out.byCat3m = Object.entries(catSum).sort((a, b) => b[1] - a[1]).slice(0, 8)
+      .map(([k, v]) => ({ 分類: nm(k), 月均: Math.round(v / 3), 佔比: Math.round(v / recentTotal * 100) + '%' }));
+    // 本月分類
+    const thisCat = {};
+    txs.filter(t => ym(t.at) === thisYM).forEach(t => { const k = t.cat || '其他'; thisCat[k] = (thisCat[k] || 0) + t.amount; });
+    out.byCatThis = Object.entries(thisCat).sort((a, b) => b[1] - a[1]).slice(0, 6)
+      .map(([k, v]) => ({ 分類: nm(k), 本月: Math.round(v) }));
+    // 月趨勢（近 4 個月）
+    const monSum = {};
+    txs.forEach(t => { const k = ym(t.at); monSum[k] = (monSum[k] || 0) + t.amount; });
+    out.trend = Object.entries(monSum).sort().slice(-4).map(([k, v]) => ({ 月份: k, 總支出: Math.round(v) }));
+    // 每人分布（近 3 個月）
+    const perP = {};
+    recent.forEach(t => { const p = t.person || '未分'; if (!perP[p]) perP[p] = { 金額: 0, 筆數: 0 }; perP[p].金額 += t.amount; perP[p].筆數++; });
+    Object.keys(perP).forEach(p => { perP[p].金額 = Math.round(perP[p].金額); });
+    out.perPerson = perP;
+    // 近 3 個月大額支出（前 6 筆，分辨一次性 vs 經常性）
+    out.bigExpenses = recent.slice().sort((a, b) => b.amount - a.amount).slice(0, 6)
+      .map(t => ({ 月份: ym(t.at), 分類: nm(t.cat), 明細: (t.detail || '').slice(0, 16), 金額: Math.round(t.amount) }));
+    // 疑似固定/經常性支出（同明細重複出現）
+    const byDetail = {};
+    recent.forEach(t => { const d = (t.detail || '').trim(); if (d.length >= 2) { if (!byDetail[d]) byDetail[d] = []; byDetail[d].push(t.amount); } });
+    out.fixedGuess = Object.entries(byDetail).filter(([d, arr]) => arr.length >= 2)
+      .map(([d, arr]) => ({ 項目: d.slice(0, 14), 次數: arr.length, 合計: Math.round(arr.reduce((s, x) => s + x, 0)) }))
+      .sort((a, b) => b.合計 - a.合計).slice(0, 6);
+  } catch (e) {}
+  return out;
+}
+
 function buildAdvisorSnapshot() {
   const now = new Date();
   const avgInc = _advCalcAvgIncome(now);
@@ -376,6 +428,7 @@ function buildAdvisorSnapshot() {
     月均支出: Math.round(avgExp),
     分期月付: Math.round(instAmt),
     每月可結餘: Math.round(investable),
+    消費分析: _advSpendingAnalysis(now),
     儲蓄率: avgInc > 0 ? rate.toFixed(1) + '%' : '無收入資料',
     緊急備用金: {
       現有: Math.round(totalCash),
@@ -552,7 +605,8 @@ async function askAdvisor(userText, history, attachments) {
   const sys = buildAdvisorSystemPrompt({ daily: false });
   // 有圖片/PDF 附件時用 Sonnet（文件理解佳）
   const hasBinary = atts.some(a => a.kind === 'image' || a.kind === 'pdf');
-  return _advCallClaude(sys, messages, 1500, hasBinary);
+  // 深聊一律用 Sonnet：要看懂消費分析、給出真正有洞察的建議（每日一句話仍用 Haiku 省 token）
+  return _advCallClaude(sys, messages, 1500, true);
 }
 
 // 每日主動建議：產生一句「懂你們」的話（GAS 端也可呼叫同套 prompt 邏輯）

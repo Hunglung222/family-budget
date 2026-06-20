@@ -22,12 +22,13 @@ function fbListenTx(cb){
 async function fbSyncPersonal(){
   const u=uid();
   try{
+    const wal=getWal(), cards=getCards(), icards=getIcards(), accts=getAccts(false), bills=(typeof getCardBills==='function'?getCardBills():[]);
+    // 安全護欄：若所有個人資料都空、且錢包從未更新過，極可能是「資料還沒從雲端載入完」，
+    // 此時同步會把空資料寫上雲端、反過來清空另一台裝置 → 直接略過這次同步。
+    const looksEmpty = (!cards.length && !icards.length && !accts.length && !bills.length && !(wal.updatedAt));
+    if (looksEmpty) { console.warn('[FB]syncPersonal skipped: data looks unloaded'); return; }
     const doc={
-      wal:    getWal(),
-      cards:  getCards(),
-      icards: getIcards(),
-      accts:  getAccts(false),
-      bills:  getCardBills(),
+      wal, cards, icards, accts, bills,
       syncAt: Date.now(),
     };
     await getDb().collection('personal').doc(u).set(doc);
@@ -42,21 +43,28 @@ async function fbPullPersonal(){
     const d=await getDb().collection('personal').doc(u).get();
     if(!d.exists)return;
     const data=d.data();
+    // 安全護欄：雲端是「空陣列」但本地「有資料」時，不要覆蓋本地。
+    // （避免某裝置在資料還沒載入完就同步出空陣列，反過來把另一台的卡片/帳戶清空）
+    const _safe = (cloudArr, localArr) => {
+      if (!Array.isArray(cloudArr)) return false;                       // 雲端沒這欄位 → 不動本地
+      if (cloudArr.length === 0 && Array.isArray(localArr) && localArr.length > 0) return false; // 空蓋非空 → 擋
+      return true;
+    };
     // 用時間戳記判斷：只有雲端比本地新才覆蓋
     const localWal=getWal();
     if(data.wal && data.wal.updatedAt > (localWal.updatedAt||0)){
       DB.set(pKey('wal'), data.wal);
     }
-    if(data.cards)  DB.set(pKey('cards'),  data.cards);
+    if(_safe(data.cards, getCards()))  DB.set(pKey('cards'),  data.cards);
     // icards 加時間戳記保護：只有雲端比本地新才覆蓋，避免蓋掉剛扣款的新餘額
     if(data.icards){
       const localIcards = getIcards();
       const localTs = Math.max(...localIcards.map(c=>c._localTs||0), 0);
       const cloudTs = data.syncAt || 0;
-      if(cloudTs >= localTs) DB.set(pKey('icards'), data.icards);
+      if(cloudTs >= localTs && _safe(data.icards, localIcards)) DB.set(pKey('icards'), data.icards);
     }
-    if(data.accts)  DB.set(pKey('accts'),  data.accts);
-    if(data.bills)  DB.set(pKey('bills'),  data.bills);
+    if(_safe(data.accts, getAccts(false)))  DB.set(pKey('accts'),  data.accts);
+    if(_safe(data.bills, (typeof getCardBills==='function'?getCardBills():[])))  DB.set(pKey('bills'),  data.bills);
   }catch(e){console.warn('[FB]pullPersonal',e);}
 }
 
@@ -68,7 +76,11 @@ async function fbSyncSharedAccts(){
 async function fbPullSharedAccts(){
   try{
     const d=await getDb().collection('shared').doc('accts').get();
-    if(d.exists&&d.data().list) DB.set('shared_accts',d.data().list);
+    if(d.exists && Array.isArray(d.data().list)){
+      const cloud=d.data().list, local=DB.get('shared_accts')||[];
+      // 空陣列不覆蓋非空本地（避免共用帳戶瞬間消失）
+      if(!(cloud.length===0 && local.length>0)) DB.set('shared_accts',cloud);
+    }
   }catch(e){}
 }
 
