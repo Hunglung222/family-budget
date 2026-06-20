@@ -234,6 +234,9 @@
       <button class="acct-btn xfer" onclick="showModal('add-icard-modal')">＋ 新增</button>
     </div>
     <div id="icard-list"></div>
+    <div style="margin-top:8px;text-align:center">
+      <button onclick="recoverIcardBalances()" style="background:transparent;border:1px dashed var(--border);color:var(--t3);border-radius:8px;padding:7px 14px;font-size:.74rem;cursor:pointer;font-family:inherit">🔧 餘額不對？從交易紀錄回復餘額</button>
+    </div>
     <div style="height:120px"></div>
   </div>
 </div>
@@ -1335,6 +1338,43 @@ function renderIcards(){
         </div>`).join('');
     }
   }
+}
+
+// 從 history 時序重播計算「應有餘額」（與真實扣款邏輯一致：topup/in 加、out 減、不為負）
+// 注意：新增卡片時直接填的「初始餘額」不會記進 history，所以靠加值的卡可完全還原，
+// 有填初始餘額的卡會少掉那一筆，需手動補。
+function _icardBalanceFromHistory(card){
+  const h = Array.isArray(card.history) ? card.history.slice() : [];
+  h.reverse(); // history 新到舊 → 反轉成由舊到新依序重播
+  let bal = 0;
+  h.forEach(e=>{
+    const amt = Number(e.amount)||0;
+    if(e.type==='topup' || e.type==='in') bal += amt;
+    else if(e.type==='out') bal = Math.max(0, bal - amt);
+  });
+  return bal;
+}
+
+function recoverIcardBalances(){
+  const cards = getIcards();
+  if(!cards.length){ toast('沒有悠遊卡可回復','warn'); return; }
+  const plan = cards.map(c=>({ id:c.id, name:c.name, old:(c.balance||0), neo:_icardBalanceFromHistory(c), hasHist:(c.history||[]).length>0 }));
+  const changed = plan.filter(p=>p.old !== p.neo);
+  if(!changed.length){ toast('目前餘額和交易紀錄一致，無需回復 ✅','info'); return; }
+  const lines = changed.map(p=>`・${p.name}：$${fmt(p.old)} → $${fmt(p.neo)}${p.hasHist?'':'（無紀錄）'}`).join('\n');
+  let msg = '依照每張卡的交易紀錄（加值・儲值・消費）重新計算餘額：\n\n' + lines + '\n\n';
+  msg += '說明：靠「加值」的卡可完整還原；若你當初在「新增卡片」時直接填了初始餘額，這裡會少掉那一筆，套用後再手動補上即可。\n\n要套用嗎？';
+  if(!confirm(msg)) return;
+  const list = getIcards();
+  changed.forEach(p=>{
+    const idx = list.findIndex(c=>c.id===p.id);
+    if(idx>=0){ list[idx].balance = p.neo; list[idx]._localTs = Date.now(); }
+  });
+  DB.set(pKey('icards'), list);
+  if(typeof fbSyncPersonal==='function') fbSyncPersonal();
+  if(typeof fbSyncSharedCardList==='function') fbSyncSharedCardList();
+  renderIcards(); renderOverview();
+  toast(`已回復 ${changed.length} 張卡的餘額 ✅`);
 }
 
 function submitIcard(){
