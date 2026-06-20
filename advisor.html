@@ -207,8 +207,8 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
     <div id="mem-goals" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
     <div style="display:flex;gap:6px;margin-bottom:18px">
       <input id="mem-goal-input" type="text" placeholder="例如：年底還清卡債"
-        style="flex:1;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
-      <button onclick="memAddGoal()" class="btn btn-p" style="flex-shrink:0;padding:9px 14px">加入</button>
+        style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
+      <button onclick="memAddGoal()" style="flex-shrink:0;padding:0 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:.82rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">加入</button>
     </div>
 
     <!-- 想讓阿錢記得的事 -->
@@ -216,8 +216,8 @@ body { padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom,0px)); }
     <div id="mem-facts" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px"></div>
     <div style="display:flex;gap:6px;margin-bottom:18px">
       <input id="mem-fact-input" type="text" placeholder="例如：我們在存日本旅遊基金"
-        style="flex:1;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
-      <button onclick="memAddFact()" class="btn btn-p" style="flex-shrink:0;padding:9px 14px">加入</button>
+        style="flex:1;min-width:0;padding:9px 12px;border-radius:10px;background:var(--card2);border:1.5px solid var(--border);color:var(--t);font-size:.85rem;font-family:inherit">
+      <button onclick="memAddFact()" style="flex-shrink:0;padding:0 16px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;font-size:.82rem;font-weight:800;cursor:pointer;font-family:inherit;white-space:nowrap">加入</button>
     </div>
 
     <!-- 阿錢觀察到的（唯讀）-->
