@@ -1246,8 +1246,8 @@ function buildCardChips() {
   if (!allCards.length) { el.innerHTML=''; hint.style.display='block'; selCard=''; return; }
   hint.style.display = 'none';
   el.innerHTML = allCards.map(c=>{
-    const ownerTag = c._owner==='我的' ? '' : `<span style="font-size:.6rem;background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:10px;padding:1px 5px;margin-left:3px">${c._owner}</span>`;
-    return `<button class="cc" data-id="${c.id}" onclick="selCC('${c.id}',this)">${c.name} ···${c.last4}${ownerTag}</button>`;
+    const ownerTag = c._owner==='我的' ? '' : `<span style="font-size:.6rem;background:rgba(0,229,180,.15);color:var(--p);border:1px solid var(--p);border-radius:10px;padding:1px 5px;margin-left:3px">${escapeHTML(c._owner)}</span>`;
+    return `<button class="cc" data-id="${escapeAttr(c.id)}" onclick="selCC('${escapeAttr(c.id)}',this)">${escapeHTML(c.name)} ···${escapeHTML(c.last4||'')}${ownerTag}</button>`;
   }).join('');
   selCard = allCards[0].id;
   el.querySelector('.cc').classList.add('on');

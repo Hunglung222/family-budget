@@ -484,7 +484,7 @@ function renderEditableTxCard(t, accentColor, fallbackTitle) {
       onmouseenter="this.style.background='${accentColor}1f'"
       onmouseleave="this.style.background=''">
       <div style="flex:1;min-width:0">
-        <div style="font-size:.84rem;font-weight:600">${t.detail||fallbackTitle||catName(t.cat)}</div>
+        <div style="font-size:.84rem;font-weight:600">${escapeHTML(t.detail||fallbackTitle||catName(t.cat))}</div>
         <div class="tx-edit-meta">${fmtD(t.at)} · ${t.person} · ${payIcon(t.pay)} ${fmtT(t.at)}</div>
       </div>
       <div style="font-size:.88rem;font-weight:900;color:var(--danger);flex-shrink:0">$${fmt(t.amount)}</div>
@@ -726,8 +726,8 @@ function drillCard(cardId) {
             <div onclick="jumpToEditTx('${t.id}')" style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(42,53,80,.25);cursor:pointer;transition:background .12s;border-radius:6px;margin:0 -6px;padding-left:6px;padding-right:6px" onmouseenter="this.style.background='var(--card2)'" onmouseleave="this.style.background=''">
               <div style="width:34px;height:34px;border-radius:9px;background:${catFind(t.cat).color||'var(--card2)'};display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0;opacity:.85">${catFind(t.cat).name.slice(0,2)}</div>
               <div style="flex:1;min-width:0">
-                <div style="font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.detail || catName(t.cat)}</div>
-                <div style="font-size:.68rem;color:var(--t3);margin-top:1px">${catName(t.cat)}${t.subCat ? ' · '+t.subCat : ''} · ${t.person} · ${fmtT(t.at)}</div>
+                <div style="font-size:.86rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(t.detail || catName(t.cat))}</div>
+                <div style="font-size:.68rem;color:var(--t3);margin-top:1px">${escapeHTML(catName(t.cat))}${t.subCat ? ' · '+escapeHTML(t.subCat) : ''} · ${escapeHTML(t.person||'')} · ${fmtT(t.at)}</div>
               </div>
               <div style="font-size:.9rem;font-weight:900;color:${card.color||'var(--blue)'};flex-shrink:0">-$${fmt(t.amount)}</div>
               <div style="color:var(--t3);font-size:.85rem;flex-shrink:0">✏️</div>

@@ -455,18 +455,18 @@ function orderHTML(o) {
 
   return `<div class="order-card">
     <div class="order-hdr">
-      <div class="order-title">${o.name}</div>
+      <div class="order-title">${escapeHTML(o.name)}</div>
       <span class="status-badge ${st.cls}">${st.icon} ${st.label}</span>
     </div>
     <div class="order-meta">
-      <span class="order-tag">🏪 ${o.platform||'未知平台'}</span>
-      ${o.seller?`<span class="order-tag">👤 ${o.seller}</span>`:''}
+      <span class="order-tag">🏪 ${escapeHTML(o.platform||'未知平台')}</span>
+      ${o.seller?`<span class="order-tag">👤 ${escapeHTML(o.seller)}</span>`:''}
       <span class="order-tag">${DELIVERY_MAP[o.delivery]||'其他'}</span>
-      ${o.orderNo?`<span class="order-tag">📋 ${o.orderNo}</span>`:''}
+      ${o.orderNo?`<span class="order-tag">📋 ${escapeHTML(o.orderNo)}</span>`:''}
     </div>
     ${stepHTML}
     ${dueStr?`<div style="font-size:.75rem;color:var(--t2);margin:4px 0">${dueStr}</div>`:''}
-    ${o.note?`<div style="font-size:.78rem;color:var(--t3);margin-top:4px">📝 ${o.note}</div>`:''}
+    ${o.note?`<div style="font-size:.78rem;color:var(--t3);margin-top:4px">📝 ${escapeHTML(o.note)}</div>`:''}
     <div class="order-footer">
       <span class="order-amt">${o.amount?'$'+fmt(o.amount):'金額未填'}</span>
       <span style="font-size:.68rem;color:var(--t3)">${o.createdAt?fmtD(o.createdAt):''}</span>

@@ -123,8 +123,8 @@ function renderMemoList(){
     <div class="data-card" style="padding:14px 16px;margin-bottom:10px">
       <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px">
         <div style="flex:1;min-width:0">
-          ${m.title?`<div style="font-weight:700;font-size:.92rem;margin-bottom:3px">${m.title}</div>`:''}
-          ${m.tag?`<span style="font-size:.7rem;padding:2px 8px;border-radius:20px;background:rgba(0,229,180,.15);color:${TAG_COLOR[m.tag]||'var(--t3)'};margin-bottom:6px;display:inline-block">${m.tag}</span>`:''}
+          ${m.title?`<div style="font-weight:700;font-size:.92rem;margin-bottom:3px">${escapeHTML(m.title)}</div>`:''}
+          ${m.tag?`<span style="font-size:.7rem;padding:2px 8px;border-radius:20px;background:rgba(0,229,180,.15);color:${TAG_COLOR[m.tag]||'var(--t3)'};margin-bottom:6px;display:inline-block">${escapeHTML(m.tag)}</span>`:''}
         </div>
         <div style="display:flex;gap:4px;flex-shrink:0">
           <button onclick="openMemoEdit('${m.id}')"
@@ -133,11 +133,11 @@ function renderMemoList(){
             style="padding:5px 8px;background:rgba(244,63,94,.15);border:1px solid rgba(244,63,94,.3);color:var(--danger);border-radius:6px;font-size:.75rem;cursor:pointer;font-family:inherit">🗑</button>
         </div>
       </div>
-      <div style="font-size:.85rem;color:var(--t2);line-height:1.7;white-space:pre-wrap">${m.content}</div>
+      <div style="font-size:.85rem;color:var(--t2);line-height:1.7;white-space:pre-wrap">${escapeHTML(m.content)}</div>
       <div style="font-size:.7rem;color:var(--t3);margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-        ${m.author?`<span style="background:rgba(0,229,180,.12);color:var(--p);padding:1px 6px;border-radius:20px">👤 ${m.author}</span>`:''}
+        ${m.author?`<span style="background:rgba(0,229,180,.12);color:var(--p);padding:1px 6px;border-radius:20px">👤 ${escapeHTML(m.author)}</span>`:''}
         <span>${fmtD(m.at)} ${fmtT(m.at)}</span>
-        ${m.updatedAt?`<span style="color:var(--warn)">✎ ${m.editedBy||''}${m.editedBy?' 編輯':' 已更新'}</span>`:''}
+        ${m.updatedAt?`<span style="color:var(--warn)">✎ ${escapeHTML(m.editedBy||'')}${m.editedBy?' 編輯':' 已更新'}</span>`:''}
       </div>
     </div>`).join('');
 }

@@ -1,4 +1,4 @@
-const V = 'fb-v2026.06.20-1805';
+const V = 'fb-v2026.06.20-1910';
 const A = [
   './login.html','./index.html','./add.html','./report.html',
   './invest.html','./wallet.html','./shopping.html','./settings.html',
@@ -13,7 +13,12 @@ const A = [
 ];
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(V).then(c => c.addAll(A).catch(() => {})));
+  e.waitUntil(caches.open(V).then(c =>
+    // 逐檔加入快取，失敗的檔案會印出來方便除錯（不讓單一檔案失敗害整個安裝失敗）
+    Promise.all(A.map(url =>
+      c.add(url).catch(err => console.warn('[SW] 預快取失敗:', url, err && err.message))
+    ))
+  ));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(
