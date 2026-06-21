@@ -58,6 +58,7 @@ const ADVISOR_PROFILE = {
     '・看到趨勢變化（某月暴增/下降）要先理解原因再給建議；看到固定支出（房租、療程、訂閱）可幫他們把「固定 vs 彈性」分開看，真正能省的是彈性部分。',
     '・兩人花費若差很多，用中性、不指責的方式呈現事實，幫他們一起看，而不是製造對立。',
     '・優先針對「金額大又有彈性」的地方給 1～2 個具體可行的小建議，勝過列一堆。',
+    '・看「資料可信度」：若資料天數不足（不到 60～90 天），月均、儲蓄率、備用金月數等都還只是初步估算，請主動說明「資料還不多，這是初步估算」，不要言之鑿鑿地下大結論。',
   ].join('\n'),
 };
 
@@ -327,7 +328,27 @@ function _advCalcAvgExpense(now) {
   threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
   const recent = txs.filter(t => new Date(t.at) >= threeMonthsAgo && (t.amount || 0) > 0);
   if (!recent.length) return 0;
-  return recent.reduce((s, t) => s + (t.amount || 0), 0) / 3;
+  // 依「實際資料跨度」算月份數（與 _advCalcAvgIncome 一致），避免剛開始用就被低估
+  const months = Math.max(1, Math.min(3, (() => {
+    const dates = recent.map(t => new Date(t.at));
+    const minD = new Date(Math.min(...dates));
+    return Math.ceil((now - minD) / (1000 * 60 * 60 * 24 * 30));
+  })()));
+  return recent.reduce((s, t) => s + (t.amount || 0), 0) / months;
+}
+
+// 資料涵蓋天數與可信度（讓阿錢知道是不是剛開始用、要不要打折扣看待）
+function _advDataConfidence(now) {
+  try {
+    const all = [];
+    if (typeof getTx === 'function') getTx().forEach(t => { if (t.at) all.push(new Date(t.at)); });
+    if (typeof getIncomes === 'function') getIncomes().forEach(i => { if (i.at) all.push(new Date(i.at)); });
+    if (!all.length) return { days: 0, level: '無資料' };
+    const minD = new Date(Math.min(...all));
+    const days = Math.max(1, Math.round((now - minD) / 86400000));
+    const level = days >= 90 ? '高（≥3個月）' : days >= 60 ? '中（約2個月）' : days >= 30 ? '初步（約1個月）' : '很初步（不足1個月，僅供參考）';
+    return { days, level };
+  } catch (e) { return { days: 0, level: '無資料' }; }
 }
 
 // 深度消費分析：讓阿錢真正「看懂」錢花在哪、有什麼模式（重用 getTx，與報表同源）
@@ -428,6 +449,7 @@ function buildAdvisorSnapshot() {
     月均支出: Math.round(avgExp),
     分期月付: Math.round(instAmt),
     每月可結餘: Math.round(investable),
+    資料可信度: _advDataConfidence(now),
     消費分析: _advSpendingAnalysis(now),
     儲蓄率: avgInc > 0 ? rate.toFixed(1) + '%' : '無收入資料',
     緊急備用金: {

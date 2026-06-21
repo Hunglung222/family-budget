@@ -6,6 +6,23 @@
 //  資料依登入者隔離，共用記帳與家用帳戶除外
 // ═══════════════════════════════════════════════════
 
+// 共用 XSS 跳脫工具：把使用者輸入的文字安全地放進 innerHTML
+// 用法：`<div>${escapeHTML(userText)}</div>`
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+// 放進 onclick='fn("...")' 這種字串參數時的跳脫（避免引號截斷與注入）
+function escapeAttr(s) {
+  if (s == null) return '';
+  return escapeHTML(s).replace(/`/g, '&#96;');
+}
+
 const DB = {
   get(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
   set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
@@ -83,7 +100,7 @@ function addTx(tx) {
   // 自動扣款
   if (tx.pay === 'cash')  walOut(tx.amount, tx.detail || catName(tx.cat));
   if (tx.pay === 'icard' && tx.icardId) icardOut(tx.icardId, tx.amount, tx.detail || catName(tx.cat));
-  if (tx.pay === 'card'  && tx.cardId)  cardAddBill(tx.cardId, tx.amount, tx.detail || catName(tx.cat), tx.at);
+  if (tx.pay === 'card'  && tx.cardId)  cardAddBill(tx.cardId, tx.amount, tx.detail || catName(tx.cat), tx.at, tx.id);
   if (tx.pay === 'acct'  && tx.acctId) {
     const isShared = tx.acctId.startsWith('shared_');
     acctOut(isShared ? tx.acctId.replace('shared_','') : tx.acctId, tx.amount, tx.detail || catName(tx.cat), isShared);
@@ -211,7 +228,7 @@ function cardFind(id) {
   const shared = getSharedCards();
   return shared.find(c=>c.id===id) || null;
 }
-function addCard(c)   { const l=getCards(); c.id='cc_'+Date.now().toString(36); c.owner=uid(); l.push(c); DB.set(pKey('cards'),l); }
+function addCard(c)   { const l=getCards(); c.id='cc_'+Date.now().toString(36); c.owner=uid(); c._localTs=Date.now(); l.push(c); DB.set(pKey('cards'),l); }
 function editCard(id, updates) {
   const l = getCards().map(c => c.id===id ? {...c, ...updates} : c);
   DB.set(pKey('cards'), l);
@@ -227,7 +244,7 @@ function getAllAvailableCards() {
 }
 
 function getCardBills() { return DB.get(pKey('bills')) || []; }
-function cardAddBill(cardId, amount, note, at) {
+function cardAddBill(cardId, amount, note, at, txId) {
   const bills = getCardBills();
   const card  = cardFind(cardId); if (!card) return;
   const cutDay = card.cutDay || 25;
@@ -245,16 +262,35 @@ function cardAddBill(cardId, amount, note, at) {
     bills.unshift(bill);
   }
   bill.total += amount;
-  bill.items.unshift({txId: Date.now().toString(36), amount, note, at: now.toISOString()});
+  // 用交易的 tx.id 當帳單明細的 txId，刪除交易時才對得回來（沒傳則給 auto_ 前綴）
+  // 同時記錄這張卡的實際持有者 owner（共用卡可追溯帳單真正歸屬，報表可區分消費者 vs 卡主）
+  bill.items.unshift({
+    txId: txId || ('auto_'+Date.now().toString(36)),
+    amount, note, at: now.toISOString(),
+    cardOwner: card.owner || uid(),
+    spentBy: uid(),
+  });
   DB.set(pKey('bills'), bills);
 }
 function cardVoidBill(cardId, amount, txId) {
   const bills = getCardBills();
-  bills.forEach(b => {
-    if (b.cardId !== cardId) return;
+  let removed = false;
+  // 第一輪：用 txId 精準刪除
+  for (const b of bills) {
+    if (b.cardId !== cardId) continue;
+    const before = b.items.length;
     b.items = b.items.filter(i => i.txId !== txId);
-    b.total = b.items.reduce((s,i)=>s+i.amount, 0);
-  });
+    if (b.items.length < before) { b.total = b.items.reduce((s,i)=>s+i.amount, 0); removed = true; break; }
+  }
+  // 第二輪 fallback：舊帳單的 txId 是亂數對不上 → 用「金額」弱匹配刪「一筆」
+  // （優先未繳帳單，且只刪一筆，避免誤刪多筆相同金額）
+  if (!removed) {
+    for (const b of bills) {
+      if (b.cardId !== cardId || b.paid) continue;
+      const idx = b.items.findIndex(i => i.amount === amount);
+      if (idx >= 0) { b.items.splice(idx, 1); b.total = b.items.reduce((s,i)=>s+i.amount, 0); removed = true; break; }
+    }
+  }
   DB.set(pKey('bills'), bills.filter(b=>b.items.length>0||b.paid));
 }
 function cardPayBill(billId, fromType, fromId) {
@@ -284,7 +320,7 @@ function icardFind(id) {
   const shared = getSharedIcards();
   return shared.find(c=>c.id===id) || null;
 }
-function addIcard(c)   { const l=getIcards(); c.id='ic_'+Date.now().toString(36); c.balance=c.balance||0; c.history=[]; c.owner=uid(); l.push(c); DB.set(pKey('icards'),l); return c; }
+function addIcard(c)   { const l=getIcards(); c.id='ic_'+Date.now().toString(36); c.balance=c.balance||0; c.history=[]; c.owner=uid(); c._localTs=Date.now(); l.push(c); DB.set(pKey('icards'),l); return c; }
 function editIcard(id, updates) {
   const l = getIcards().map(c => c.id===id ? {...c, ...updates} : c);
   DB.set(pKey('icards'), l);
@@ -1512,11 +1548,43 @@ function delWatchItem(ticker) {
 }
 
 // ── 清除 ─────────────────────────────────────────────
+// 所有模組會用到的 localStorage key 總清單（集中管理，新增功能時請更新這裡）
+// 分成「全域共用 key」與「會加 uid 前綴的個人 key」；另有少數前綴式 key 用 pattern 清。
+const ALL_GLOBAL_KEYS = [
+  // 記帳/分類/預算
+  'tx','cats','budgets','card_budgets','hints','prefs','tx_tags','list_filter_date','shortcuts',
+  // 收入/分期/儲蓄目標
+  'incomes','income_sources','installments','savings_goals','recurring_items',
+  // 共用帳戶/卡片
+  'shared_accts','shared_cards','shared_icards','shared_card_names',
+  // 通知/webhook/金鑰
+  'discord','discord_webhook','report_webhook','chat_log_webhook','trade_webhook',
+  'claude_api_key','gemini_api_key','app_config_updated',
+  // 阿錢
+  'advisor_memory','advisor_daily','advisor_chat_session','advisor_chat_log','advisor_acked_badges','advisor_settings_snapshot','advisor_start_date',
+  // 家庭簡訊/備忘/購物
+  'chat_messages','shared_memos','orders','orders_migrated','platforms','sellers','wish_list',
+  // 徽章/花園寵物/存錢遊戲
+  'badges_unlocked','badges_personal','badges_shared','garden_data','pet_data',
+  'deposit_cups','streak_data','week_challenge',
+  // 投資/交易紀律
+  'investments','trades','paper_trades','trade_mode','trade_rules','trade_watchlist',
+  // 收件匣/請求/雜項
+  'inbox_receipts','pending_requests','kb_custom','mascot_char','card_cache_reset',
+  'fb_last_tx_count','migrate_dismissed',
+];
+// 前綴式 key（每月/每項一筆，用 startsWith 清）；'user_' 是 uid() 無 email 時的退回前綴
+const ALL_PREFIX_KEYS = ['recurring_done_', 'user_'];
+
 function clearAll() {
-  const keys = Object.keys(localStorage).filter(k =>
-    k.startsWith(uid()+'_') || ['tx','cats','budgets','hints','discord','prefs','shared_accts','tx_tags'].includes(k)
-  );
-  keys.forEach(k => localStorage.removeItem(k));
+  const u = (typeof uid === 'function') ? uid() : '';
+  Object.keys(localStorage).forEach(k => {
+    const isMine     = u && k.startsWith(u + '_');               // 個人 uid 前綴 key
+    const isGlobal   = ALL_GLOBAL_KEYS.includes(k);              // 已知全域 key
+    const isPrefixed = ALL_PREFIX_KEYS.some(p => k.startsWith(p)); // 前綴式 key
+    if (isMine || isGlobal || isPrefixed) localStorage.removeItem(k);
+  });
+  // current_email / current_uid / current_user 保留，登出流程另外處理
 }
 
 // ── 主題系統 ─────────────────────────────────────────

@@ -43,27 +43,46 @@ async function fbPullPersonal(){
     const d=await getDb().collection('personal').doc(u).get();
     if(!d.exists)return;
     const data=d.data();
+    const cloudSyncAt = data.syncAt || 0;
     // 安全護欄：雲端是「空陣列」但本地「有資料」時，不要覆蓋本地。
-    // （避免某裝置在資料還沒載入完就同步出空陣列，反過來把另一台的卡片/帳戶清空）
     const _safe = (cloudArr, localArr) => {
-      if (!Array.isArray(cloudArr)) return false;                       // 雲端沒這欄位 → 不動本地
-      if (cloudArr.length === 0 && Array.isArray(localArr) && localArr.length > 0) return false; // 空蓋非空 → 擋
+      if (!Array.isArray(cloudArr)) return false;
+      if (cloudArr.length === 0 && Array.isArray(localArr) && localArr.length > 0) return false;
       return true;
     };
-    // 用時間戳記判斷：只有雲端比本地新才覆蓋
+    // 逐筆 id 合併：兩邊都有→取較新(_localTs)；只有本地有→是新增(本地較新)就保留，
+    // 否則視為對方已刪除而捨棄。比「整包取代」更安全：只會多保住資料，不會少。
+    const _mergeById = (cloudArr, localArr) => {
+      const byId = {};
+      (Array.isArray(cloudArr)?cloudArr:[]).forEach(c => { if(c&&c.id) byId[c.id] = c; });
+      (Array.isArray(localArr)?localArr:[]).forEach(l => {
+        if(!l||!l.id) return;
+        const cur = byId[l.id];
+        if(!cur){
+          // 只有本地有：_localTs 比雲端同步時間新 → 是本地新增，保留；否則對方可能已刪 → 不保留
+          if((l._localTs||0) >= cloudSyncAt) byId[l.id] = l;
+        } else if((l._localTs||0) > (cur._localTs||0)){
+          byId[l.id] = l; // 本地較新 → 用本地
+        }
+      });
+      return Object.values(byId);
+    };
+
     const localWal=getWal();
     if(data.wal && data.wal.updatedAt > (localWal.updatedAt||0)){
       DB.set(pKey('wal'), data.wal);
     }
-    if(_safe(data.cards, getCards()))  DB.set(pKey('cards'),  data.cards);
-    // icards 加時間戳記保護：只有雲端比本地新才覆蓋，避免蓋掉剛扣款的新餘額
+    if(_safe(data.cards, getCards()))  DB.set(pKey('cards'),  _mergeById(data.cards, getCards()));
+    // icards：先沿用時間戳保護（避免蓋掉剛扣款餘額），通過才做逐筆合併
     if(data.icards){
       const localIcards = getIcards();
       const localTs = Math.max(...localIcards.map(c=>c._localTs||0), 0);
-      const cloudTs = data.syncAt || 0;
-      if(cloudTs >= localTs && _safe(data.icards, localIcards)) DB.set(pKey('icards'), data.icards);
+      if(cloudSyncAt >= localTs && _safe(data.icards, localIcards)) {
+        DB.set(pKey('icards'), _mergeById(data.icards, localIcards));
+      }
     }
-    if(_safe(data.accts, getAccts(false)))  DB.set(pKey('accts'),  data.accts);
+    if(_safe(data.accts, getAccts(false)))  DB.set(pKey('accts'),  _mergeById(data.accts, getAccts(false)));
+    // bills 結構較複雜（含 items 陣列），維持整包護欄、不做逐筆合併
     if(_safe(data.bills, (typeof getCardBills==='function'?getCardBills():[])))  DB.set(pKey('bills'),  data.bills);
   }catch(e){console.warn('[FB]pullPersonal',e);}
 }
