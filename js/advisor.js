@@ -56,6 +56,9 @@ const ADVISOR_PROFILE = {
     '・財務快照裡有「消費分析」：各分類佔比與月均、本月分類、近幾個月趨勢、兩人各自花費、近期大額支出、疑似固定/經常性支出。請務必善用這些，給「具體、扣著他們實際花費」的洞察，而不是空泛的「要節省」。',
     '・舉例：與其說「餐飲花太多」，不如說「餐飲月均約佔三成、是最大的單一支出，這個月已經到 X 元」；看到某筆大額（如註冊費、房租）要分辨是「一次性」還是「每月固定」，別把一次性支出當成常態在嚇人。',
     '・看到趨勢變化（某月暴增/下降）要先理解原因再給建議；看到固定支出（房租、療程、訂閱）可幫他們把「固定 vs 彈性」分開看，真正能省的是彈性部分。',
+    '・【重要：阿錢的「月」是週期月，不是自然月】快照的 periodMeta 裡有「本週期月」（例如 6/10～7/9）和「上個週期月」（5/10～6/9），以及剩餘天數。這是配合發薪日（每月10日）的週期，是他們在 App 首頁看到的「本月」。引用時請說「本週期（6/10～7/9）」或「這個週期」，不要說「6月」或「這個月」（那容易被誤解為自然月1日起）。剩餘天數也請直接引用 periodMeta 的數字，不要自己算。',
+    '・【重要：本週期數字不可與上期直接比大小】trend 裡本週期那筆有「本週期尚未結束」說明，不可拿它跟上個完整週期比。若要提進度，說「本週期到目前花了 X 元，距結束還有 Y 天」。',
+    '・【重要：每人花費是近3個週期月合計，不是本週期】perPerson 的說明是「近3個週期月合計，不是本週期」，不可說成「本週期某人花了多少」。本週期數字用 byCatThis（欄位名是「本週期截至今日」）。',
     '・兩人花費若差很多，用中性、不指責的方式呈現事實，幫他們一起看，而不是製造對立。',
     '・優先針對「金額大又有彈性」的地方給 1～2 個具體可行的小建議，勝過列一堆。',
     '・看「資料可信度」：若資料天數不足（不到 60～90 天），月均、儲蓄率、備用金月數等都還只是初步估算，請主動說明「資料還不多，這是初步估算」，不要言之鑿鑿地下大結論。',
@@ -351,48 +354,90 @@ function _advDataConfidence(now) {
   } catch (e) { return { days: 0, level: '無資料' }; }
 }
 
-// 深度消費分析：讓阿錢真正「看懂」錢花在哪、有什麼模式（重用 getTx，與報表同源）
+// 深度消費分析：使用「週期月」（依 getBudgetStartDay，預設每月10日起）而非自然月
 function _advSpendingAnalysis(now) {
-  const out = { byCat3m: [], byCatThis: [], trend: [], perPerson: {}, bigExpenses: [], fixedGuess: [] };
+  const out = { byCat3m: [], byCatThis: [], trend: [], perPerson: {}, bigExpenses: [], fixedGuess: [], periodMeta: {} };
   try {
     if (typeof getTx !== 'function') return out;
     const txs = getTx().filter(t => (t.amount || 0) > 0 && t.at);
     if (!txs.length) return out;
-    const ym = (d) => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0'); };
-    const nm = (id) => (typeof catName === 'function') ? catName(id) : id;
-    const start3 = new Date(now); start3.setMonth(start3.getMonth() - 3);
-    const recent = txs.filter(t => new Date(t.at) >= start3);
-    const thisYM = ym(now);
-    const recentTotal = recent.reduce((s, t) => s + t.amount, 0) || 1;
-    // 分類佔比（近 3 個月）
+    const nm  = (id) => (typeof catName === 'function') ? catName(id) : id;
+    const ym  = (d)  => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0'); };
+    const fmtD = (d) => `${d.getMonth()+1}/${d.getDate()}`;
+
+    // 週期月（使用 db.js 的 getBudgetPeriod / getBudgetStartDay）
+    const startDay  = (typeof getBudgetStartDay === 'function') ? getBudgetStartDay() : 10;
+    const getPeriod = (d) => (typeof getBudgetPeriod === 'function') ? getBudgetPeriod(d) : (() => {
+      const y = d.getFullYear(), m = d.getMonth()+1, day = d.getDate();
+      let s, e;
+      if (day >= startDay) { s = new Date(y, m-1, startDay); e = new Date(y, m, startDay-1); }
+      else                 { s = new Date(y, m-2, startDay); e = new Date(y, m-1, startDay-1); }
+      e.setHours(23,59,59,999);
+      return { start:s, end:e };
+    })();
+
+    const curPeriod  = getPeriod(now);
+    const pStart     = curPeriod.start;
+    const pEnd       = curPeriod.end;
+    const prevPeriod = getPeriod(new Date(pStart.getTime() - 86400000));
+    const start3     = new Date(pStart); start3.setMonth(start3.getMonth() - 3);
+
+    const daysLeft    = Math.ceil((pEnd.getTime() - now.getTime()) / 86400000);
+    const daysElapsed = Math.floor((now.getTime() - pStart.getTime()) / 86400000) + 1;
+    const totalDays   = Math.round((pEnd.getTime() - pStart.getTime()) / 86400000) + 1;
+
+    out.periodMeta = {
+      說明: `阿錢的「本月」是週期月（每月${startDay}日起算，配合發薪日），不是自然月。引用時說「本週期（${fmtD(pStart)}～${fmtD(pEnd)}）」，不要說「6月」或「這個月」。剩餘天數請直接引用此欄位。`,
+      本週期月: `${pStart.getFullYear()}/${fmtD(pStart)}～${pEnd.getFullYear()}/${fmtD(pEnd)}`,
+      上個週期月: `${prevPeriod.start.getFullYear()}/${fmtD(prevPeriod.start)}～${prevPeriod.end.getFullYear()}/${fmtD(prevPeriod.end)}`,
+      本週期已過天數: daysElapsed,
+      本週期剩餘天數: daysLeft,
+      週期總天數: totalDays,
+    };
+
+    const recent  = txs.filter(t => new Date(t.at) >= start3);
+    const curTxs  = txs.filter(t => { const d = new Date(t.at); return d >= pStart && d <= pEnd; });
+    const prevTxs = txs.filter(t => { const d = new Date(t.at); return d >= prevPeriod.start && d <= prevPeriod.end; });
+    const recentTotal = recent.reduce((s,t) => s+t.amount, 0) || 1;
+
+    // 分類佔比（近3個週期月月均）
     const catSum = {};
-    recent.forEach(t => { const k = t.cat || '其他'; catSum[k] = (catSum[k] || 0) + t.amount; });
-    out.byCat3m = Object.entries(catSum).sort((a, b) => b[1] - a[1]).slice(0, 8)
-      .map(([k, v]) => ({ 分類: nm(k), 月均: Math.round(v / 3), 佔比: Math.round(v / recentTotal * 100) + '%' }));
-    // 本月分類
+    recent.forEach(t => { const k=t.cat||'其他'; catSum[k]=(catSum[k]||0)+t.amount; });
+    out.byCat3m = Object.entries(catSum).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .map(([k,v]) => ({ 分類:nm(k), 月均:Math.round(v/3), 佔比:Math.round(v/recentTotal*100)+'%' }));
+
+    // 本週期月分類（截至今天）
     const thisCat = {};
-    txs.filter(t => ym(t.at) === thisYM).forEach(t => { const k = t.cat || '其他'; thisCat[k] = (thisCat[k] || 0) + t.amount; });
-    out.byCatThis = Object.entries(thisCat).sort((a, b) => b[1] - a[1]).slice(0, 6)
-      .map(([k, v]) => ({ 分類: nm(k), 本月: Math.round(v) }));
-    // 月趨勢（近 4 個月）
-    const monSum = {};
-    txs.forEach(t => { const k = ym(t.at); monSum[k] = (monSum[k] || 0) + t.amount; });
-    out.trend = Object.entries(monSum).sort().slice(-4).map(([k, v]) => ({ 月份: k, 總支出: Math.round(v) }));
-    // 每人分布（近 3 個月）
+    curTxs.forEach(t => { const k=t.cat||'其他'; thisCat[k]=(thisCat[k]||0)+t.amount; });
+    out.byCatThis = Object.entries(thisCat).sort((a,b)=>b[1]-a[1]).slice(0,6)
+      .map(([k,v]) => ({ 分類:nm(k), 本週期截至今日:Math.round(v) }));
+
+    // 趨勢：上週期（完整）vs 本週期（截至今日）
+    const curTotal  = curTxs.reduce((s,t)=>s+t.amount, 0);
+    const prevTotal = prevTxs.reduce((s,t)=>s+t.amount, 0);
+    out.trend = [
+      { 區間:out.periodMeta.上個週期月, 總支出:Math.round(prevTotal), 說明:'完整週期，可直接引用比較' },
+      { 區間:out.periodMeta.本週期月, 截至今日支出:Math.round(curTotal), 剩餘天數:daysLeft,
+        說明:`本週期尚未結束（已過${daysElapsed}天，距${fmtD(pEnd)}還有${daysLeft}天），不可直接與上期總數比大小` },
+    ];
+
+    // 每人分布（近3個週期月合計）
     const perP = {};
-    recent.forEach(t => { const p = t.person || '未分'; if (!perP[p]) perP[p] = { 金額: 0, 筆數: 0 }; perP[p].金額 += t.amount; perP[p].筆數++; });
-    Object.keys(perP).forEach(p => { perP[p].金額 = Math.round(perP[p].金額); });
+    recent.forEach(t => { const p=t.person||'未分'; if(!perP[p])perP[p]={金額:0,筆數:0}; perP[p].金額+=t.amount; perP[p].筆數++; });
+    Object.keys(perP).forEach(p => { perP[p].金額=Math.round(perP[p].金額); perP[p].說明='近3個週期月合計，不是本週期'; });
     out.perPerson = perP;
-    // 近 3 個月大額支出（前 6 筆，分辨一次性 vs 經常性）
-    out.bigExpenses = recent.slice().sort((a, b) => b.amount - a.amount).slice(0, 6)
-      .map(t => ({ 月份: ym(t.at), 分類: nm(t.cat), 明細: (t.detail || '').slice(0, 16), 金額: Math.round(t.amount) }));
-    // 疑似固定/經常性支出（同明細重複出現）
+
+    // 大額支出（近3個週期月）
+    out.bigExpenses = recent.slice().sort((a,b)=>b.amount-a.amount).slice(0,6)
+      .map(t => ({ 月份:ym(t.at), 分類:nm(t.cat), 明細:(t.detail||'').slice(0,16), 金額:Math.round(t.amount) }));
+
+    // 疑似固定/經常性支出
     const byDetail = {};
-    recent.forEach(t => { const d = (t.detail || '').trim(); if (d.length >= 2) { if (!byDetail[d]) byDetail[d] = []; byDetail[d].push(t.amount); } });
-    out.fixedGuess = Object.entries(byDetail).filter(([d, arr]) => arr.length >= 2)
-      .map(([d, arr]) => ({ 項目: d.slice(0, 14), 次數: arr.length, 合計: Math.round(arr.reduce((s, x) => s + x, 0)) }))
-      .sort((a, b) => b.合計 - a.合計).slice(0, 6);
-  } catch (e) {}
+    recent.forEach(t => { const d=(t.detail||'').trim(); if(d.length>=2){if(!byDetail[d])byDetail[d]=[];byDetail[d].push(t.amount);} });
+    out.fixedGuess = Object.entries(byDetail).filter(([d,arr])=>arr.length>=2)
+      .map(([d,arr]) => ({ 項目:d.slice(0,14), 次數:arr.length, 合計:Math.round(arr.reduce((s,x)=>s+x,0)) }))
+      .sort((a,b)=>b.合計-a.合計).slice(0,6);
+  } catch(e) {}
   return out;
 }
 
