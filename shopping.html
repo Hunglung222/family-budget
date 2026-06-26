@@ -54,7 +54,7 @@
 <header class="hdr">
   <div><h1>🛒 購物</h1><div class="hdr-sub" id="shop-sub"></div></div>
   <div style="display:flex;align-items:center;gap:8px">
-    <button id="hdr-add-btn" onclick="showAddOrder()" class="hdr-btn" style="display:none;background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;align-items:center;justify-content:center;padding:0">＋</button>
+    <button id="hdr-add-btn" type="button" class="hdr-btn" style="display:none;background:var(--p);color:#000;font-weight:900;font-size:1.2rem;width:36px;height:36px;border:none;border-radius:50%;cursor:pointer;align-items:center;justify-content:center;padding:0">＋</button>
   </div>
 </header>
 
@@ -520,6 +520,15 @@ function toggleCupLog(id) {
 }
 
 // ── 新增/編輯 ─────────────────────────────────────────
+function openOrderAddFromHeader(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (_shopTab !== 'order') switchShopTab('order');
+  showAddOrder();
+}
+
 function showAddOrder() {
   editOrderId=''; selPlatformName='';
   renderPlatformChips();
@@ -1322,6 +1331,8 @@ function wishDecide(id,decision){
 }
 
 window.addEventListener('DOMContentLoaded',()=>setTimeout(async ()=>{
+  const hdrAddBtn = document.getElementById('hdr-add-btn');
+  if (hdrAddBtn) hdrAddBtn.addEventListener('click', openOrderAddFromHeader);
   init();
   // 把自己 uid 寫到 shared/users（供合併使用）
   await registerUserUid();
