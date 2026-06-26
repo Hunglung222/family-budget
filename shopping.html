@@ -241,6 +241,27 @@
   </div>
 </div>
 
+
+<!-- 想買清單 Modal -->
+<div class="ov" id="wish-modal">
+  <div class="sheet"><div class="sh"></div>
+    <div class="st">💭 加入想買清單</div>
+    <p style="color:var(--t2);font-size:.9rem;margin-bottom:14px;line-height:1.6">加入後會有 7 天冷靜期，提醒自己延後決定、避免衝動消費。</p>
+    <div class="fg">
+      <span class="flbl">商品名稱</span>
+      <input type="text" class="fc" id="wish-name-input" placeholder="想買什麼？" maxlength="60">
+    </div>
+    <div class="fg">
+      <span class="flbl">預估金額</span>
+      <input type="number" class="fc" id="wish-amt-input" placeholder="可留空" inputmode="numeric" min="0">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-s" onclick="closeWishModal()">取消</button>
+      <button class="btn btn-p" onclick="submitWish()">加入清單</button>
+    </div>
+  </div>
+</div>
+
 <!-- 一鍵記帳 Modal -->
 <div class="ov" id="bill-modal">
   <div class="sheet"><div class="sh"></div>
@@ -613,15 +634,26 @@ function advanceStatus(id) {
   toast('狀態已更新：'+STATUS_MAP[list[idx].status].label);
 }
 
+function customConfirm(title,msg,onOk,danger=false){
+  document.getElementById('cm-title').textContent=title;
+  document.getElementById('cm-msg').textContent=msg;
+
+  const ok=document.getElementById('cm-ok');
+  ok.className=danger?'btn btn-d':'btn btn-p';
+  ok.onclick=()=>{
+    closeModal('confirm-modal');
+    onOk&&onOk();
+  };
+
+  showModal('confirm-modal');
+}
+
 function confirmDel(id) {
   const o=getOrders().find(x=>x.id===id);
-  document.getElementById('cm-title').textContent='刪除訂單';
-  document.getElementById('cm-msg').textContent=`確定刪除「${o?.name||''}」？`;
-  showModal('confirm-modal');
-  document.getElementById('cm-ok').onclick=()=>{
+  customConfirm('刪除訂單', `確定刪除「${o?.name||''}」？`, () => {
     saveOrders(getOrders().filter(x=>x.id!==id));
-    fbSyncOrders();closeModal('confirm-modal');render();toast('已刪除','err');
-  };
+    fbSyncOrders();render();toast('已刪除','err');
+  }, true);
 }
 
 // ── 一鍵記帳 ─────────────────────────────────────────
@@ -775,20 +807,20 @@ function undoBill(orderId) {
   if (idx < 0) return;
   const order = list[idx];
   if (!order.billed) return;
-  if (!confirm(`要撤銷「${order.name}」的記帳嗎？對應的記帳記錄會被刪除。`)) return;
-
-  // 刪除對應的 tx（如果有 ID 紀錄）
-  if (order.billedTxId && typeof delTx === 'function') {
-    delTx(order.billedTxId);
-    if (typeof fbDelTx === 'function') fbDelTx(order.billedTxId);
-  }
-  // 重置訂單狀態
-  order.billed = false;
-  order.billedTxId = null;
-  saveOrders(list);
-  fbSyncOrders();
-  render();
-  toast('已撤銷記帳');
+  customConfirm('撤銷已記帳', `要撤銷「${order.name}」的記帳嗎？對應的記帳記錄會被刪除。`, () => {
+    // 刪除對應的 tx（如果有 ID 紀錄）
+    if (order.billedTxId && typeof delTx === 'function') {
+      delTx(order.billedTxId);
+      if (typeof fbDelTx === 'function') fbDelTx(order.billedTxId);
+    }
+    // 重置訂單狀態
+    order.billed = false;
+    order.billedTxId = null;
+    saveOrders(list);
+    fbSyncOrders();
+    render();
+    toast('已撤銷記帳');
+  }, true);
 }
 
 // ── 到期提醒 ─────────────────────────────────────────
@@ -1002,10 +1034,11 @@ function saveCup() {
 function deleteCup(id) {
   const cup = getCups().find(c => c.id === id);
   if (!cup) return;
-  if (!confirm(`確定刪除「${cup.name}」的寄杯記錄？`)) return;
-  saveCups(getCups().filter(c => c.id !== id));
-  fbSyncCups(); renderCups();
-  toast('已刪除', 'err');
+  customConfirm('刪除寄杯', `確定刪除「${cup.name}」的寄杯記錄？`, () => {
+    saveCups(getCups().filter(c => c.id !== id));
+    fbSyncCups(); renderCups();
+    toast('已刪除', 'err');
+  }, true);
 }
 
 // ── Firebase 同步 ─────────────────────────────────────
@@ -1133,20 +1166,22 @@ function addSeller() {
 
 function delSeller(e, name) {
   e.preventDefault();
-  if (!confirm(`刪除賣家「${name}」？`)) return;
-  saveSellers(getSellers().filter(s => s !== name));
-  if (selSellerName === name) selSellerName = '';
-  renderSellerChips(selSellerName);
-  toast('已刪除', 'err');
-}
-
-function startSellerLongPress(name, el) {
-  _sellerLongPressTimer = setTimeout(() => {
-    if (!confirm(`刪除賣家「${name}」？`)) return;
+  customConfirm('刪除賣家', `刪除賣家「${name}」？`, () => {
     saveSellers(getSellers().filter(s => s !== name));
     if (selSellerName === name) selSellerName = '';
     renderSellerChips(selSellerName);
     toast('已刪除', 'err');
+  }, true);
+}
+
+function startSellerLongPress(name, el) {
+  _sellerLongPressTimer = setTimeout(() => {
+    customConfirm('刪除賣家', `刪除賣家「${name}」？`, () => {
+      saveSellers(getSellers().filter(s => s !== name));
+      if (selSellerName === name) selSellerName = '';
+      renderSellerChips(selSellerName);
+      toast('已刪除', 'err');
+    }, true);
   }, 700);
 }
 function cancelSellerLongPress() { clearTimeout(_sellerLongPressTimer); }
@@ -1197,11 +1232,12 @@ function addPlatform() {
 function delPlatform(e, name) {
   e.preventDefault();
   if(getUsedPlatforms().has(name)){ toast(`「${name}」有訂單記錄，無法刪除`,'warn'); return; }
-  if(!confirm(`確定刪除平台「${name}」？`)){ return; }
-  savePlatforms(getPlatforms().filter(p=>p!==name));
-  fbSyncPlatforms();
-  renderPlatformChips();
-  toast(`已刪除「${name}」`);
+  customConfirm('刪除平台', `確定刪除平台「${name}」？`, () => {
+    savePlatforms(getPlatforms().filter(p=>p!==name));
+    fbSyncPlatforms();
+    renderPlatformChips();
+    toast(`已刪除「${name}」`);
+  }, true);
 }
 let _lpTimer=null;
 function startLongPress(name, el) {
@@ -1272,13 +1308,34 @@ async function migrateOrdersToShared(){
 function getWishList(){try{return JSON.parse(localStorage.getItem('wish_list')||'[]');}catch{return[];}}
 function saveWishList(l){localStorage.setItem('wish_list',JSON.stringify(l));}
 function openAddWish(){
-  const name=prompt('想買什麼？（商品名稱）');
-  if(!name||!name.trim())return;
-  const amtStr=prompt(`「${name.trim()}」大約多少錢？（可留空）`);
-  const amt=parseInt(amtStr)||0;
+  document.getElementById('wish-name-input').value='';
+  document.getElementById('wish-amt-input').value='';
+  showModal('wish-modal');
+  setTimeout(()=>document.getElementById('wish-name-input')?.focus(),80);
+}
+function closeWishModal(){
+  closeModal('wish-modal');
+}
+function submitWish(){
+  const name=document.getElementById('wish-name-input').value.trim();
+  if(!name){
+    toast('請輸入商品名稱','warn');
+    return;
+  }
+
+  const amt=parseInt(document.getElementById('wish-amt-input').value)||0;
   const list=getWishList();
-  list.unshift({id:'w_'+Date.now(),name:name.trim(),amt,addedAt:new Date().toISOString(),done:false});
-  saveWishList(list); renderWishList();
+  list.unshift({
+    id:'w_'+Date.now(),
+    name,
+    amt,
+    addedAt:new Date().toISOString(),
+    done:false
+  });
+
+  saveWishList(list);
+  closeWishModal();
+  renderWishList();
   toast('💭 已加入想買清單，7天後會提醒你');
 }
 function renderWishList(){
@@ -1322,11 +1379,11 @@ function wishDecide(id,decision){
     saveWishList(list); renderWishList();
     toast('✅ 已放棄購買，省下一筆衝動消費！');
   } else {
-    if(confirm(`決定購買「${item.name}」${item.amt?'（$'+(typeof fmt==='function'?fmt(item.amt):item.amt)+'）':''}？
-點確認後從清單移除。`)){
+    customConfirm('確認購買', `決定購買「${item.name}」${item.amt?'（$'+(typeof fmt==='function'?fmt(item.amt):item.amt)+'）':''}？
+點確認後從清單移除。`, () => {
       saveWishList(list.filter(w=>w.id!==id)); renderWishList();
       toast('🛒 已確認購買，記得到記帳頁記錄！');
-    }
+    });
   }
 }
 
