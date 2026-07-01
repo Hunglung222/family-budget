@@ -617,17 +617,12 @@ async function callClaude(text) {
     return `${c.id}(${c.name}${subStr})`;
   }).join(', ');
   const today = new Date();
-  // 用台灣本地日期（避免 UTC 時區導致今天/昨天偏移一天）
-  const _localDate = (d) => {
-    const offset = d.getTimezoneOffset() * -1; // 台灣是 +480
-    const local = new Date(d.getTime() + offset * 60000);
-    return local.toISOString().slice(0, 10);
-  };
-  const todayStr = _localDate(today);
+  // 用全域 toLocalISO 取得本地日期（避免 UTC 時區導致今天/昨天偏移一天）
+  const todayStr = toLocalISO(today);
   const yestD = new Date(today); yestD.setDate(today.getDate()-1);
-  const yestStr  = _localDate(yestD);
+  const yestStr  = toLocalISO(yestD);
   const tomD  = new Date(today); tomD.setDate(today.getDate()+1);
-  const tomStr   = _localDate(tomD);
+  const tomStr   = toLocalISO(tomD);
 
   const cardList  = getAllAvailableCards().map(cd=>`${cd.id}:${cd.name}(${cd.last4||''})[${cd._owner||'我'}]`).join(',') || '無';
   const icardList = getAllAvailableIcards().map(ic=>`${ic.id}:${ic.name}[${ic._owner||'我'}]`).join(',') || '無';
