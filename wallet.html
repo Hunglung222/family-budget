@@ -1340,16 +1340,16 @@ function renderIcards(){
   }
 }
 
-// 從 history 時序重播計算「應有餘額」（與真實扣款邏輯一致：topup/in 加、out 減、不為負）
-// 注意：新增卡片時直接填的「初始餘額」不會記進 history，所以靠加值的卡可完全還原，
-// 有填初始餘額的卡會少掉那一筆，需手動補。
+// 從 history 時序重播計算「應有餘額」：set 會重置為絕對餘額，topup/in 加、out 減且不為負。
+// 新增卡片的初始餘額會寫入 set 紀錄；歷史過長時也會以 set 檢查點彙整。
 function _icardBalanceFromHistory(card){
   const h = Array.isArray(card.history) ? card.history.slice() : [];
   h.reverse(); // history 新到舊 → 反轉成由舊到新依序重播
   let bal = 0;
   h.forEach(e=>{
     const amt = Number(e.amount)||0;
-    if(e.type==='topup' || e.type==='in') bal += amt;
+    if(e.type==='set') bal = amt;
+    else if(e.type==='topup' || e.type==='in') bal += amt;
     else if(e.type==='out') bal = Math.max(0, bal - amt);
   });
   return bal;
@@ -1363,14 +1363,11 @@ function recoverIcardBalances(){
   if(!changed.length){ toast('目前餘額和交易紀錄一致，無需回復 ✅','info'); return; }
   const lines = changed.map(p=>`・${p.name}：$${fmt(p.old)} → $${fmt(p.neo)}${p.hasHist?'':'（無紀錄）'}`).join('\n');
   let msg = '依照每張卡的交易紀錄（加值・儲值・消費）重新計算餘額：\n\n' + lines + '\n\n';
-  msg += '說明：靠「加值」的卡可完整還原；若你當初在「新增卡片」時直接填了初始餘額，這裡會少掉那一筆，套用後再手動補上即可。\n\n要套用嗎？';
+  msg += '說明：系統會依 set 檢查點與每筆加值／儲值／消費重建餘額，並新增一筆校正紀錄。\n\n要套用嗎？';
   if(!confirm(msg)) return;
-  const list = getIcards();
   changed.forEach(p=>{
-    const idx = list.findIndex(c=>c.id===p.id);
-    if(idx>=0){ list[idx].balance = p.neo; list[idx]._localTs = Date.now(); }
+    icardSetBalance(p.id, p.neo, '依交易紀錄回復餘額');
   });
-  DB.set(pKey('icards'), list);
   if(typeof fbSyncPersonal==='function') fbSyncPersonal();
   if(typeof fbSyncSharedCardList==='function') fbSyncSharedCardList();
   renderIcards(); renderOverview();

@@ -279,8 +279,7 @@ async function fbSyncAppConfig(){
     const discordCfg = getDiscord();
     const tradeWebhook  = localStorage.getItem('trade_webhook')  || '';
     const reportWebhook = localStorage.getItem('report_webhook') || '';
-    if(webhook||geminiKey||claudeKey||tradeWebhook||reportWebhook){
-      await getDb().collection('shared').doc('app_config').set({
+    await getDb().collection('shared').doc('app_config').set({
         discordWebhook: webhook,
         reportWebhook:  reportWebhook,
         tradeWebhook:   tradeWebhook,
@@ -292,10 +291,12 @@ async function fbSyncAppConfig(){
         onWeekly:    discordCfg.onWeekly    === true,
         onMonthly:   discordCfg.onMonthly   === true,   // 補上：月結算開關
         monthlyDay:  discordCfg.monthlyDay  || 11,      // 補上：月結算發送日
+        budgetStartDay: (typeof getBudgetStartDay === 'function' ? getBudgetStartDay() : 10),
+        advisorHour: discordCfg.advisorHour || 9,
+        onAdvisorDaily: discordCfg.onAdvisorDaily !== false,
         updatedAt: Date.now(),
         updatedBy: localStorage.getItem('current_user')||'',
-      });
-    }
+      }, {merge:true});
   }catch(e){console.warn('[FB]appConfig',e);}
 }
 

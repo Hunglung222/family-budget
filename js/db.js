@@ -230,7 +230,8 @@ function cardFind(id) {
 }
 function addCard(c)   { const l=getCards(); c.id='cc_'+Date.now().toString(36); c.owner=uid(); c._localTs=Date.now(); l.push(c); DB.set(pKey('cards'),l); }
 function editCard(id, updates) {
-  const l = getCards().map(c => c.id===id ? {...c, ...updates} : c);
+  const now = Date.now();
+  const l = getCards().map(c => c.id===id ? {...c, ...updates, _localTs: now} : c);
   DB.set(pKey('cards'), l);
 }
 function delCard(id)  { DB.set(pKey('cards'), getCards().filter(c=>c.id!==id)); }
@@ -320,10 +321,47 @@ function icardFind(id) {
   const shared = getSharedIcards();
   return shared.find(c=>c.id===id) || null;
 }
-function addIcard(c)   { const l=getIcards(); c.id='ic_'+Date.now().toString(36); c.balance=c.balance||0; c.history=[]; c.owner=uid(); c._localTs=Date.now(); l.push(c); DB.set(pKey('icards'),l); return c; }
+const ICARD_HISTORY_LIMIT = 200;
+function _trimIcardHistory(card) {
+  if (!card || !Array.isArray(card.history) || card.history.length <= ICARD_HISTORY_LIMIT) return;
+  // history 是新到舊；保留最近紀錄，並在尾端放一筆舊資料彙整後的 set 檢查點，
+  // 讓回復餘額仍可從檢查點往後完整重建。
+  const keepRecent = card.history.slice(0, ICARD_HISTORY_LIMIT - 1);
+  const older = card.history.slice(ICARD_HISTORY_LIMIT - 1).reverse();
+  let bal = 0;
+  older.forEach(e => {
+    const amt = Number(e.amount) || 0;
+    if (e.type === 'set') bal = amt;
+    else if (e.type === 'topup' || e.type === 'in') bal += amt;
+    else if (e.type === 'out') bal = Math.max(0, bal - amt);
+  });
+  keepRecent.push({type:'set', amount:bal, note:'歷史彙整', time:new Date().toISOString()});
+  card.history = keepRecent;
+}
+function addIcard(c)   {
+  const l=getIcards();
+  c.id='ic_'+Date.now().toString(36);
+  c.balance=Number(c.balance)||0;
+  c.history=[];
+  if(c.balance>0) c.history.unshift({type:'set', amount:c.balance, note:'初始餘額', time:new Date().toISOString()});
+  c.owner=uid(); c._localTs=Date.now();
+  l.push(c); DB.set(pKey('icards'),l); return c;
+}
 function editIcard(id, updates) {
-  const l = getIcards().map(c => c.id===id ? {...c, ...updates} : c);
+  const now = Date.now();
+  const l = getIcards().map(c => c.id===id ? {...c, ...updates, _localTs: now} : c);
   DB.set(pKey('icards'), l);
+}
+function icardSetBalance(id, amount, note) {
+  const list=getIcards(), idx=list.findIndex(c=>c.id===id); if(idx<0)return null;
+  const n = Math.max(0, Number(amount)||0);
+  list[idx].balance=n;
+  list[idx].history=list[idx].history||[];
+  list[idx].history.unshift({type:'set',amount:n,note:note||'手動校正',time:new Date().toISOString()});
+  list[idx]._localTs=Date.now();
+  _trimIcardHistory(list[idx]);
+  DB.set(pKey('icards'),list);
+  return list[idx];
 }
 function delIcard(id)  { DB.set(pKey('icards'), getIcards().filter(c=>c.id!==id)); }
 
@@ -339,6 +377,8 @@ function icardTopup(id, amount, payMethod, payId, note) {
   list[idx].balance=(list[idx].balance||0)+amount;
   list[idx].history=list[idx].history||[];
   list[idx].history.unshift({type:'topup',amount,payMethod,payId,note,time:new Date().toISOString()});
+  list[idx]._localTs=Date.now();
+  _trimIcardHistory(list[idx]);
   DB.set(pKey('icards'),list);
   if(payMethod==='cash') walOut(amount, list[idx].name+' 加值');
   if(payMethod==='card' && payId) cardAddBill(payId, amount, list[idx].name+' 加值');
@@ -350,6 +390,7 @@ function icardOut(id,amount,note){
   list[idx].history=list[idx].history||[];
   list[idx].history.unshift({type:'out',amount,note,time:new Date().toISOString()});
   list[idx]._localTs=Date.now();
+  _trimIcardHistory(list[idx]);
   DB.set(pKey('icards'),list);
 }
 function icardIn(id,amount,note){
@@ -358,6 +399,7 @@ function icardIn(id,amount,note){
   list[idx].history=list[idx].history||[];
   list[idx].history.unshift({type:'in',amount,note,time:new Date().toISOString()});
   list[idx]._localTs=Date.now();
+  _trimIcardHistory(list[idx]);
   DB.set(pKey('icards'),list);
 }
 
@@ -876,7 +918,7 @@ function detectSubscriptions() {
       avgAmt,
       count:     txs.length,
       yearCost:  avgAmt * 12,
-      lastAt:    lastAt.toISOString().slice(0, 10),
+      lastAt:    toLocalISO(lastAt),
       matchPairs,
     });
   }
