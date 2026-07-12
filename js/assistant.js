@@ -655,49 +655,9 @@ C. detail（明細）：從輸入文字提取具體消費內容，可以比 subC
 回答語言：台灣繁體中文，嚴禁簡體字。查詢/分析用你的個性回答，可用 emoji 和換行讓格式好看。`;
 }
 
-// ── 呼叫 Claude API（帶自動重試，處理暫時性錯誤 529/500-503）─────
-// Anthropic 在過載時會回 529，重試通常就能成功
-async function fetchClaudeAPI(key, payload, maxRetries = 2) {
-  let lastErr = null;
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true'
-        },
-        body: JSON.stringify(payload)
-      });
-
-      // 成功或不需重試的錯誤（401/403）→ 直接回傳
-      if (res.ok || res.status === 401 || res.status === 403 || res.status === 400) {
-        return res;
-      }
-
-      // 429 / 500 / 502 / 503 / 529 → 重試（指數退避 1.5s / 4s）
-      if ([429, 500, 502, 503, 529].includes(res.status) && attempt < maxRetries) {
-        const waitMs = 1500 * Math.pow(2.5, attempt);
-        console.warn(`[AI助理] HTTP ${res.status}，${waitMs/1000}s 後第 ${attempt+1} 次重試`);
-        await new Promise(r => setTimeout(r, waitMs));
-        continue;
-      }
-
-      return res;  // 已重試完仍失敗，回傳給上層處理
-    } catch (e) {
-      // 網路錯誤也重試
-      lastErr = e;
-      if (attempt < maxRetries) {
-        await new Promise(r => setTimeout(r, 1500 * Math.pow(2.5, attempt)));
-        continue;
-      }
-      throw lastErr;
-    }
-  }
-  throw lastErr || new Error('Unexpected fetch failure');
-}
+// ── 呼叫 Claude API ─────────────────────────────────────
+// v14.1：fetchClaudeAPI 已移至 js/claude.js 統一管理（行為不變，仍回傳原生 Response 物件），
+// 這裡不再重複定義，避免多處各自維護重試邏輯。js/claude.js 需在本檔案之前載入。
 
 async function callClaude(userMsg) {
   const key = getKey();
@@ -954,16 +914,8 @@ window._assistantConfirm = function() {
 這筆消費：${catLabel} ${txObj.detail?'「'+txObj.detail+'」':''} $${txObj.amount}
 用你的個性說一句話（15~25字），加emoji，只回傳那句話。
 【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
-        const res = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-          body: JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 80, messages: [{ role: 'user', content: prompt }] })
-        });
-        if (res.ok) {
-          const d = await res.json();
-          const t = (d.content?.[0]?.text || '').trim();
-          if (t) comment = t;
-        }
+        const r = await aiComplete({ model: 'haiku', maxTokens: 80, messages: [{ role: 'user', content: prompt }], apiKey: key, maxRetries: 0 });
+        if (r.ok && r.text) comment = r.text;
       } catch(e) { console.warn('[assistant] 評語生成失敗:', e.message); }
     }
     // 用吉祥物泡泡顯示角色評語（完全複用 add.html 機制）

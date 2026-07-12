@@ -62,6 +62,7 @@ const ADVISOR_PROFILE = {
     '・兩人花費若差很多，用中性、不指責的方式呈現事實，幫他們一起看，而不是製造對立。',
     '・優先針對「金額大又有彈性」的地方給 1～2 個具體可行的小建議，勝過列一堆。',
     '・看「資料可信度」：若資料天數不足（不到 60～90 天），月均、儲蓄率、備用金月數等都還只是初步估算，請主動說明「資料還不多，這是初步估算」，不要言之鑿鑿地下大結論。',
+    '・【重要：異常觀察的語氣】財務快照裡的「異常觀察」是系統規則偵測出的消費變化（單筆大額、某分類花得比平常快、同商家短期高頻），不是警報也不是質問。若要提起，用「我留意到…」「順口問一下…」這種自然關心的口吻帶出來，順便給機會讓對方解釋（可能是一次性採買、聚餐分攤等合理原因），不要用「異常」「超支」這種指控性字眼，也不要每次對話都硬要提起——只有在真的自然、有幫助時才講。',
   ].join('\n'),
 };
 
@@ -355,6 +356,113 @@ function _advDataConfidence(now) {
 }
 
 // 深度消費分析：使用「週期月」（依 getBudgetStartDay，預設每月10日起）而非自然月
+// ── 異常消費偵測（v14.1 新增，E1）───────────────────────
+// 規則制偵測（不用統計模型，兩人資料量不需要、也避免過度複雜）：
+//   a) 單筆金額 > 該分類近 90 天平均單筆的 3 倍，且 > $1,000（避免小額分類被誤判）
+//   b) 某分類本週期累計「同時點進度」已超過近 3 期同時點平均的 1.5 倍
+//   c) 同商家（detail 完全比對）7 天內出現 3 次以上
+// 結果併入 advisor_snapshot，供每日一句話與深聊自然引用；語氣由 system prompt 控制為「關心不是質問」。
+function _advDetectAnomalies(now) {
+  const out = [];
+  try {
+    if (typeof getTx !== 'function') return out;
+    const txs = getTx().filter(t => (t.amount || 0) > 0 && t.at);
+    if (!txs.length) return out;
+    const nm = (id) => (typeof catName === 'function') ? catName(id) : id;
+
+    const d90 = new Date(now.getTime() - 90 * 86400000);
+    const d7  = new Date(now.getTime() - 7 * 86400000);
+    const recent90 = txs.filter(t => new Date(t.at) >= d90);
+
+    // a) 單筆異常大額（依分類近90天平均單筆）
+    const catAgg = {}; // cat -> {sum, count}
+    recent90.forEach(t => {
+      const k = t.cat || 'other';
+      if (!catAgg[k]) catAgg[k] = { sum: 0, count: 0 };
+      catAgg[k].sum += t.amount; catAgg[k].count++;
+    });
+    const last14 = txs.filter(t => new Date(t.at) >= new Date(now.getTime() - 14 * 86400000));
+    last14.forEach(t => {
+      const k = t.cat || 'other';
+      const agg = catAgg[k];
+      // 用「排除這一筆之外」的平均當基準，避免大額把自己的基準拉高導致倍數被低估。
+      // 需扣掉自身後仍有 >= 2 筆樣本才判斷（否則基準不穩）。
+      if (!agg || agg.count < 3) return;
+      const restSum = agg.sum - t.amount, restCount = agg.count - 1;
+      if (restCount < 2) return;
+      const avg = restSum / restCount;
+      if (avg > 0 && t.amount > avg * 3 && t.amount > 1000) {
+        out.push({
+          類型: '單筆異常大額',
+          描述: `${nm(t.cat)}單筆 $${Math.round(t.amount)}，是近90天同類其他消費平均（$${Math.round(avg)}）的 ${(t.amount/avg).toFixed(1)} 倍`,
+          日期: (typeof toLocalISO === 'function') ? toLocalISO(t.at) : String(t.at).slice(0,10),
+          金額: Math.round(t.amount),
+        });
+      }
+    });
+
+    // b) 分類本週期同時點進度異常（跟近3期比）
+    if (typeof getBudgetPeriod === 'function') {
+      const curPeriod = getBudgetPeriod(now);
+      const daysElapsed = Math.floor((now.getTime() - curPeriod.start.getTime()) / 86400000) + 1;
+      const catCur = {};
+      txs.filter(t => { const d = new Date(t.at); return d >= curPeriod.start && d <= now; })
+        .forEach(t => { const k = t.cat || 'other'; catCur[k] = (catCur[k]||0) + t.amount; });
+
+      // 近3個週期月「同樣經過天數」時點的分類金額，取平均
+      const catPastAtSameDay = {}; // cat -> [sum1, sum2, sum3]
+      for (let i = 1; i <= 3; i++) {
+        const pStart = new Date(curPeriod.start); pStart.setMonth(pStart.getMonth() - i);
+        const pCutoff = new Date(pStart.getTime() + (daysElapsed - 1) * 86400000);
+        const periodTxs = txs.filter(t => { const d = new Date(t.at); return d >= pStart && d <= pCutoff; });
+        const sums = {};
+        periodTxs.forEach(t => { const k = t.cat || 'other'; sums[k] = (sums[k]||0) + t.amount; });
+        Object.keys(sums).forEach(k => {
+          if (!catPastAtSameDay[k]) catPastAtSameDay[k] = [];
+          catPastAtSameDay[k].push(sums[k]);
+        });
+      }
+      Object.keys(catCur).forEach(k => {
+        const pastArr = catPastAtSameDay[k] || [];
+        if (pastArr.length < 2) return; // 資料不足兩期，不判斷（避免用一期雜訊當基準）
+        const pastAvg = pastArr.reduce((s,v)=>s+v,0) / pastArr.length;
+        if (pastAvg > 200 && catCur[k] > pastAvg * 1.5) {
+          out.push({
+            類型: '分類進度超前',
+            描述: `${nm(k)}本週期第${daysElapsed}天已花 $${Math.round(catCur[k])}，是近期同時點平均（$${Math.round(pastAvg)}）的 ${(catCur[k]/pastAvg).toFixed(1)} 倍`,
+            金額: Math.round(catCur[k]),
+          });
+        }
+      });
+    }
+
+    // c) 同商家短期高頻
+    // 用 detail 當「商家」判斷有先天限制（detail 常是通用詞如「午餐」「飲料」），故加兩道過濾：
+    //   1) 排除常見通用詞（這些高頻是正常記帳習慣，不是異常）
+    //   2) 合計金額要達門檻（$2000）才報，濾掉日常小額
+    const GENERIC_DETAILS = ['早餐','午餐','晚餐','宵夜','飲料','咖啡','午餐錢','晚餐錢','三餐','點心','下午茶','加油','停車','停車費','車資','捷運','公車','水','礦泉水'];
+    const byDetail7 = {};
+    txs.filter(t => new Date(t.at) >= d7 && (t.detail||'').trim().length >= 2).forEach(t => {
+      const k = t.detail.trim();
+      if (GENERIC_DETAILS.includes(k)) return; // 通用詞不算「同商家」
+      if (!byDetail7[k]) byDetail7[k] = [];
+      byDetail7[k].push(t.amount);
+    });
+    Object.entries(byDetail7).forEach(([k, arr]) => {
+      const sum = arr.reduce((s,v)=>s+v,0);
+      if (arr.length >= 3 && sum >= 2000) {  // 次數＋金額雙門檻
+        out.push({
+          類型: '同商家高頻消費',
+          描述: `「${k}」近7天內消費了 ${arr.length} 次，合計 $${Math.round(sum)}`,
+          金額: Math.round(sum),
+        });
+      }
+    });
+  } catch(e) { console.warn('[advisor] detectAnomalies error', e); }
+  // 最多回傳 3 條，避免一次丟太多異常訊息給 AI／使用者
+  return out.slice(0, 3);
+}
+
 function _advSpendingAnalysis(now) {
   const out = { byCat3m: [], byCatThis: [], trend: [], perPerson: {}, bigExpenses: [], fixedGuess: [], periodMeta: {} };
   try {
@@ -514,6 +622,7 @@ function buildAdvisorSnapshot() {
       目標: g.title || g.name || '',
       進度: (g.target > 0) ? Math.min(100, Math.round((g.current || 0) / g.target * 100)) + '%' : '未設目標',
     })),
+    異常觀察: _advDetectAnomalies(now),
     // 內部用（判定階段，不丟給 AI 看，避免它重算）
     _raw: { avgInc, avgExp, pendingBills, instRem, efMonths, invCur },
   };
@@ -604,7 +713,8 @@ ${JSON.stringify(snapForAI, null, 2)}
 ${modeHint}`;
 }
 
-// ── 呼叫 Claude（沿用 assistant.js 的瀏覽器直連方式）────────
+// ── 呼叫 Claude（v14.1：內部改用 js/claude.js 的統一入口 aiComplete，
+//    簽章與回傳格式維持不變，呼叫端完全不用改；額外獲得自動重試能力，原本沒有）────
 async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
   const key = (typeof getKey === 'function') ? getKey() : (localStorage.getItem('claude_api_key') || '');
   if (!key) return { ok: false, error: 'NO_KEY', text: '還沒設定 Claude API Key，請到「設定 → API 設定」填入，阿錢才能開口說話。' };
@@ -612,33 +722,24 @@ async function _advCallClaude(systemPrompt, messages, maxTokens, forceSonnet) {
   // 深聊用 Sonnet（若使用者開啟），每日建議用 Haiku 省 token；
   // 有附件（圖片/PDF）時強制用 Sonnet，文件理解較佳
   const useSonnet = forceSonnet || (typeof getSonnetMode === 'function' && getSonnetMode());
-  const model = useSonnet ? 'claude-sonnet-4-6' : 'claude-haiku-4-5';
-  // 防禦性清洗：送給 API 的每則訊息只能有 {role, content}，
-  // 任何多餘欄位（如對話歷史的 ts）都會讓 API 報 "Extra inputs are not permitted"
-  const cleanMessages = (Array.isArray(messages) ? messages : []).map(m => ({ role: m.role, content: m.content }));
-  try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: maxTokens || 1024,
-        system: systemPrompt,
-        messages: cleanMessages,
-      }),
-    });
-    const data = await res.json();
-    if (data.error) return { ok: false, error: data.error.type || 'API_ERROR', text: '阿錢暫時無法回應：' + (data.error.message || '') };
-    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    return { ok: true, text, model };
-  } catch (e) {
-    return { ok: false, error: 'NETWORK', text: '連線出了點問題，等一下再試試。' };
+  const model = useSonnet ? 'sonnet' : 'haiku';
+
+  const r = await aiComplete({
+    model,
+    system: systemPrompt,
+    messages,
+    maxTokens: maxTokens || 1024,
+    apiKey: key,
+  });
+
+  if (!r.ok) {
+    // 保留原本的錯誤訊息語氣（阿錢人設），aiComplete 只回傳技術性 error 字串
+    const friendly = r.error === 'NO_KEY'
+      ? '還沒設定 Claude API Key，請到「設定 → API 設定」填入，阿錢才能開口說話。'
+      : (r.error === 'NETWORK_ERROR' ? '連線出了點問題，等一下再試試。' : '阿錢暫時無法回應：' + (r.error || ''));
+    return { ok: false, error: r.error, text: friendly };
   }
+  return { ok: true, text: r.text, model: r.model };
 }
 
 // 深聊：history 為 [{role, content}]；attachments 為 [{kind,name,mediaType,data|text}]

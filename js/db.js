@@ -23,10 +23,27 @@ function escapeAttr(s) {
   return escapeHTML(s).replace(/`/g, '&#96;');
 }
 
+// v14.1（#10）：DB 層對 'tx' 做針對性記憶體快取。
+// 背景：getTx() 全案數十處呼叫，每次 DB.get 都 JSON.parse 整包交易，資料量大時每次 render 都重複解析、成本線性上升。
+// 只快取 tx（不快取其他 key）——因為已確認所有 tx 寫入都走 DB.set('tx',...)，快取能保證一致；
+// 其他 key 有不少地方直接 localStorage.setItem 繞過 DB，若一律快取反而會讀到過期資料。
+let _txCache = { raw: null, parsed: null };
 const DB = {
-  get(k)    { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
-  set(k, v) { localStorage.setItem(k, JSON.stringify(v)); },
-  del(k)    { localStorage.removeItem(k); },
+  get(k)    {
+    if (k === 'tx') {
+      const raw = localStorage.getItem('tx');
+      if (raw === _txCache.raw && _txCache.parsed !== null) return _txCache.parsed; // 命中快取
+      try { _txCache = { raw, parsed: JSON.parse(raw) }; return _txCache.parsed; }
+      catch { _txCache = { raw: null, parsed: null }; return null; }
+    }
+    try { return JSON.parse(localStorage.getItem(k)); } catch { return null; }
+  },
+  set(k, v) {
+    const str = JSON.stringify(v);
+    localStorage.setItem(k, str);
+    if (k === 'tx') _txCache = { raw: str, parsed: v }; // 寫入同步更新快取
+  },
+  del(k)    { localStorage.removeItem(k); if (k === 'tx') _txCache = { raw: null, parsed: null }; },
 };
 
 // 取得目前登入者 uid
@@ -95,6 +112,11 @@ function addTx(tx) {
   tx.id  = Date.now().toString(36) + Math.random().toString(36).slice(2,5);
   tx.at  = tx.at || new Date().toISOString();
   tx.uid = uid();
+  // v14.1：寫入時間戳（與 at 消費時間分開，因為 at 可能被填成過去日期，不能拿來判斷「是不是新寫入」）。
+  //   createdAt：建立時間，供 Firestore 增量查詢抓「新增」。
+  //   updatedAt：每次寫入/編輯都更新，供偵測「編輯」（見 touchTx）。
+  tx.createdAt = Date.now();
+  tx.updatedAt = Date.now();
   if (!tx.tags) tx.tags = [];
   list.unshift(tx); DB.set('tx', list);
   // 自動扣款
@@ -121,6 +143,16 @@ function delTx(id) {
       acctIn(isShared ? tx.acctId.replace('shared_','') : tx.acctId, tx.amount, '刪除還原', isShared);
     }
   }
+}
+// v14.1：編輯交易後呼叫，更新 updatedAt，讓其他裝置的增量同步（where updatedAt > lastPull）能抓到這筆編輯。
+// 回傳更新後的 tx 物件，方便呼叫端拿去 fbAddTx 同步。
+function touchTx(id) {
+  const list = getTx();
+  const idx = list.findIndex(t => t.id === id);
+  if (idx < 0) return null;
+  list[idx].updatedAt = Date.now();
+  DB.set('tx', list);
+  return list[idx];
 }
 function txByMonth(y, m) {
   return getTx().filter(t => { const d=new Date(t.at); return d.getFullYear()===y && d.getMonth()+1===m; });
@@ -194,8 +226,33 @@ function editShortcut(id, updates) {
 function getWal() {
   return DB.get(pKey('wal')) || {balance:0, history:[], updatedAt:0};
 }
+const WAL_HISTORY_LIMIT = 300;
+// v14.1（#10）：錢包 history 原本無上限，每筆現金收支都 unshift 永久累積，長期會膨脹拖慢解析。
+// 在統一寫入點 _saveWal 加 trim：保留最近紀錄，把更舊的折疊成一筆檢查點（記錄折疊當下的累計餘額變化）。
+// 錢包 history 只有 in/out 兩型，折疊後補一筆 note 標記，不影響 balance（balance 另存於 w.balance）。
+function _trimWalHistory(w) {
+  if (!w || !Array.isArray(w.history) || w.history.length <= WAL_HISTORY_LIMIT) return;
+  const keepRecent = w.history.slice(0, WAL_HISTORY_LIMIT - 1);
+  const older = w.history.slice(WAL_HISTORY_LIMIT - 1);
+  let net = 0;
+  older.forEach(e => {
+    const amt = Number(e.amount) || 0;
+    if (e.type === 'in') net += amt;
+    else if (e.type === 'out') net -= amt;
+  });
+  const oldestTime = older.length ? older[older.length - 1].time : new Date().toISOString();
+  keepRecent.push({
+    type: net >= 0 ? 'in' : 'out',
+    amount: Math.abs(net),
+    note: `歷史彙整（${older.length} 筆）`,
+    time: oldestTime,
+    _archived: true,
+  });
+  w.history = keepRecent;
+}
 function _saveWal(w) {
   w.updatedAt = Date.now();
+  _trimWalHistory(w);
   DB.set(pKey('wal'), w);
 }
 function walIn(n, note) {
@@ -1250,6 +1307,46 @@ function calcNetWorth() {
   return { wal, icTotal, acTotal, shTotal, pendingBills, investTotal, instDebt, total };
 }
 
+// ── 淨值歷史追蹤（v14.0 新增）──────────────────────────
+// 個人快照：pKey('networth_history')，本地陣列，新到舊；每個週期月最多存一筆（發薪日當天），
+// 也允許手動補拍（會覆蓋當期已有的那筆，避免同一期重複堆疊）。
+// 家庭合併淨值＝兩人快照相加，由 firebase.js 的 fbSyncNetWorthSnapshot/fbPullNetWorthHistory 負責跨裝置同步。
+const NETWORTH_HISTORY_LIMIT = 104; // 約 4 年份（每週期月一筆）
+function getNetWorthHistory() {
+  return DB.get(pKey('networth_history')) || [];
+}
+// periodKey：用週期起始日字串（YYYY-MM-DD）當作該期的唯一鍵，同一期重覆拍照會取代舊的那筆
+function _networthPeriodKey(now) {
+  const { start } = getBudgetPeriod(now || new Date());
+  return toLocalISO(start);
+}
+function saveNetWorthSnapshot(manual) {
+  const nw = calcNetWorth();
+  const now = new Date();
+  const periodKey = _networthPeriodKey(now);
+  const list = getNetWorthHistory();
+  const entry = {
+    periodKey,
+    date: toLocalISO(now),
+    total: nw.total,
+    wal: nw.wal, icTotal: nw.icTotal, acTotal: nw.acTotal, shTotal: nw.shTotal,
+    investTotal: nw.investTotal, pendingBills: nw.pendingBills, instDebt: nw.instDebt,
+    manual: !!manual,
+  };
+  const idx = list.findIndex(e => e.periodKey === periodKey);
+  if (idx >= 0) list[idx] = entry; else list.unshift(entry);
+  list.sort((a,b) => b.periodKey.localeCompare(a.periodKey));
+  if (list.length > NETWORTH_HISTORY_LIMIT) list.length = NETWORTH_HISTORY_LIMIT;
+  DB.set(pKey('networth_history'), list);
+  if (typeof fbSyncNetWorthSnapshot === 'function') fbSyncNetWorthSnapshot(entry);
+  return entry;
+}
+// 本期是否已經拍過照（用於 index.html 開啟時判斷要不要自動拍）
+function hasNetWorthSnapshotThisPeriod() {
+  const periodKey = _networthPeriodKey(new Date());
+  return getNetWorthHistory().some(e => e.periodKey === periodKey);
+}
+
 // ── 格式化 ────────────────────────────────────────────
 // 本地日期字串（YYYY-MM-DD），避免 toISOString() 用 UTC 在台灣凌晨掉到前一天
 function toLocalISO(d) {
@@ -1613,7 +1710,7 @@ const ALL_GLOBAL_KEYS = [
   'investments','trades','paper_trades','trade_mode','trade_rules','trade_watchlist',
   // 收件匣/請求/雜項
   'inbox_receipts','pending_requests','kb_custom','mascot_char','card_cache_reset',
-  'fb_last_tx_count','migrate_dismissed',
+  'fb_last_tx_count','migrate_dismissed','fb_last_pull_at','fb_last_full_pull_at',
 ];
 // 前綴式 key（每月/每項一筆，用 startsWith 清）；'user_' 是 uid() 無 email 時的退回前綴
 const ALL_PREFIX_KEYS = ['recurring_done_', 'user_'];
@@ -1626,6 +1723,8 @@ function clearAll() {
     const isPrefixed = ALL_PREFIX_KEYS.some(p => k.startsWith(p)); // 前綴式 key
     if (isMine || isGlobal || isPrefixed) localStorage.removeItem(k);
   });
+  // v14.1：clearAll 用 removeItem 直接刪、繞過 DB.del，需手動讓 tx 記憶體快取失效
+  _txCache = { raw: null, parsed: null };
   // current_email / current_uid / current_user 保留，登出流程另外處理
 }
 

@@ -206,12 +206,62 @@ async function fbMarkRecurringDone(notifId) {
     }
   } catch(e) { console.warn('[FB] markRecurringDone', e); }
 }
-async function fbPullAll(){
+// v14.1：交易讀取改為增量同步，取代原本每次整包全量讀取。
+// 背景：多頁架構下，幾乎每個頁面開啟都會呼叫 fbPullAll()，過去每次都是
+// db.collection('transactions').get() 整個 collection，隨交易數量線性成長 Firestore 讀取量。
+// 策略：
+//   1) 用 tx.createdAt（寫入時間戳，與消費時間 at 分開）做 where('createdAt','>',lastPullAt) 增量查詢
+//   2) 增量結果用 id 合併進本地既有資料（新增/更新，不觸碰本地已刪除的判斷）
+//   3) 每 FULL_PULL_INTERVAL 或首次使用（沒有 lastPullAt 記錄）時，強制整包全量重讀一次，
+//      確保「被刪除的交易」與長期累積的資料落差能被校正回來（增量查詢天生抓不到刪除事件）
+const FB_FULL_PULL_INTERVAL = 3 * 60 * 60 * 1000; // v14.1：24h→3h。增量查詢改用 updatedAt 能抓新增＋編輯，
+                                                   // 但「刪除」是硬刪除、增量抓不到，只能靠全量校正修正，
+                                                   // 故縮短間隔讓刪除的跨裝置延遲降到最多 3 小時（可接受）。
+
+function _mergeTxById(localList, incomingList) {
+  if (!incomingList.length) return localList;
+  const map = new Map(localList.map(t => [t.id, t]));
+  incomingList.forEach(t => map.set(t.id, t)); // 雲端版本較新，直接覆蓋同 id 項目
+  return Array.from(map.values()).sort((a,b) => new Date(b.at) - new Date(a.at));
+}
+
+async function fbPullAll(opts){
+  opts = opts || {};
   try{
     const db = getDb();
-    // 共用記帳
-    const ts = await db.collection('transactions').orderBy('at','desc').get();
-    const tl = []; ts.forEach(d=>tl.push(d.data())); if(tl.length) { DB.set('tx',tl); localStorage.setItem('fb_last_tx_count', tl.length); }
+    // 共用記帳：增量或全量
+    // opts.skipTx：頁面若已用 fbListenTx() 建立即時監聽（目前僅 index.html），
+    // 該監聽器的初始 snapshot 本身就是一次全量讀取、之後由 SDK 自動處理增量，
+    // 這裡就不需要再讀一次交易，避免同一頁面重複全量拉取。
+    if (opts.skipTx) {
+      // 略過交易讀取，但仍要更新 lastPullAt，讓其他頁面下次判斷增量區間時不會漏抓
+      // 這段期間內由 listener 寫入的交易（見 fbListenTx）
+    } else {
+      const lastPullAt = parseInt(localStorage.getItem('fb_last_pull_at') || '0');
+      const lastFullPullAt = parseInt(localStorage.getItem('fb_last_full_pull_at') || '0');
+      const needFullPull = !lastPullAt || !lastFullPullAt || (Date.now() - lastFullPullAt > FB_FULL_PULL_INTERVAL);
+
+      if (needFullPull) {
+        const ts = await db.collection('transactions').orderBy('at','desc').get();
+        const tl = []; ts.forEach(d=>tl.push(d.data()));
+        if (tl.length) { DB.set('tx', tl); localStorage.setItem('fb_last_tx_count', tl.length); }
+        localStorage.setItem('fb_last_full_pull_at', String(Date.now()));
+        console.log('[FB]pullAll 全量校正，共', tl.length, '筆');
+      } else {
+        // 增量查詢：抓 lastPullAt 之後有寫入/編輯的交易。改用 updatedAt（每次寫入/編輯都更新），
+        // 能同時涵蓋「新增」與「編輯」；舊資料無此欄位不受影響（會在下次全量校正時補上一致性）。
+        const ts = await db.collection('transactions').where('updatedAt', '>', lastPullAt).get();
+        const incoming = []; ts.forEach(d=>incoming.push(d.data()));
+        if (incoming.length) {
+          const merged = _mergeTxById(getTx(), incoming);
+          DB.set('tx', merged);
+          localStorage.setItem('fb_last_tx_count', merged.length);
+          console.log('[FB]pullAll 增量同步，新增/編輯', incoming.length, '筆');
+        }
+      }
+    }
+    localStorage.setItem('fb_last_pull_at', String(Date.now()));
+
     // 個人資料
     await fbPullPersonal();
     // 同步自己的卡名到共用對照表（讓對方看到）
@@ -452,13 +502,139 @@ async function fbSyncCats(){
 async function fbSyncBudgets(){
   try{await getDb().collection('shared').doc('budgets').set(getBudgetConfig());}catch(e){}
 }
+
+// ── 淨值歷史追蹤（v14.0 新增）─────────────────────────
+// shared/networth_history 結構：{ [uidPrefix]: [ {periodKey,date,total,...}, ... ], updatedAt }
+// 用 uid 前綴當 key，兩人互不覆蓋；merge:true 確保只更新自己那個欄位。
+async function fbSyncNetWorthSnapshot(entry) {
+  try {
+    const u = uid();
+    const list = getNetWorthHistory(); // 已在 db.js 更新過本地陣列，直接整包同步保持一致
+    await getDb().collection('shared').doc('networth_history').set(
+      { [u]: list, updatedAt: Date.now() }, { merge: true }
+    );
+  } catch(e) { console.warn('[FB]syncNetWorth', e); }
+}
+
+// 拉回「家庭合併淨值歷史」：讀 shared/networth_history 全部人的陣列，
+// 依 periodKey 合併加總（同一期兩人都有才相加，缺一方就顯示已知那份，並標記 partial）。
+async function fbGetFamilyNetWorthHistory() {
+  try {
+    const d = await getDb().collection('shared').doc('networth_history').get();
+    if (!d.exists) return { byPeriod: [], raw: {} };
+    const data = d.data() || {};
+    const uids = Object.keys(data).filter(k => k !== 'updatedAt');
+    const periodMap = {}; // periodKey -> { date, total, byUid:{} }
+    uids.forEach(u => {
+      (data[u] || []).forEach(e => {
+        if (!e || !e.periodKey) return;
+        if (!periodMap[e.periodKey]) periodMap[e.periodKey] = { periodKey: e.periodKey, date: e.date, byUid: {} };
+        periodMap[e.periodKey].byUid[u] = e.total;
+      });
+    });
+    const byPeriod = Object.values(periodMap).map(p => {
+      const totals = Object.values(p.byUid);
+      return {
+        periodKey: p.periodKey,
+        date: p.date,
+        total: totals.reduce((s,v)=>s+v, 0),
+        partial: totals.length < uids.length,
+        byUid: p.byUid,
+      };
+    }).sort((a,b) => a.periodKey.localeCompare(b.periodKey));
+    return { byPeriod, raw: data };
+  } catch(e) { console.warn('[FB]getFamilyNetWorth', e); return { byPeriod: [], raw: {} }; }
+}
+
+// ── 月度行動清單（v14.1 新增，E2）─────────────────────
+// 對應 GAS 寫入的 shared/monthly_actions_YYYY-MM：{ list:[{text,done}], updatedAt }
+function _curMonthActionKey() {
+  // 用週期月的起始日當月鍵值，與 GAS 的 monthKey（週期月起始日所在月份）對齊
+  const now = new Date();
+  const period = (typeof getBudgetPeriod === 'function') ? getBudgetPeriod(now) : { start: now };
+  const y = period.start.getFullYear(), m = String(period.start.getMonth()+1).padStart(2,'0');
+  return `${y}-${m}`;
+}
+async function fbGetMonthlyActions(monthKey) {
+  try {
+    const key = monthKey || _curMonthActionKey();
+    const d = await getDb().collection('shared').doc('monthly_actions_' + key).get();
+    if (!d.exists) return { key, list: [] };
+    return { key, list: d.data().list || [] };
+  } catch(e) { console.warn('[FB]getMonthlyActions', e); return { key: monthKey, list: [] }; }
+}
+async function fbToggleMonthlyAction(monthKey, index, done) {
+  try {
+    const d = await getDb().collection('shared').doc('monthly_actions_' + monthKey).get();
+    if (!d.exists) return false;
+    const list = d.data().list || [];
+    if (!list[index]) return false;
+    list[index] = { ...list[index], done };
+    await getDb().collection('shared').doc('monthly_actions_' + monthKey).set({ list, updatedAt: Date.now() }, { merge: true });
+    return true;
+  } catch(e) { console.warn('[FB]toggleMonthlyAction', e); return false; }
+}
+
+// v14.0 重寫：舊版只清 personal/main、shared/main,accts,cats,budgets 四個「錯誤或不完整」的路徑，
+// 完全沒清到 personal/{uid}（真正的個人資料主文件）、users/{uid}（打卡/個人徽章）、
+// 以及 shared 底下十幾份 advisor/card_*/notify_sent/monthly_summaries_* 等文件。
+// 改為：明確列出已知的固定文件清單＋動態掃描 shared 全部文件砍掉前綴符合的（月度摘要按月新增，數量不固定）。
+const FB_SHARED_FIXED_DOCS = [
+  'main','accts','cats','budgets','app_config',
+  'advisor','advisor_daily','advisor_snapshot',
+  'card_budgets','card_names','card_cache_reset','card_alerts_sent',
+  'incomes','installments','recurring','tx_tags',
+  'badges','pet','deposit_cups',
+  'orders','platforms','pending_requests','chat_messages',
+  'notify_sent','networth_history',
+];
+const FB_SHARED_PREFIX_DOCS = ['monthly_summaries_', 'monthly_actions_', 'recurring_done_', 'shared_cards_'];
+
 async function fbClearAll(){
   try{
-    const db=getDb(),sn=await db.collection('transactions').get();
-    const b=db.batch();sn.forEach(d=>b.delete(d.ref));
-    ['personal','shared'].forEach(c=>['main','accts','cats','budgets'].forEach(d=>
-      b.delete(db.collection(c).doc(d))));
-    await b.commit();
+    const db = getDb();
+    const u  = uid();
+    // Firestore batch 單次上限 500 個操作；交易數量會持續成長，用 chunk 分批 commit 避免超過上限。
+    const allRefs = [];
+
+    // 1) 所有記帳交易
+    const sn = await db.collection('transactions').get();
+    sn.forEach(d => allRefs.push(d.ref));
+
+    // 2) 兩人的個人資料主文件（personal/{uid}、users/{uid}）＋私密記帳
+    const BOTH_UIDS = ['kevin67222', 'gogosuperbird'];
+    BOTH_UIDS.forEach(id => {
+      allRefs.push(db.collection('personal').doc(id));
+      allRefs.push(db.collection('users').doc(id));
+    });
+    if (typeof isKevin === 'function' && isKevin()) {
+      try {
+        const privSn = await db.collection('private_tx').doc(u).collection('items').get();
+        privSn.forEach(d => allRefs.push(d.ref));
+        const memoSn = await db.collection('memos').doc(u).collection('items').get();
+        memoSn.forEach(d => allRefs.push(d.ref));
+      } catch(e2) { console.warn('[FB]clear private', e2); }
+    }
+
+    // 3) shared 底下固定已知文件
+    FB_SHARED_FIXED_DOCS.forEach(d => allRefs.push(db.collection('shared').doc(d)));
+
+    // 4) shared 底下前綴式文件（monthly_summaries_YYYY-MM 等，數量隨時間增長，需先列出全部再篩選）
+    try {
+      const sharedSn = await db.collection('shared').get();
+      sharedSn.forEach(d => {
+        if (FB_SHARED_PREFIX_DOCS.some(p => d.id.startsWith(p))) allRefs.push(d.ref);
+      });
+    } catch(e3) { console.warn('[FB]clear shared prefix scan', e3); }
+
+    // 分批 commit（每批 450 筆，留一點餘裕）
+    const CHUNK = 450;
+    for (let off = 0; off < allRefs.length; off += CHUNK) {
+      const b = db.batch();
+      allRefs.slice(off, off + CHUNK).forEach(ref => b.delete(ref));
+      await b.commit();
+    }
+    console.log('[FB]clearAll 完成，共刪除', allRefs.length, '筆文件');
   }catch(e){console.warn('[FB]clear',e);}
 }
 
