@@ -686,13 +686,16 @@ ${_fileText}` : '');
     : prompt;
   const r = await aiComplete({
     model: _hasAttach ? 'sonnet' : 'haiku',
-    maxTokens: _hasAttach ? 8192 : 1024,
+    maxTokens: _hasAttach ? 16384 : 1024,   // v14.1：8192→16384，多張帳單圖片筆數多時避免輸出截斷
     messages: [{ role: 'user', content }],
     apiKey: key,
   });
   if (!r.ok) throw new Error(r.error || 'AI 辨識失敗，請再試一次');
   const raw = r.text || '';
-  
+  // v14.1：截斷偵測——輸出觸頂 max_tokens 時明確標記（多張圖明細特別多時可能發生）
+  const _truncated = !!(r.raw && r.raw.stop_reason === 'max_tokens');
+  if (_truncated) console.warn('[Claude] 輸出達 max_tokens 上限，回應可能不完整');
+
 let clean = raw.trim();
 
 // 如果 Claude 加上了 markdown 標記，安全地把中間的 JSON 切出來
@@ -703,9 +706,23 @@ if (clean.includes('```json')) {
 }
 
 clean = clean.trim();
+// v14.1：頭尾雜訊剝除——模型偶爾會在 JSON 前後加上說明文字（多附件時較常見），
+// 舊版只能救「尾部截斷」，頭部有雜訊時會整批解析失敗（「AI 回傳格式錯誤」）。
+// 改為定位 JSON 的實際邊界再解析。
+{
+  const _arrStart = clean.indexOf('[');
+  const _objStart = clean.indexOf('{');
+  const _start = (_arrStart >= 0 && (_objStart < 0 || _arrStart < _objStart)) ? _arrStart : _objStart;
+  if (_start > 0) clean = clean.slice(_start);
+  const _arrEnd = clean.lastIndexOf(']');
+  const _objEnd = clean.lastIndexOf('}');
+  const _end = Math.max(_arrEnd, _objEnd);
+  if (_end >= 0 && _end < clean.length - 1) clean = clean.slice(0, _end + 1);
+}
   // 防禦性解析：支援陣列或單物件，統一回傳陣列
   try {
     const parsed = JSON.parse(clean);
+    if (_truncated) toast('⚠️ 明細較多已達輸出上限，可能有遺漏，請核對筆數或分批上傳', 'warn');
     return Array.isArray(parsed) ? parsed : [parsed];
   } catch(parseErr) {
     // 救援：回應可能被 max_tokens 截斷 → 切到最後一個完整物件再補 ]
@@ -720,8 +737,8 @@ clean = clean.trim();
         }
       } catch(e2) {}
     }
-    console.warn('[Claude] JSON parse failed:', clean);
-    throw new Error('AI 回傳格式錯誤，請再試一次');
+    console.warn('[Claude] JSON parse failed:', clean.slice(0, 300));
+    throw new Error('AI 回傳格式錯誤，請再試一次（多張圖片可嘗試一次一張）');
   }
 }
 
@@ -951,7 +968,7 @@ async function submitBatch() {
     console.warn('[批次記帳]', e);
     const msg = e.message || '';
     if (msg.includes('429')) toast('⏳ AI 使用頻繁，請稍待 1 分鐘再試', 'warn');
-    else toast('AI 解析失敗：' + msg.slice(0,40), 'err');
+    else toast('AI 解析失敗：' + msg.slice(0,80), 'err');
   } finally {
     if (btn) { btn.textContent = '🤖 AI 解析並記帳'; btn.disabled = false; }
   }
@@ -2293,6 +2310,10 @@ function deleteMultiItem(i) {
 function closeMultiModal() {
   document.getElementById('multi-confirm-modal').classList.remove('show');
   _multiItems = [];
+  // v14.1 修復：復原確認按鈕。confirmMultiTx 會把按鈕設為 disabled+「記帳中...」，
+  // modal 是隱藏不是銷毀（同一顆按鈕），若不復原，下一次開啟清單時按鈕仍是 disabled → 按了完全沒反應。
+  const btn = document.getElementById('multi-confirm-btn');
+  if (btn) { btn.disabled = false; btn.textContent = '✅ 全部記帳'; }
 }
 
 async function confirmMultiTx() {
@@ -2304,6 +2325,8 @@ async function confirmMultiTx() {
 
   let saved = 0;
   let newSubCatsAdded = 0;
+  const fbPromises = []; // v14.1：雲端同步改平行送出，不逐筆等待（fbAddTx 內部有 try/catch，永不 reject）
+  try {
   for (let i = 0; i < valid.length; i++) {
     const it = valid[i];
     // 若標記為新增子分類，先把它加到 cats 資料
@@ -2343,7 +2366,7 @@ async function confirmMultiTx() {
       at,
     };
     addTx(tx);
-    await fbAddTx(tx);
+    fbPromises.push(fbAddTx(tx));
     // 預算警示（靜默，不逐筆 toast）
     if (typeof checkBudgetAlert === 'function') {
       checkBudgetAlert(tx).then(res => {
@@ -2355,11 +2378,15 @@ async function confirmMultiTx() {
     saved++;
   }
 
+  // 等待全部雲端同步送出完成（allSettled：個別失敗不影響其餘）
+  await Promise.allSettled(fbPromises);
+
   // 批次記帳完成後觸發一次養成（不逐筆洗版）
   if (saved > 0) triggerGrowth(false);
 
   if (typeof fbSyncPersonal === 'function') fbSyncPersonal();
-  // 若有子分類同步需求（confirmNewSubCat 會在需要時呼叫 fbSyncCats）
+  // v14.1：批次路徑有新增子分類時補同步 cats 到雲端（原本只有單筆流程 confirmNewSubCat 會呼叫 fbSyncCats）
+  if (newSubCatsAdded > 0 && typeof fbSyncCats === 'function') fbSyncCats();
 
   // Discord 通知（多筆合併成一則）
   const cfg = getDiscord();
@@ -2412,6 +2439,15 @@ async function confirmMultiTx() {
     getFunnyCommentMulti(multiTx);
   } else if (!hasKey && valid.length) {
     if (typeof discordOnAdd === 'function') discordOnAdd({...valid[0], person, at: new Date().toISOString()});
+  }
+  } catch(e) {
+    // v14.1：中途任何錯誤不再靜默——顯示訊息、關閉清單（closeMultiModal 會復原按鈕）
+    console.error('[批次記帳]', e);
+    toast(`記帳過程發生錯誤（已存 ${saved} 筆）：${(e.message||'').slice(0,50)}`, 'err');
+    closeMultiModal();
+  } finally {
+    // 保險：無論成功或失敗，按鈕一律復原（closeMultiModal 已做，這裡涵蓋任何漏網路徑）
+    if (btn) { btn.disabled = false; if (btn.textContent === '記帳中...') btn.textContent = '✅ 全部記帳'; }
   }
 }
 
