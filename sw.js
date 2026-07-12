@@ -1,4 +1,4 @@
-const V = 'fb-v2026.07.01-0000';
+const V = 'fb-v2026.07.12-1454';
 const A = [
   './login.html','./index.html','./add.html','./report.html',
   './invest.html','./wallet.html','./shopping.html','./settings.html',
@@ -8,7 +8,7 @@ const A = [
   './advisor.html',
   './css/style.css',
   './js/auth.js','./js/db.js',
-  './js/inbox.js','./js/chat.js','./js/firebase.js','./js/assistant.js','./js/tw_stocks.js','./js/badges.js','./js/garden.js','./js/pet.js','./js/advisor.js',
+  './js/inbox.js','./js/chat.js','./js/firebase.js','./js/assistant.js','./js/tw_stocks.js','./js/badges.js','./js/garden.js','./js/pet.js','./js/advisor.js','./js/claude.js',
   './icons/icon-192.png','./icons/icon-512.png',
 ];
 self.addEventListener('install', e => {

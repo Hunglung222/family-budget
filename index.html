@@ -77,6 +77,15 @@
       <div onclick="location.href='./advisor.html'" style="margin-top:8px;font-size:.72rem;color:var(--p);font-weight:700;cursor:pointer">跟阿錢聊聊 ›</div>
     </div>
   </div>
+  <!-- ✅ 本期行動清單（v14.1 新增，來自月報 AI 建議，可勾選追蹤）-->
+  <div id="monthly-actions-card" style="display:none;margin-bottom:10px;background:rgba(34,197,94,.06);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:1rem">✅</span>
+      <div style="font-size:.78rem;font-weight:900;color:var(--ok)">本期行動清單</div>
+      <span id="monthly-actions-progress" style="margin-left:auto;font-size:.7rem;color:var(--t3)"></span>
+    </div>
+    <div id="monthly-actions-list"></div>
+  </div>
   <!-- 週期切換 -->
   <div id="cycle-toggle-bar" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;background:var(--card);border-radius:var(--rs);padding:8px 12px;border:1.5px solid var(--border)">
     <span id="cycle-range-lbl" style="font-size:.8rem;color:var(--t2)"></span>
@@ -369,6 +378,7 @@
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
 <script src="./js/inbox.js"></script>
 <script src="./js/chat.js"></script>
@@ -727,6 +737,7 @@ async function submitEdit() {
     acctId:  editPay==='acct' ? document.getElementById('e-acct-sel').value : null,
     at:      dtv ? new Date(dtv).toISOString() : old.at,
     editedAt: new Date().toISOString(),
+    updatedAt: Date.now(),   // v14.1：供增量同步偵測編輯
     tags:    [...editTags],
   };
   DB.set('tx', list);
@@ -816,6 +827,7 @@ function undoDelete() {
   // 復原：重新加回（不重新扣款，因為 delTx 已還原）
   const tx = _undoTx;
   _undoTx = null;
+  tx.updatedAt = Date.now(); // v14.1：更新時間戳，讓對方裝置增量同步能抓到這筆復原
   const list = getTx();
   list.unshift(tx);
   DB.set('tx', list);
@@ -882,6 +894,35 @@ async function checkAndCelebrateMilestone() {
       } catch(e) {}
     }
   } catch(e) {}
+}
+
+// ── ✅ 本期行動清單（v14.1 新增，來自月報 AI 建議）─────
+async function renderMonthlyActions() {
+  const card = document.getElementById('monthly-actions-card');
+  const listEl = document.getElementById('monthly-actions-list');
+  const progEl = document.getElementById('monthly-actions-progress');
+  if (!card || typeof fbGetMonthlyActions !== 'function') return;
+  try {
+    const { key, list } = await fbGetMonthlyActions();
+    if (!list.length) { card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    const doneCount = list.filter(a => a.done).length;
+    progEl.textContent = `${doneCount}/${list.length} 完成`;
+    listEl.innerHTML = list.map((a, i) => `
+      <div onclick="toggleMonthlyActionItem('${key}', ${i}, ${!a.done})"
+        style="display:flex;align-items:center;gap:8px;padding:6px 0;cursor:pointer">
+        <div style="width:18px;height:18px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+                    background:${a.done ? 'var(--ok)' : 'var(--card2)'};border:1.5px solid ${a.done ? 'var(--ok)' : 'var(--border)'};font-size:.7rem;color:#fff">
+          ${a.done ? '✓' : ''}
+        </div>
+        <div style="flex:1;font-size:.8rem;color:var(--t);${a.done ? 'text-decoration:line-through;color:var(--t3)' : ''}">${escapeHTML(a.text)}</div>
+      </div>`).join('');
+  } catch(e) { console.warn('[monthlyActions]', e); card.style.display = 'none'; }
+}
+async function toggleMonthlyActionItem(monthKey, index, done) {
+  if (typeof fbToggleMonthlyAction !== 'function') return;
+  const ok = await fbToggleMonthlyAction(monthKey, index, done);
+  if (ok) renderMonthlyActions();
 }
 
 // ── 💰 阿錢今日的話（首頁 slim strip）──────────────────
@@ -1035,7 +1076,7 @@ function showStreakDetail() {
   if (typeof showModal === 'function') showModal('streak-modal');
 }
 
-fbPullAll().then(async ()=>{
+fbPullAll({skipTx: true}).then(async ()=>{
   render();
   // 同步完再嘗試一次（萬一第一次跑時資料還沒拉到）
   _checkReportEditJump();
@@ -1069,6 +1110,8 @@ fbPullAll().then(async ()=>{
   }
   // 💰 阿錢今日的話（首頁 strip）
   renderAdvisorDailyStrip();
+  // ✅ 本期行動清單
+  renderMonthlyActions();
   // 💰 阿錢 · 成長里程碑偵測（跨階段才慶祝）
   checkAndCelebrateMilestone();
   // 💰 寫入財務快照到共用 doc，讓 GAS 每日推送讀同一份正確數字

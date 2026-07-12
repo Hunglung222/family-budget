@@ -17,14 +17,14 @@
   <div style="display:flex;gap:8px;align-items:center">
     <a href="./index.html" class="hdr-btn" style="background:var(--card);border:1.5px solid var(--border);color:var(--t2)">📋</a>
     <!-- 💬 簡訊按鈕 -->
-    <button onclick="openChat()" id="chat-btn"
+    <button onclick="typeof openChat==='function'&&openChat()" id="chat-btn"
       style="position:relative;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem">
       💬
       <span id="chat-badge"
         style="display:none;position:absolute;top:-2px;right:-2px;min-width:18px;height:18px;background:#3b82f6;color:#fff;font-size:.65rem;font-weight:900;border-radius:50px;padding:0 4px;align-items:center;justify-content:center;line-height:1"></span>
     </button>
     <!-- 🔔 通知鈴鐺 -->
-    <button onclick="openInbox()" id="inbox-btn"
+    <button onclick="typeof openInbox==='function'&&openInbox()" id="inbox-btn"
       style="position:relative;width:38px;height:38px;border-radius:50%;background:var(--card);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.1rem">
       🔔
       <span id="inbox-badge"
@@ -63,8 +63,15 @@
       <!-- 批次模式 -->
       <div id="ai-batch-row" style="display:none">
         <textarea id="ai-batch-input" class="fc"
-          placeholder="貼入多筆記帳文字，一行一筆或自由格式，例：&#10;晚餐 300元&#10;計程車費 150元 信用卡&#10;飲料 50元 現金&#10;早餐 375元 (2026-05-31)"
+          placeholder="貼入多筆記帳文字，或用下方 📎 附加發票照片／帳單截圖／CSV 檔，例：&#10;晚餐 300元&#10;計程車費 150元 信用卡&#10;飲料 50元 現金&#10;早餐 375元 (2026-05-31)"
           style="width:100%;height:120px;resize:none;font-size:.83rem;line-height:1.6;padding:10px 12px;box-sizing:border-box"></textarea>
+        <input type="file" id="ai-file-input" accept="image/*,.csv,.txt,.xlsx,.xls" multiple
+          style="display:none" onchange="onAiFilesPicked(this)">
+        <div style="display:flex;gap:8px;margin-top:7px">
+          <button onclick="document.getElementById('ai-file-input').click()"
+            style="flex:1;padding:10px 4px;background:var(--card2);color:var(--t2);border:1.5px dashed var(--border);border-radius:9px;font-size:.78rem;font-weight:700;cursor:pointer;font-family:inherit">📎 附加圖片／檔案（發票、帳單、CSV）</button>
+        </div>
+        <div id="ai-file-chips" style="display:none;flex-wrap:wrap;gap:6px;margin-top:7px"></div>
         <button onclick="submitBatch()"
           style="width:100%;margin-top:7px;padding:13px;background:linear-gradient(135deg,var(--p),var(--p2));color:#000;border:none;border-radius:var(--rs);font-weight:900;cursor:pointer;font-family:inherit;font-size:.88rem">🤖 AI 解析並記帳</button>
       </div>
@@ -462,7 +469,8 @@
   <div class="sheet" style="max-height:85vh;overflow-y:auto">
     <div class="sh"></div>
     <div class="st">📋 確認記帳清單</div>
-    <div style="font-size:.78rem;color:var(--t2);margin-bottom:14px">AI 已解析以下記帳，請確認後儲存。點任一筆可編輯。</div>
+    <div style="font-size:.78rem;color:var(--t2);margin-bottom:8px">AI 已解析以下記帳，請確認後儲存。點任一筆可編輯。</div>
+    <div id="multi-dup-hint" style="display:none;font-size:.74rem;color:#f59e0b;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);border-radius:8px;padding:8px 10px;margin-bottom:12px;line-height:1.5"></div>
     <div id="multi-items-list"></div>
     <div class="btn-row" style="margin-top:16px;position:sticky;bottom:0;background:var(--card);padding:8px 0 4px">
       <button class="btn btn-s" onclick="closeMultiModal()">取消</button>
@@ -541,13 +549,11 @@ if ('serviceWorker' in navigator) {
 }
 </script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
-<script src="./js/badges.js"></script>
-<script src="./js/garden.js"></script>
-<script src="./js/pet.js"></script>
 <script src="./js/assistant.js"></script>
-<script src="./js/inbox.js"></script>
-<script src="./js/chat.js"></script>
+<!-- 陪伴功能（徽章/盆栽/寵物/收件夾/阿錢對話）改為延遲載入，見主 script 的 loadDeferredModules()，
+     讓記帳頁主體先出現、更快能開始記帳。這些模組都是純函數庫、無載入時立即執行，延後不影響行為。 -->
 
 <!-- 頁面邏輯（在所有外部 script 後執行） -->
 <script>
@@ -610,7 +616,11 @@ async function waitGeminiCooldown() {
   lastGeminiCall = Date.now();
 }
 
-async function callClaude(text) {
+async function parseTxWithClaude(text, opts) {
+  opts = opts || {};
+  const _imgs = opts.images || [];        // [{mediaType, b64}]
+  const _fileText = opts.fileText || '';  // CSV/TXT/XLSX 轉出的文字
+  const _hasAttach = _imgs.length > 0 || !!_fileText;
   await waitGeminiCooldown();
   const cats = getCats().map(c=>{
     const subStr = c.sub&&c.sub.length ? ' ['+c.sub.join('/')+']' : '';
@@ -650,30 +660,38 @@ B. 子分類處理：
    - 步驟三：如果輸入太籠統無法歸類（例如只說「花了500元」），subCat 留空字串，newSubCat 設為 false。
 C. detail（明細）：從輸入文字提取具體消費內容，可以比 subCat 更詳細。例如輸入「換手錶電池200元」→ detail:「換手錶電池」。
 
-回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard或acct","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}, ...]`;
+回傳純JSON陣列:[{"amount":數字,"cat":"分類id","subCat":"子分類或空字串","newSubCat":true或false,"detail":"明細說明","date":"YYYY-MM-DD","pay":"cash或card或icard或acct","cardId":"信用卡id或null","icardId":"悠遊卡id或null","acctId":"帳戶id或null"}, ...]`
+  + (_hasAttach ? `
+
+【附件辨識規則（重要）】
+使用者附上了圖片或檔案（信用卡帳單、電子發票載具明細、紙本發票照片、記帳匯出檔等），請從中提取「每一筆」消費：
+1.信用卡帳單/載具明細：一行(一張發票)＝一筆記帳，逐筆輸出，不可漏；金額有千分位逗號要去掉
+2.排除非消費項目：繳款、溢繳、退款、折抵、利息、年費減免等負數或非消費行，一律跳過
+3.紙本發票照片：整張發票輸出一筆，金額取「總計」；品項寫進 detail（多品項用頓號串起，可截短）
+4.日期：民國年(例:115/06/28)要轉西元(2026-06-28)；只有月日時，年份用最接近今天的合理年份
+5.付款方式推斷：信用卡帳單來源→pay一律"card"並選對應卡片；載具明細/發票若無法判斷→"cash"
+6.CSV/表格：自行判斷欄位對應（日期/金額/品名/分類），表頭列不是記帳
+7.同一附件內容不可重複輸出；看不清或不完整的行寧可略過，不要猜金額` : '')
+  + (_fileText ? `
+
+【附件檔案內容如下】
+${_fileText}` : '');
 
   const key = getClaudeKey();
   if (!key) throw new Error('請先在設定頁填入 Claude API Key');
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': key,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: prompt }]
-    })
+  // v14.1：改用 js/claude.js 統一入口（沿用原本的模型/token 邏輯：有附件用 sonnet + 8192，否則 haiku + 1024）
+  const content = _imgs.length
+    ? [..._imgs.map(im => ({ type: 'image', source: { type: 'base64', media_type: im.mediaType, data: im.b64 } })),
+       { type: 'text', text: prompt }]
+    : prompt;
+  const r = await aiComplete({
+    model: _hasAttach ? 'sonnet' : 'haiku',
+    maxTokens: _hasAttach ? 8192 : 1024,
+    messages: [{ role: 'user', content }],
+    apiKey: key,
   });
-  if (!res.ok) {
-    const errBody = await res.json().catch(()=>({}));
-    throw new Error(`HTTP ${res.status}: ${errBody?.error?.message||''}`);
-  }
-  const data = await res.json();
-  const raw = data.content?.[0]?.text || '';
+  if (!r.ok) throw new Error(r.error || 'AI 辨識失敗，請再試一次');
+  const raw = r.text || '';
   
 let clean = raw.trim();
 
@@ -690,6 +708,18 @@ clean = clean.trim();
     const parsed = JSON.parse(clean);
     return Array.isArray(parsed) ? parsed : [parsed];
   } catch(parseErr) {
+    // 救援：回應可能被 max_tokens 截斷 → 切到最後一個完整物件再補 ]
+    const lastBrace = clean.lastIndexOf('}');
+    if (lastBrace > 0) {
+      try {
+        const repaired = JSON.parse(clean.slice(0, lastBrace + 1).replace(/,\s*$/, '') + ']');
+        if (Array.isArray(repaired) && repaired.length) {
+          console.warn('[Claude] JSON 截斷已救援，取得', repaired.length, '筆');
+          toast('⚠️ 明細較多，可能未完整解析，請核對筆數', 'warn');
+          return repaired;
+        }
+      } catch(e2) {}
+    }
     console.warn('[Claude] JSON parse failed:', clean);
     throw new Error('AI 回傳格式錯誤，請再試一次');
   }
@@ -895,17 +925,24 @@ function setAiMode(mode, el) {
 // ── 批次解析送出 ─────────────────────────────────────
 async function submitBatch() {
   const text = document.getElementById('ai-batch-input').value.trim();
-  if (!text) { toast('請貼入記帳文字', 'warn'); return; }
+  const hasFiles = _aiFiles.length > 0;
+  if (!text && !hasFiles) { toast('請貼入記帳文字或附加檔案', 'warn'); return; }
   const btn = document.querySelector('#ai-batch-row button[onclick="submitBatch()"]');
-  if (btn) { btn.textContent = '🤖 AI 解析中...'; btn.disabled = true; }
+  if (btn) { btn.textContent = hasFiles ? '🤖 AI 辨識附件中...' : '🤖 AI 解析中...'; btn.disabled = true; }
   try {
-    const results = await callClaude(text);
+    const opts = hasFiles ? {
+      images:   _aiFiles.filter(f => f.kind === 'image').map(f => ({ mediaType: f.mediaType, b64: f.b64 })),
+      fileText: _aiFiles.filter(f => f.kind === 'sheet').map(f => `[檔名:${f.name}]\n${f.text}`).join('\n\n'),
+    } : undefined;
+    const results = await parseTxWithClaude(text || '（無補充文字，請直接辨識附件內容）', opts);
     if (!results || !results.length) throw new Error('AI 未辨識到任何記帳資料');
     document.getElementById('ai-batch-input').value = '';
-    if (results.length === 1) {
+    clearAiFiles();
+    if (results.length === 1 && !hasFiles) {
       applySingleResult(results[0]);
       toast('已解析 1 筆，請確認後記帳');
     } else {
+      // 附件流程一律進確認清單（含重複偵測），即使只有 1 筆
       openMultiConfirmModal(results);
     }
     // 解析完自動切回單筆模式
@@ -933,7 +970,7 @@ async function submitAI() {
   const btn = document.getElementById('ai-btn');
   btn.textContent = '解析中...'; btn.disabled = true;
   try {
-    const results = await callClaude(text);
+    const results = await parseTxWithClaude(text);
     if (!results || !results.length) throw new Error('AI 未回傳任何記帳資料');
 
     if (results.length === 1) {
@@ -1184,28 +1221,8 @@ function init() {
     }).catch(e => console.warn('[Init] fbPullAll 失敗:', e.message));
   }
 
-  // 初始化 badge
-  updateInboxBadge();
-  if (typeof fbPullChatMessages === 'function') {
-    fbPullChatMessages().then(() => updateChatBadge());
-  } else {
-    updateChatBadge();
-  }
-  // 監聽即時訊息（server 為真相，onSnapshot 已覆蓋 local）
-  if (typeof fbListenChatMessages === 'function') {
-    fbListenChatMessages(() => {
-      const chatOpen = document.getElementById('chat-modal')?.classList.contains('show');
-      if (chatOpen) {
-        markChatReadAndSync();
-        renderChatList();
-        setTimeout(_chatScrollBottom, 30);
-      }
-      updateChatBadge();
-    });
-  }
-  if (typeof fbListenPendingRequests === 'function') {
-    fbListenPendingRequests(() => updateInboxBadge());
-  }
+  // 收件夾/聊天角標與即時訊息監聽：這些依賴延遲載入的 inbox.js/chat.js，
+  // 統一在模組載入完成後由 onDeferredReady() 執行（見 loadDeferredModules），此處不再呼叫。
 }
 
 function backToStep1() {
@@ -1330,15 +1347,9 @@ async function getFunnyComment(tx) {
   const _tgLine = _tg ? `\n這筆消費被標記為：${_tg}（這是記帳的人對自己花這筆錢的心情/性質的標註，請務必針對這些標籤吐槽、調侃或回應）` : '';
   const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這筆消費：${catName(tx.cat)} ${tx.detail?'「'+tx.detail+'」':''} $${tx.amount}${_tgLine}\n用你的個性說一句話（15~25字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
-    });
-    if(!res.ok) return;
-    const d = await res.json();
-    const t = (d.content?.[0]?.text||'').trim();
-    if(!t) return;
+    const r = await aiComplete({ model: 'haiku', maxTokens: 80, messages: [{ role: 'user', content: prompt }], apiKey: key, maxRetries: 0 });
+    if (!r.ok || !r.text) return;
+    const t = r.text;
     // 泡泡顯示（角色名稱 + 冒號 + 內容）
     const char2 = getChar();
     showMascot(char2.name + '：' + t);
@@ -1355,15 +1366,9 @@ async function getFunnyCommentMulti(tx) {
   const _tgM = (typeof tx._multiTags === 'string' && tx._multiTags) ? `\n其中有標記心情標籤：${tx._multiTags}（請針對這些標籤一起吐槽或回應）` : '';
   const prompt = `你是「${char.name}」，一個記帳小夥伴。個性：${char.style}\n這次一口氣記了 ${tx._multiCount} 筆：${listStr}${_tgM}\n用你的個性說一句話（15~30字），加emoji，只回傳那句話。\n【重要】必須使用台灣繁體中文，不可使用簡體中文字。`;
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5',max_tokens:80,messages:[{role:'user',content:prompt}]})
-    });
-    if(!res.ok) return;
-    const d = await res.json();
-    const t = (d.content?.[0]?.text||'').trim();
-    if(!t) return;
+    const r = await aiComplete({ model: 'haiku', maxTokens: 80, messages: [{ role: 'user', content: prompt }], apiKey: key, maxRetries: 0 });
+    if (!r.ok || !r.text) return;
+    const t = r.text;
     const char2 = getChar();
     showMascot(char2.name + '：' + t);
     if (typeof discordOnAddWithComment === 'function') discordOnAddWithComment(tx, t, char2.name);
@@ -1848,6 +1853,8 @@ function toast(msg, type='') {
 window.addEventListener('DOMContentLoaded', ()=>{
   // 稍等確保所有 script 都載入
   setTimeout(init, 100);
+  // 記帳頁主體渲染後，背景延遲載入陪伴功能（徽章/盆栽/寵物/收件夾/阿錢對話）
+  setTimeout(loadDeferredModules, 250);
   // 分期首期月份預設為當月
   setTimeout(()=>{
     const el = document.getElementById('inst-startym');
@@ -1858,6 +1865,62 @@ window.addEventListener('DOMContentLoaded', ()=>{
     updateInstCalc();
   }, 200);
 });
+
+// ── 延遲載入陪伴模組（v14.1 效能優化）─────────────────────
+// 背景：PWA start_url 是本頁(add.html)，每次打開 App 第一眼就是記帳頁。
+// 徽章/盆栽/寵物/收件夾/阿錢對話這 5 個模組在「開始記帳的當下」用不到，
+// 改成主體渲染後才動態載入，讓記帳輸入更快可用。
+// 這 5 個模組都是純函數庫（無載入時立即執行），延後不改變行為時機；
+// init() 裡會用到的 updateInboxBadge/updateChatBadge 已加 typeof 防禦，
+// 載入前呼叫會安全跳過，這裡在載入完成後補跑一次讓它們生效。
+let _deferredLoaded = false;
+function loadDeferredModules() {
+  if (_deferredLoaded) return;
+  _deferredLoaded = true;
+  const mods = ['./js/badges.js', './js/garden.js', './js/pet.js', './js/inbox.js', './js/chat.js'];
+  let idx = 0;
+  function loadNext() {
+    if (idx >= mods.length) { onDeferredReady(); return; }
+    const src = mods[idx++];
+    const sc = document.createElement('script');
+    sc.src = src;
+    sc.async = false; // 保持順序（雖然彼此不相依，但穩妥起見依序）
+    sc.onload = loadNext;
+    sc.onerror = () => { console.warn('[deferred] 載入失敗:', src); loadNext(); }; // 單一失敗不中斷其餘
+    document.head.appendChild(sc);
+  }
+  loadNext();
+}
+
+// 5 個模組載入完成後，補做 init() 因延遲而略過的初始化
+function onDeferredReady() {
+  try {
+    // 收件夾角標
+    if (typeof updateInboxBadge === 'function') updateInboxBadge();
+    // 聊天訊息：先拉取再更新角標
+    if (typeof fbPullChatMessages === 'function') {
+      fbPullChatMessages().then(() => { if (typeof updateChatBadge === 'function') updateChatBadge(); });
+    } else if (typeof updateChatBadge === 'function') {
+      updateChatBadge();
+    }
+    // 即時訊息監聽（原本在 init 內，因延遲載入時模組還沒到而略過，這裡補註冊）
+    if (typeof fbListenChatMessages === 'function') {
+      fbListenChatMessages(() => {
+        const chatOpen = document.getElementById('chat-modal')?.classList.contains('show');
+        if (chatOpen) {
+          if (typeof markChatReadAndSync === 'function') markChatReadAndSync();
+          if (typeof renderChatList === 'function') renderChatList();
+          if (typeof _chatScrollBottom === 'function') setTimeout(_chatScrollBottom, 30);
+        }
+        if (typeof updateChatBadge === 'function') updateChatBadge();
+      });
+    }
+    // 待辦請求監聽（收件夾角標即時更新）
+    if (typeof fbListenPendingRequests === 'function') {
+      fbListenPendingRequests(() => { if (typeof updateInboxBadge === 'function') updateInboxBadge(); });
+    }
+  } catch(e) { console.warn('[deferred] onDeferredReady error:', e.message); }
+}
 
 // ── 快捷範本 ─────────────────────────────────────────
 function buildShortcutsBar() {
@@ -1947,10 +2010,170 @@ let _multiItems = []; // 待確認的記帳陣列（可被編輯）
 let _meEditIdx  = -1; // 正在編輯的索引
 let _mePay      = 'cash';
 
+// ══════════════════════════════════════════════════
+//  AI 附件記帳（圖片/CSV/XLSX）＋ 重複記帳偵測
+// ══════════════════════════════════════════════════
+let _aiFiles = []; // {name, kind:'image'|'sheet', mediaType?, b64?, text?}
+
+async function onAiFilesPicked(input) {
+  const files = Array.from(input.files || []);
+  input.value = ''; // 允許重選同一檔
+  for (const f of files) {
+    const isImg = /^image\//.test(f.type);
+    const isSheet = /\.(csv|txt|xlsx|xls)$/i.test(f.name);
+    if (!isImg && !isSheet) { toast(`不支援的檔案：${f.name}`, 'warn'); continue; }
+    if (isImg && _aiFiles.filter(x=>x.kind==='image').length >= 4) { toast('圖片最多 4 張', 'warn'); continue; }
+    if (isSheet && _aiFiles.some(x=>x.kind==='sheet')) { toast('表格檔一次 1 個', 'warn'); continue; }
+    try {
+      if (isImg) {
+        const { mediaType, b64 } = await _compressImage(f);
+        _aiFiles.push({ name: f.name, kind: 'image', mediaType, b64 });
+      } else {
+        const text = await _readSheetFile(f);
+        if (!text.trim()) { toast(`${f.name} 讀不到內容`, 'warn'); continue; }
+        _aiFiles.push({ name: f.name, kind: 'sheet', text });
+      }
+    } catch(e) {
+      console.warn('[附件]', e);
+      toast(`讀取失敗：${f.name}`, 'err');
+    }
+  }
+  renderAiFileChips();
+}
+
+// 圖片壓縮：長邊 1568px、JPEG 0.82（控制 token 成本）
+function _compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error('read fail'));
+    fr.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('img decode fail'));
+      img.onload = () => {
+        const MAX = 1568;
+        let w = img.width, h = img.height;
+        if (Math.max(w, h) > MAX) {
+          const r = MAX / Math.max(w, h);
+          w = Math.round(w * r); h = Math.round(h * r);
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(img, 0, 0, w, h);
+        const dataUrl = cv.toDataURL('image/jpeg', 0.82);
+        resolve({ mediaType: 'image/jpeg', b64: dataUrl.split(',')[1] });
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+// CSV/TXT 直接讀文字；XLSX 動態載入 SheetJS 轉 CSV。統一截斷防爆量
+async function _readSheetFile(file) {
+  const LIMIT_CHARS = 40000, LIMIT_LINES = 500;
+  let text = '';
+  if (/\.(xlsx|xls)$/i.test(file.name)) {
+    await _loadXlsxLib();
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: 'array' });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    text = XLSX.utils.sheet_to_csv(ws);
+  } else {
+    text = await file.text();
+  }
+  let lines = text.split(/\r?\n/);
+  let truncated = false;
+  if (lines.length > LIMIT_LINES) { lines = lines.slice(0, LIMIT_LINES); truncated = true; }
+  text = lines.join('\n');
+  if (text.length > LIMIT_CHARS) { text = text.slice(0, LIMIT_CHARS); truncated = true; }
+  if (truncated) toast('⚠️ 檔案較大，僅取前段解析，請分批上傳', 'warn');
+  return text;
+}
+
+let _xlsxLoading = null;
+function _loadXlsxLib() {
+  if (window.XLSX) return Promise.resolve();
+  if (_xlsxLoading) return _xlsxLoading;
+  _xlsxLoading = new Promise((resolve, reject) => {
+    const sc = document.createElement('script');
+    sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    sc.onload = resolve;
+    sc.onerror = () => { _xlsxLoading = null; reject(new Error('SheetJS 載入失敗，請檢查網路')); };
+    document.head.appendChild(sc);
+  });
+  return _xlsxLoading;
+}
+
+function renderAiFileChips() {
+  const el = document.getElementById('ai-file-chips');
+  if (!el) return;
+  if (!_aiFiles.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'flex';
+  el.innerHTML = _aiFiles.map((f, i) =>
+    `<div style="display:flex;align-items:center;gap:5px;background:var(--pdim);border:1px solid var(--p);
+                 border-radius:20px;padding:4px 6px 4px 10px;font-size:.72rem;color:var(--p);font-weight:700;max-width:100%">
+       <span>${f.kind==='image'?'🖼️':'📄'}</span>
+       <span style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHTML(f.name)}</span>
+       <span onclick="removeAiFile(${i})" style="cursor:pointer;padding:0 4px;font-weight:900">✕</span>
+     </div>`).join('');
+}
+
+function removeAiFile(i) { _aiFiles.splice(i, 1); renderAiFileChips(); }
+function clearAiFiles()  { _aiFiles = []; renderAiFileChips(); }
+
+// ── 重複記帳偵測 ──────────────────────────────────
+// 規則：a) 同日期＋同金額 → 疑似重複（預設略過）
+//       b) 同日期＋同明細(非空) → 疑似重複（預設略過）
+//       c) 同金額＋同明細(非空)且日期差≤3天 → 軟性提醒（不略過）
+let _dupTxIndex = null;
+function _buildDupTxIndex() {
+  const all = getTx();
+  const byDateAmt = new Map(), byDateDetail = new Map(), byAmtDetail = new Map();
+  for (const tx of all) {
+    const d = toLocalISO(new Date(tx.at));
+    const det = (tx.detail || '').trim().toLowerCase();
+    const info = { date: d, amount: tx.amount, detail: (tx.detail||'').trim(), cat: tx.cat, person: tx.person };
+    const k1 = d + '|' + tx.amount;
+    if (!byDateAmt.has(k1)) byDateAmt.set(k1, info);
+    if (det) {
+      const k2 = d + '|' + det;
+      if (!byDateDetail.has(k2)) byDateDetail.set(k2, info);
+      const k3 = tx.amount + '|' + det;
+      if (!byAmtDetail.has(k3)) byAmtDetail.set(k3, []);
+      byAmtDetail.get(k3).push(info);
+    }
+  }
+  return { byDateAmt, byDateDetail, byAmtDetail };
+}
+
+function _checkDupForItem(it) {
+  if (!_dupTxIndex) _dupTxIndex = _buildDupTxIndex();
+  const date = it.date || toLocalISO(new Date());
+  const det = (it.detail || '').trim().toLowerCase();
+  let hit = _dupTxIndex.byDateAmt.get(date + '|' + it.amount);
+  if (hit) return { level: 'strong', why: '同日期＋同金額', match: hit };
+  if (det) {
+    hit = _dupTxIndex.byDateDetail.get(date + '|' + det);
+    if (hit) return { level: 'strong', why: '同日期＋同明細', match: hit };
+    const near = (_dupTxIndex.byAmtDetail.get(it.amount + '|' + det) || []).find(m => {
+      const diff = Math.abs(new Date(m.date) - new Date(date)) / 864e5;
+      return diff <= 3;
+    });
+    if (near) return { level: 'soft', why: '同金額＋同明細（日期相近）', match: near };
+  }
+  return null;
+}
+
+function toggleSkipMulti(i) {
+  _multiItems[i].skip = !_multiItems[i].skip;
+  renderMultiList();
+}
+
 const PAY_ICON = p => p==='card'?'💳':p==='icard'?'🎫':p==='acct'?'🏦':'💵';
 const PAY_LABEL= p => p==='card'?'信用卡':p==='icard'?'悠遊卡':p==='acct'?'帳戶':'現金';
 
 function openMultiConfirmModal(items) {
+  _dupTxIndex = null; // 每次開啟重建現有記帳索引
   _multiItems = items.map(r => ({
     amount:    r.amount || 0,
     cat:       r.cat    || (getCats()[0]?.id || 'other'),
@@ -1962,7 +2185,20 @@ function openMultiConfirmModal(items) {
     icardId:   r.icardId || null,
     acctId:    r.acctId  || null,
     date:      r.date   || null,
+    skip:      false,
+    _dup:      null,
   }));
+  // 與現有記帳比對：強重複預設略過；批次內完全相同的後續筆也做軟提醒
+  const seenInBatch = new Set();
+  for (const it of _multiItems) {
+    it._dup = _checkDupForItem(it);
+    if (it._dup && it._dup.level === 'strong') it.skip = true;
+    const bk = (it.date||'') + '|' + it.amount + '|' + (it.detail||'').trim().toLowerCase();
+    if (seenInBatch.has(bk) && !it._dup) {
+      it._dup = { level: 'soft', why: '本批次內有相同的一筆', match: null };
+    }
+    seenInBatch.add(bk);
+  }
   renderMultiList();
   document.getElementById('multi-confirm-modal').classList.add('show');
 }
@@ -1970,33 +2206,73 @@ function openMultiConfirmModal(items) {
 function renderMultiList() {
   const el = document.getElementById('multi-items-list');
   const btn = document.getElementById('multi-confirm-btn');
-  const valid = _multiItems.filter(it => it.amount > 0);
+  const valid = _multiItems.filter(it => it.amount > 0 && !it.skip);
   btn.textContent = `✅ 全部記帳 ${valid.length} 筆`;
+
+  // 重複提示列
+  const hint = document.getElementById('multi-dup-hint');
+  if (hint) {
+    const skipped = _multiItems.filter(it => it.skip && it._dup).length;
+    const soft    = _multiItems.filter(it => !it.skip && it._dup).length;
+    if (skipped || soft) {
+      hint.style.display = 'block';
+      let msg = '';
+      if (skipped) msg += `⚠️ ${skipped} 筆疑似與現有記帳重複，<b>已預設略過</b>（不會記帳），確認非重複可點「仍要記帳」恢復。`;
+      if (soft)    msg += `${skipped ? '<br>' : ''}💡 另有 ${soft} 筆相似記帳提醒，請留意核對。`;
+      hint.innerHTML = msg;
+    } else {
+      hint.style.display = 'none';
+    }
+  }
 
   el.innerHTML = _multiItems.map((it, i) => {
     const cat = catFind(it.cat);
     const hasError = !it.amount || it.amount <= 0;
     const newSubCatHint = it.newSubCat ?
       `<div style="margin-top:6px;padding:6px 10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);border-radius:6px;font-size:.7rem;color:#f59e0b;font-weight:700">
-        💡 將新增子分類：${it.subCat}
+        💡 將新增子分類：${escapeHTML(it.subCat)}
       </div>` : '';
+    // 重複徽章
+    let dupHint = '';
+    if (it._dup) {
+      const m2 = it._dup.match;
+      const matchTxt = m2
+        ? `與現有 ${escapeHTML(m2.date)}「${escapeHTML(m2.detail || catName(m2.cat))}」$${fmt(m2.amount)}（${escapeHTML(m2.person||'')}）`
+        : '';
+      const isStrong = it._dup.level === 'strong';
+      dupHint = `<div style="margin-top:6px;padding:6px 10px;background:${isStrong?'rgba(244,63,94,.1)':'rgba(245,158,11,.1)'};
+                      border:1px solid ${isStrong?'rgba(244,63,94,.35)':'rgba(245,158,11,.3)'};border-radius:6px;
+                      font-size:.7rem;color:${isStrong?'var(--danger)':'#f59e0b'};font-weight:700;line-height:1.5">
+        ${isStrong?'⚠️ 疑似重複':'💡 相似提醒'}（${escapeHTML(it._dup.why)}）${matchTxt}
+        ${it.skip ? '<br>🚫 此筆已略過，不會記帳' : ''}
+      </div>`;
+    }
+    const skipBtn = it._dup
+      ? `<button onclick="toggleSkipMulti(${i})"
+          style="flex:1;padding:7px 0;background:${it.skip?'var(--pdim)':'rgba(245,158,11,.1)'};
+                 color:${it.skip?'var(--p)':'#f59e0b'};border:1.5px solid ${it.skip?'var(--p)':'rgba(245,158,11,.4)'};
+                 border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">${it.skip?'↩️ 仍要記帳':'🚫 略過此筆'}</button>`
+      : '';
     return `<div style="background:var(--card2);border-radius:12px;padding:12px 14px;margin-bottom:10px;
-                        border:1.5px solid ${hasError ? 'var(--danger)' : 'var(--border)'}">
+                        opacity:${it.skip?'.55':'1'};
+                        border:1.5px solid ${hasError ? 'var(--danger)' : (it.skip ? 'var(--border)' : (it._dup && it._dup.level==='strong' ? 'rgba(244,63,94,.5)' : 'var(--border)'))}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:32px;height:32px;border-radius:8px;background:${cat.color||'var(--card)'};
                       display:flex;align-items:center;justify-content:center;font-size:.9rem">${cat.name.slice(0,2)}</div>
           <div>
-            <div style="font-size:.88rem;font-weight:700">${cat.name.slice(2).trim()}${it.subCat?' › '+it.subCat:''}</div>
-            <div style="font-size:.72rem;color:var(--t3)">${it.detail||'（無明細）'} · ${PAY_ICON(it.pay)} ${PAY_LABEL(it.pay)}</div>
+            <div style="font-size:.88rem;font-weight:700;${it.skip?'text-decoration:line-through':''}">${cat.name.slice(2).trim()}${it.subCat?' › '+escapeHTML(it.subCat):''}</div>
+            <div style="font-size:.72rem;color:var(--t3)">${escapeHTML(it.detail)||'（無明細）'} · ${PAY_ICON(it.pay)} ${PAY_LABEL(it.pay)}${it.date?' · '+it.date:''}</div>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-          <div style="font-size:1.05rem;font-weight:900;color:var(--danger)">$${fmt(it.amount)}</div>
+          <div style="font-size:1.05rem;font-weight:900;color:var(--danger);${it.skip?'text-decoration:line-through;opacity:.6':''}">$${fmt(it.amount)}</div>
         </div>
       </div>
       ${newSubCatHint}
+      ${dupHint}
       <div style="display:flex;gap:8px;margin-top:8px">
+        ${skipBtn}
         <button onclick="openMeEdit(${i})"
           style="flex:1;padding:7px 0;background:var(--pdim);color:var(--p);border:1.5px solid var(--p);
                  border-radius:8px;font-size:.8rem;font-weight:700;cursor:pointer;font-family:inherit">✏️ 編輯</button>
@@ -2020,8 +2296,8 @@ function closeMultiModal() {
 }
 
 async function confirmMultiTx() {
-  const valid = _multiItems.filter(it => it.amount > 0);
-  if (!valid.length) { toast('沒有有效的記帳項目', 'warn'); return; }
+  const valid = _multiItems.filter(it => it.amount > 0 && !it.skip);
+  if (!valid.length) { toast('沒有有效的記帳項目（疑似重複的已略過）', 'warn'); return; }
 
   const btn = document.getElementById('multi-confirm-btn');
   btn.disabled = true; btn.textContent = '記帳中...';
@@ -2097,7 +2373,18 @@ async function confirmMultiTx() {
       return `• ${catName(it.cat)}${it.subCat?' › '+it.subCat:''} ${it.detail?'「'+it.detail+'」':''} **$${fmt(it.amount)}** ${payLabel}`;
     }).join('\n');
     if (typeof discordSend === 'function') {
-      discordSend(`📋 **${person}** 多筆記帳（${valid.length}筆）\n${lines}\n💰 合計：**$${fmt(valid.reduce((s,it)=>s+it.amount,0))}**`).catch(()=>{});
+      // Discord 單則上限 2000 字：明細過長時截斷（大批帳單匯入常見）
+      let dLines = lines;
+      if (dLines.length > 1800) {
+        const arr = lines.split('\n');
+        let acc = '', used = 0;
+        for (const ln of arr) {
+          if (acc.length + ln.length + 1 > 1700) break;
+          acc += (acc ? '\n' : '') + ln; used++;
+        }
+        dLines = acc + `\n…以及另外 ${arr.length - used} 筆（明細請見 App）`;
+      }
+      discordSend(`📋 **${person}** 多筆記帳（${valid.length}筆）\n${dLines}\n💰 合計：**$${fmt(valid.reduce((s,it)=>s+it.amount,0))}**`).catch(()=>{});
     }
   }
 
@@ -2204,6 +2491,10 @@ function saveMeEdit() {
     icardId:   _mePay==='icard' ? document.getElementById('me-icard-sel').value : null,
     acctId:    _mePay==='acct'  ? document.getElementById('me-acct-sel').value  : null,
   };
+  // 編輯後重新檢查重複狀態：不再重複就自動解除略過
+  const edited = _multiItems[_meEditIdx];
+  edited._dup = _checkDupForItem(edited);
+  if (!edited._dup) edited.skip = false;
   closeMeModal();
   renderMultiList();
 }

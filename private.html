@@ -282,6 +282,7 @@
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
 <script>
 // ===========================================================================
@@ -384,14 +385,9 @@ async function submitAI() {
 付款方式選項: cash(現金)/card(信用卡)/icard(悠遊卡)/acct(帳戶)。預設 cash。
 文字:「${text}」
 回傳純JSON:{"amount":數字,"cat":"分類id","detail":"說明","date":"YYYY-MM-DD","pay":"cash/card/icard/acct"}`;
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body: JSON.stringify({model:'claude-haiku-4-5',max_tokens:512,messages:[{role:'user',content:prompt}]})
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    let clean = (data.content?.[0]?.text||'').trim();
+    const apiRes = await aiComplete({ model: 'haiku', maxTokens: 512, messages: [{ role: 'user', content: prompt }], apiKey: key });
+    if (!apiRes.ok) throw new Error(apiRes.error || '請求失敗');
+    let clean = (apiRes.text || '').trim();
     if (clean.includes('```json')) clean = clean.split('```json')[1].split('```')[0];
     else if (clean.includes('```')) clean = clean.split('```')[1].split('```')[0];
     const r = JSON.parse(clean.trim());

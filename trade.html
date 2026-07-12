@@ -599,6 +599,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/tw_stocks.js"></script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
 
 <script>
@@ -937,27 +938,12 @@ ${existing ? '- 交易者已寫的草稿：「'+existing+'」（請參考並潤�
 【重要】必須用台灣繁體中文，不可用簡體字。`;
 
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 400,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      toast('生成失敗：' + (err?.error?.message || ('HTTP '+res.status)), 'err');
+    const r = await aiComplete({ model: 'haiku', maxTokens: 400, messages: [{ role: 'user', content: prompt }], apiKey: key });
+    if (!r.ok) {
+      toast('生成失敗：' + (r.error || '請求失敗'), 'err');
       return;
     }
-    const data = await res.json();
-    const txt = (data.content?.[0]?.text || '').trim();
+    const txt = r.text || '';
     if (txt) {
       const ta = document.getElementById('tm-reason');
       if (ta) ta.value = txt;
@@ -1676,29 +1662,19 @@ async function askCoach(text) {
     if (!key) { removeEl(thinkId); appendCoachBubble('coach', '⚠️ 請先在設定頁填入 Claude API Key，鐵衛才能開口。'); return; }
 
     const snap = buildTradeSnapshot();
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1024,
-        system: buildCoachSystemPrompt(snap),
-        messages: _coachHistory.slice(-12),
-      }),
+    const r = await aiComplete({
+      model: 'sonnet',
+      maxTokens: 1024,
+      system: buildCoachSystemPrompt(snap),
+      messages: _coachHistory.slice(-12),
+      apiKey: key,
     });
     removeEl(thinkId);
-    if (!res.ok) {
-      const err = await res.json().catch(()=>({}));
-      appendCoachBubble('coach', `鐵衛說：出了點問題（${err?.error?.message||('HTTP '+res.status)}），稍後再試。`);
+    if (!r.ok) {
+      appendCoachBubble('coach', `鐵衛說：出了點問題（${r.error||''}），稍後再試。`);
       _coachHistory.pop(); return;
     }
-    const data = await res.json();
-    const reply = (data.content?.[0]?.text || '鐵衛沉默了…').trim();
+    const reply = r.text || '鐵衛沉默了…';
     appendCoachBubble('coach', reply);
     if (typeof discordAiLog === 'function') {
       const lastQ = _coachHistory.filter(m=>m.role==='user').at(-1)?.content || '';

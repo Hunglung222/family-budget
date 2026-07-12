@@ -105,6 +105,16 @@
         <div class="nw-item"><div class="v" id="nw-inst" style="color:#ff6b82">$0</div><div class="l">📦 分期餘額</div></div>
       </div>
     </div>
+    <!-- 淨值趨勢（v14.0 新增） -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 8px">
+      <div class="sec-t" style="margin:0">📈 淨值走勢</div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span id="nw-trend-toggle" onclick="toggleNwTrendScope()" style="font-size:.7rem;color:var(--p);cursor:pointer;font-weight:700;padding:3px 10px;background:var(--pdim);border-radius:50px">👤 個人</span>
+        <button onclick="manualNetWorthSnapshot()" style="font-size:.7rem;padding:3px 10px;background:var(--card2);border:1px solid var(--border);color:var(--t3);border-radius:50px;cursor:pointer;font-family:inherit">📸 手動記錄</button>
+      </div>
+    </div>
+    <div id="nw-trend-section"></div>
+
     <!-- 儲蓄目標 -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin:16px 0 10px">
       <div class="sec-t" style="margin:0">🎯 儲蓄目標</div>
@@ -582,6 +592,7 @@
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
 <script src="./js/assistant.js"></script>
 <script>
@@ -605,7 +616,7 @@ function init() {
   applyTheme();
   document.getElementById('user-lbl').textContent = currentUser() + ' 的財務';
   render();
-  fbPullAll().then(()=>render()).catch(()=>render());
+  fbPullAll().then((ok)=>{ render(); if (ok) autoSnapshotNetWorthIfNeeded(); }).catch(()=>render());
   // 收入資料同步
   if (typeof fbPullIncomeSources === 'function') fbPullIncomeSources();
   if (typeof fbPullIncomes === 'function') fbPullIncomes().then(()=>{ if(document.getElementById('p-income')?.classList.contains('on')) renderIncome(); });
@@ -619,6 +630,7 @@ function render() {
   renderAccounts();
   renderCards();
   renderIcards();
+  renderNwTrend();
 }
 
 // ── 總覽 ─────────────────────────────────────────────
@@ -699,6 +711,97 @@ function renderCashFlow() {
         <span>30天待繳：<span style="color:#ff6b82;font-weight:700">$${fmt(Math.round(cf.totalDue))}</span></span>
       </div>
       ${rows}
+    </div>`;
+}
+
+// ── 淨值趨勢（v14.0 新增）────────────────────────────
+let _nwTrendScope = 'personal'; // 'personal' | 'family'
+function toggleNwTrendScope() {
+  _nwTrendScope = _nwTrendScope === 'personal' ? 'family' : 'personal';
+  renderNwTrend();
+}
+function manualNetWorthSnapshot() {
+  if (typeof saveNetWorthSnapshot !== 'function') return;
+  saveNetWorthSnapshot(true);
+  toast('📸 已記錄本次淨值快照');
+  renderNwTrend();
+}
+// 每個週期月自動拍一次（開啟總覽頁時檢查，不用等使用者手動點）
+function autoSnapshotNetWorthIfNeeded() {
+  if (typeof hasNetWorthSnapshotThisPeriod !== 'function') return;
+  if (!hasNetWorthSnapshotThisPeriod()) {
+    if (typeof saveNetWorthSnapshot === 'function') saveNetWorthSnapshot(false);
+  }
+}
+async function renderNwTrend() {
+  const el = document.getElementById('nw-trend-section');
+  const toggleEl = document.getElementById('nw-trend-toggle');
+  if (!el) return;
+  if (toggleEl) toggleEl.textContent = _nwTrendScope === 'personal' ? '👤 個人' : '👨‍👩 家庭合併';
+
+  let points = [];
+  let partialNote = '';
+  if (_nwTrendScope === 'personal') {
+    const hist = (typeof getNetWorthHistory === 'function' ? getNetWorthHistory() : []).slice().sort((a,b)=>a.periodKey.localeCompare(b.periodKey));
+    points = hist.map(e => ({ date: e.date, total: e.total }));
+  } else {
+    if (typeof fbGetFamilyNetWorthHistory === 'function') {
+      const fam = await fbGetFamilyNetWorthHistory();
+      points = fam.byPeriod.map(e => ({ date: e.date, total: e.total, partial: e.partial }));
+      if (points.some(p => p.partial)) partialNote = '⚠️ 部分期數只有一人記錄過快照，加總可能不完整';
+    }
+  }
+
+  if (points.length < 2) {
+    el.innerHTML = `<div style="background:var(--card2);border-radius:10px;padding:16px;font-size:.78rem;color:var(--t3);text-align:center">
+      還沒有足夠的淨值快照可畫趨勢圖（至少需要 2 期）<br>每個週期月會自動記錄一次，或點「📸 手動記錄」立即拍照
+    </div>`;
+    return;
+  }
+
+  const w = 320, h = 120, padX = 8, padY = 16;
+  const vals = points.map(p => p.total);
+  const minV = Math.min(...vals, 0), maxV = Math.max(...vals);
+  const range = (maxV - minV) || 1;
+  const stepX = (w - padX * 2) / (points.length - 1);
+  const xy = points.map((p, i) => {
+    const x = padX + i * stepX;
+    const y = padY + (h - padY * 2) * (1 - (p.total - minV) / range);
+    return { x, y, p };
+  });
+  const linePath = xy.map((pt, i) => (i === 0 ? 'M' : 'L') + pt.x.toFixed(1) + ',' + pt.y.toFixed(1)).join(' ');
+  const areaPath = linePath + ` L${xy[xy.length-1].x.toFixed(1)},${h-padY} L${xy[0].x.toFixed(1)},${h-padY} Z`;
+
+  const first = points[0].total, last = points[points.length-1].total;
+  const diff = last - first;
+  const diffPct = first !== 0 ? Math.round(Math.abs(diff) / Math.abs(first) * 100) : 0;
+  const diffColor = diff >= 0 ? 'var(--ok)' : '#ff6b82';
+  const diffIcon = diff >= 0 ? '▲' : '▼';
+
+  const dots = xy.map(pt => `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="2.5" fill="var(--p)" ${pt.p.partial ? 'stroke="#f59e0b" stroke-width="1.5"' : ''}/>`).join('');
+
+  el.innerHTML = `
+    <div style="background:var(--card2);border-radius:12px;padding:14px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">
+        <div style="font-size:.72rem;color:var(--t3)">${points[0].date} ～ ${points[points.length-1].date}</div>
+        <div style="font-size:.82rem;font-weight:900;color:${diffColor}">${diffIcon} $${fmt(Math.abs(Math.round(diff)))}（${diffPct}%）</div>
+      </div>
+      <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="nwGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--p)" stop-opacity="0.25"/>
+            <stop offset="100%" stop-color="var(--p)" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${areaPath}" fill="url(#nwGrad)"/>
+        <path d="${linePath}" fill="none" stroke="var(--p)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        ${dots}
+      </svg>
+      <div style="display:flex;justify-content:space-between;font-size:.66rem;color:var(--t3);margin-top:4px">
+        <span>${points[0].date.slice(5)}</span>
+        <span>${points[points.length-1].date.slice(5)}</span>
+      </div>
+      ${partialNote ? `<div style="margin-top:8px;font-size:.7rem;color:#f59e0b">${partialNote}</div>` : ''}
     </div>`;
 }
 

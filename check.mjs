@@ -85,6 +85,22 @@ for (const h of htmls) {
 }
 if (linkMiss === 0) ok('所有 HTML 本機引用都存在');
 
+// ---------- 4) check:dynamic ----------
+// 掃描 HTML 內嵌 script 裡以字串形式出現的 ./js/*.js 路徑（動態 createElement('script') 載入，
+// 例如 add.html 的 loadDeferredModules），確認檔案存在。第 3 項只查 <script src> 標籤，抓不到這種。
+console.log('\n[4] check:dynamic — 內嵌 script 動態載入的 js 路徑存在');
+let dynMiss = 0, dynCount = 0;
+for (const h of htmls) {
+  const html = readFileSync(join(ROOT, h), 'utf8');
+  const blocks = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map(m => m[1]).join('\n');
+  for (const m of blocks.matchAll(/['"](\.\/js\/[\w.-]+\.js)['"]/g)) {
+    dynCount++;
+    const rel = m[1].replace(/^\.\//, '');
+    if (!existsSync(join(ROOT, rel))) { fail(`${h} 動態載入不存在的檔案：${m[1]}`); dynMiss++; }
+  }
+}
+if (dynMiss === 0) ok(dynCount ? `動態載入路徑 ${dynCount} 個全部存在` : '無動態載入路徑（略過）');
+
 // ---------- 總結 ----------
 console.log(`\n${'─'.repeat(40)}`);
 console.log(`通過 ${checks} 項，警告 ${warns} 項，錯誤 ${errors} 項`);

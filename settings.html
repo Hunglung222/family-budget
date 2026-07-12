@@ -250,6 +250,26 @@
     </div>
     <div class="notify-row">
       <div class="notify-info">
+        <div class="notify-name">💰 阿錢每日一句話</div>
+        <div class="notify-desc">每天早上阿錢主動關心財務狀況（宏龍設定即可，自動同步）</div>
+      </div>
+      <label class="toggle-switch"><input type="checkbox" id="sw-advisor-daily" onchange="saveNotify()"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="notify-row" style="flex-wrap:wrap;gap:8px">
+      <div class="notify-info">
+        <div class="notify-name">🕐 阿錢發送時間</div>
+        <div class="notify-desc">幾點發送每日一句話</div>
+      </div>
+      <select class="fc" id="advisor-hour" onchange="saveNotify()" style="width:100px;padding:8px 10px;font-size:.88rem">
+        <option value="7">07:00</option>
+        <option value="8">08:00</option>
+        <option value="9">09:00</option>
+        <option value="10">10:00</option>
+        <option value="11">11:00</option>
+      </select>
+    </div>
+    <div class="notify-row">
+      <div class="notify-info">
         <div class="notify-name">⚠️ 預算警示通知</div>
         <div class="notify-desc">達到預算上限百分比時通知</div>
       </div>
@@ -836,6 +856,7 @@
 <script src="./js/auth.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="./js/db.js"></script>
+<script src="./js/claude.js"></script>
 <script src="./js/firebase.js"></script>
 <script src="./js/badges.js"></script>
 <script src="./js/assistant.js"></script>
@@ -1068,7 +1089,7 @@ function showBadgeDetail(id) {
 // 版本檢查：每次部署新版本，同步更新這兩個地方：
 // 1. 這裡的 APP_VERSION（格式：v年.月.日 時:分）
 // 2. sw.js 第一行的 V（格式：fb-v年.月.日-時分）
-const APP_VERSION = 'v2026.07.01 00:00';
+const APP_VERSION = 'v2026.07.12 14:54';
 
 function checkVersion() {
   document.getElementById('app-version').textContent = APP_VERSION;
@@ -1233,6 +1254,10 @@ function renderNotifySettings(){
   document.getElementById('monthly-day').value=cfg.monthlyDay||11;
   document.getElementById('daily-hour').value=cfg.dailyHour||21;
   document.getElementById('budget-pct').value=cfg.budgetPct||80;
+  const swAdvDaily = document.getElementById('sw-advisor-daily');
+  if (swAdvDaily) swAdvDaily.checked = cfg.onAdvisorDaily !== false;
+  const advHourSel = document.getElementById('advisor-hour');
+  if (advHourSel) advHourSel.value = cfg.advisorHour || 9;
 }
 function saveClaudeKey(){
   const key=document.getElementById('claude-key').value.trim();
@@ -1362,6 +1387,8 @@ function saveNotify(){
     dailyHour:  parseInt(document.getElementById('daily-hour').value)||21,
     weeklyHour: parseInt(document.getElementById('weekly-hour')?.value)||8,
     budgetPct:  parseInt(document.getElementById('budget-pct').value)||80,
+    onAdvisorDaily: document.getElementById('sw-advisor-daily')?.checked !== false,
+    advisorHour:    parseInt(document.getElementById('advisor-hour')?.value)||9,
   });
   fbSyncAppConfig(); // 同步到 Firebase，讓 Google Apps Script 讀到最新設定
   toast('通知設定已儲存並同步');
@@ -2151,17 +2178,53 @@ function exportXlsx(range){
   XLSX.writeFile(wb,fname);toast(`已匯出 ${fname}`);
 }
 
+// v14.0：完整備份，取代舊版只匯出 6 個 key 的簡易版。
+// 涵蓋 ALL_GLOBAL_KEYS 全域清單（記帳/分類/預算/阿錢/徽章/花園寵物/投資…）
+// ＋兩人份個人資料（uid 前綴 key，不只目前登入者），確保換手機/砍掉重練時能完整還原。
+const BACKUP_UID_PREFIXES = ['kevin67222', 'gogosuperbird'];
 function exportJson(){
-  const d={transactions:getTx(),wallet:getWal(),categories:getCats(),cards:getCards(),icards:getIcards(),budgets:getBudgetConfig(),at:new Date().toISOString()};
-  const b=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=`家庭記帳備份_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;a.click();toast('備份已下載');
+  const data = { _backupVersion: 2, at: new Date().toISOString(), global: {}, personal: {} };
+  // 全域共用 key（含前綴式 recurring_done_ / user_ 也一併掃出）
+  (typeof ALL_GLOBAL_KEYS !== 'undefined' ? ALL_GLOBAL_KEYS : []).forEach(k => {
+    const v = localStorage.getItem(k);
+    if (v !== null) data.global[k] = v;
+  });
+  Object.keys(localStorage).forEach(k => {
+    if (typeof ALL_PREFIX_KEYS !== 'undefined' && ALL_PREFIX_KEYS.some(p => k.startsWith(p))) {
+      data.global[k] = localStorage.getItem(k);
+    }
+  });
+  // 兩人份個人資料（wal/cards/icards/accts/bills 等 uid 前綴 key）
+  BACKUP_UID_PREFIXES.forEach(prefix => {
+    Object.keys(localStorage).forEach(k => {
+      if (k.startsWith(prefix + '_')) data.personal[k] = localStorage.getItem(k);
+    });
+  });
+  const b = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = `家庭記帳完整備份_${new Date().toLocaleDateString('zh-TW').replace(/\//g,'-')}.json`;
+  a.click();
+  const gCount = Object.keys(data.global).length, pCount = Object.keys(data.personal).length;
+  toast(`✅ 完整備份已下載（共用 ${gCount} 項 + 個人 ${pCount} 項）`);
 }
+
 function importData(inp){
   const f=inp.files[0];if(!f)return;
   const r=new FileReader();
   r.onload=e=>{
     try{
       const d=JSON.parse(e.target.result);
+      if(d._backupVersion === 2){
+        // v14.0 完整備份格式：global（共用 key）+ personal（兩人份 uid 前綴 key）逐一覆蓋寫回 localStorage
+        const askMsg = `此為完整備份（${d.at ? new Date(d.at).toLocaleString('zh-TW') : '未知時間'}），共用 ${Object.keys(d.global||{}).length} 項、個人 ${Object.keys(d.personal||{}).length} 項。將完整覆蓋現有資料，確定要匯入嗎？`;
+        if(!confirm(askMsg)){ inp.value=''; return; }
+        Object.entries(d.global||{}).forEach(([k,v]) => { try{ localStorage.setItem(k, v); }catch(e2){} });
+        Object.entries(d.personal||{}).forEach(([k,v]) => { try{ localStorage.setItem(k, v); }catch(e2){} });
+        toast('✅ 完整備份已還原，頁面即將重新載入');
+        setTimeout(()=>location.reload(), 1200);
+        return;
+      }
       // 判斷是否為記帳雞匯入格式（只有 transactions，不覆蓋其他資料）
       if(d.importInfo){
         // 記帳雞格式：合併到現有記帳，不覆蓋錢包/分類等
@@ -2170,6 +2233,8 @@ function importData(inp){
         // 去重（避免重複匯入）
         const existingIds=new Set(existing.map(t=>t.id));
         const toAdd=newTxs.filter(t=>!existingIds.has(t.id));
+        // v14.1：外部匯入的交易補上時間戳，讓對方裝置的增量同步（where updatedAt）能抓到這批
+        toAdd.forEach(tx=>{ tx.createdAt = tx.createdAt || Date.now(); tx.updatedAt = Date.now(); });
         const merged=[...toAdd,...existing].sort((a,b)=>new Date(b.at)-new Date(a.at));
         DB.set('tx',merged);
         // 同步到 Firebase
@@ -2177,14 +2242,14 @@ function importData(inp){
         toast(`✅ 匯入 ${toAdd.length} 筆記帳（${d.importInfo.cardCount} 筆刷卡 + ${d.importInfo.cashCount} 筆現金）`);
         renderStat();
       } else {
-        // 完整備份格式：全部覆蓋
+        // 舊版簡易備份格式（v1，只有 6 個 key）：全部覆蓋
         if(d.transactions)DB.set('tx',d.transactions);
         if(d.wallet)DB.set('wal',d.wallet);
         if(d.categories)DB.set('cats',d.categories);
         if(d.cards)DB.set('cards',d.cards);
         if(d.icards)DB.set('icards',d.icards);
         if(d.budgets)DB.set('budgets',d.budgets);
-        toast('完整備份匯入成功！');
+        toast('備份匯入成功！（舊版格式，僅還原基本資料）');
         renderStat();renderCats();renderBudgets();
       }
     }catch(err){console.error(err);toast('格式錯誤，請確認檔案','err');}
@@ -2217,9 +2282,13 @@ function cleanWalletHistory() {
 
 function confirmReset(){
   document.getElementById('cm-title').textContent='⚠️ 清除所有資料';
-  document.getElementById('cm-msg').textContent='將刪除所有記帳、錢包、設定。無法復原，請先匯出備份！';
+  document.getElementById('cm-msg').innerHTML='將刪除<b>兩人</b>的所有記帳、錢包、卡片、阿錢記憶、徽章、投資紀錄等雲端＋本機資料，無法復原！<br><br>請先點「匯出備份」，確定要繼續請在下方輸入「<b>刪除</b>」：<br><input type="text" id="cm-confirm-input" class="fc" style="margin-top:8px;width:100%;box-sizing:border-box" placeholder="輸入「刪除」以確認" autocomplete="off">';
   document.getElementById('confirm-modal').classList.add('show');
-  document.getElementById('cm-ok').onclick=()=>{clearAll();fbClearAll();toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);};
+  document.getElementById('cm-ok').onclick=()=>{
+    const val = document.getElementById('cm-confirm-input')?.value.trim();
+    if (val !== '刪除') { toast('請輸入「刪除」以確認', 'warn'); return; }
+    clearAll();fbClearAll();toast('已清除','err');closeModal();setTimeout(()=>location.reload(),1500);
+  };
 }
 function closeModal(id){document.getElementById(id||'confirm-modal').classList.remove('show');}
 function showModal(id){document.getElementById(id).classList.add('show');}
